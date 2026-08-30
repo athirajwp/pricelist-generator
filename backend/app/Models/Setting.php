@@ -17,13 +17,18 @@ class Setting extends Model
      */
     public static function get(string $key, $default = null)
     {
-        $setting = static::where('key', $key)->first();
-        if ($setting) {
-            if ($setting->type === 'number') {
-                return (float) $setting->value;
+        try {
+            $setting = static::where('key', $key)->first();
+            if ($setting) {
+                if ($setting->type === 'number') {
+                    return (float) $setting->value;
+                }
+                return $setting->value;
             }
-            return $setting->value;
+        } catch (\Throwable $e) {
+            // Fallback gracefully if database table is not created yet
         }
+
         
         // Fallback to environment variables if database settings aren't populated yet
         $envMap = [
