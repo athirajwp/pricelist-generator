@@ -339,6 +339,9 @@ export default function AdminProducts({ noLayout = false }) {
     try {
       const res = await fetch('/api/admin/products/import', {
         method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+        },
         body: postData,
       });
 
@@ -423,6 +426,7 @@ export default function AdminProducts({ noLayout = false }) {
     const matchesSearch =
       !q ||
       p.name.toLowerCase().includes(q) ||
+      (p.product_code && String(p.product_code).toLowerCase().includes(q)) ||
       p.pack_size.toLowerCase().includes(q) ||
       p.category?.name.toLowerCase().includes(q);
 

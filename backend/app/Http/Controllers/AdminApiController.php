@@ -156,20 +156,12 @@ class AdminApiController extends Controller
         $products = Product::with('category')
             ->join('categories', 'products.category_id', '=', 'categories.id')
             ->orderBy('categories.sort_order', 'asc')
+            ->orderBy('categories.id', 'asc')
+            ->orderBy('products.sort_order', 'asc')
+            ->orderBy('products.id', 'asc')
             ->select('products.*')
-            ->get()
-            ->sort(function ($a, $b) {
-                if ($a->category_id !== $b->category_id) {
-                    return ($a->category->sort_order ?? 999) <=> ($b->category->sort_order ?? 999);
-                }
-                $codeA = (is_numeric($a->product_code) && intval($a->product_code) > 0) ? intval($a->product_code) : 99999;
-                $codeB = (is_numeric($b->product_code) && intval($b->product_code) > 0) ? intval($b->product_code) : 99999;
-                if ($codeA === $codeB) {
-                    return strcmp($a->name, $b->name);
-                }
-                return $codeA <=> $codeB;
-            })->values();
-        $categories = Category::all();
+            ->get();
+        $categories = Category::orderBy('sort_order', 'asc')->orderBy('id', 'asc')->get();
 
         return response()->json([
             'products' => $products,
@@ -534,7 +526,20 @@ class AdminApiController extends Controller
 
         try {
             $file = $request->file('file');
-            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getRealPath());
+            $extension = strtolower($file->getClientOriginalExtension());
+            $realPath = $file->getRealPath();
+
+            if ($extension === 'csv' || str_contains($file->getMimeType() ?: '', 'csv')) {
+                $reader = new \PhpOffice\PhpSpreadsheet\Reader\Csv();
+                $spreadsheet = $reader->load($realPath);
+            } else {
+                if (!class_exists('ZipArchive')) {
+                    return response()->json([
+                        'error' => 'ZipArchive extension is disabled in PHP. Please enable extension=zip in php.ini or upload a .csv file.'
+                    ], 422);
+                }
+                $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($realPath);
+            }
             $worksheet = $spreadsheet->getActiveSheet();
             $rows = $worksheet->toArray(null, true, true, true);
 
@@ -551,18 +556,32 @@ class AdminApiController extends Controller
                 }
             }
 
-            // Validate required columns
-            $requiredColumns = ['category', 'product name', 'pack size', 'mrp', 'selling price'];
+            // Alias map for required fields matching template headers: Category, S.No / Code, Product Name, Unit, Rate (MRP), Offer Rate
+            $aliasMap = [
+                'Category' => ['category', 'category name', 'cat'],
+                'Product Name' => ['product name', 'product', 'name', 'item'],
+                'Unit' => ['unit', 'pack size', 'unit / pack size', 'size', 'contents'],
+                'Rate (MRP)' => ['rate (mrp)', 'mrp', 'rate', 'rate (₹)', 'price'],
+                'Offer Rate' => ['offer rate', 'selling price', 'offer price', 'offer rate (₹)', 'discounted price'],
+            ];
+
             $missingColumns = [];
-            foreach ($requiredColumns as $col) {
-                if (!isset($headerMap[$col])) {
-                    $missingColumns[] = ucwords($col);
+            foreach ($aliasMap as $label => $aliases) {
+                $found = false;
+                foreach ($aliases as $alias) {
+                    if (isset($headerMap[strtolower(trim($alias))])) {
+                        $found = true;
+                        break;
+                    }
+                }
+                if (!$found) {
+                    $missingColumns[] = $label;
                 }
             }
 
             if (!empty($missingColumns)) {
                 return response()->json([
-                    'error' => 'Missing required columns: ' . implode(', ', $missingColumns) . '. Required columns are: Category, Product Name, Pack Size, MRP, Selling Price.'
+                    'error' => 'Missing required columns: ' . implode(', ', $missingColumns) . '. Required columns are: Category, Product Name, Unit, Rate (MRP), Offer Rate.'
                 ], 422);
             }
 
@@ -581,6 +600,14 @@ class AdminApiController extends Controller
             $updated = 0;
             $skipped = 0;
             $errors = [];
+
+            // Pre-fill category cache from DB to prevent duplicate categories or undefined variable errors
+            $categoryCache = [];
+            foreach (Category::all() as $existingCat) {
+                $categoryCache[strtolower(trim($existingCat->name))] = $existingCat;
+            }
+
+            $categoryOrderCounter = 1;
 
             foreach ($rows as $rowIndex => $row) {
                 $rowNum = $rowIndex + 1; // 1-based for user-friendly error messages (header was row 1)
@@ -612,18 +639,28 @@ class AdminApiController extends Controller
                     continue;
                 }
 
-                // Find or create category
-                $catKey = strtolower($categoryName);
+                // Find or create category safely
+                $catKey = strtolower(trim($categoryName));
                 if (!isset($categoryCache[$catKey])) {
-                    $newCat = Category::create([
-                        'name' => $categoryName,
-                        'slug' => \Illuminate\Support\Str::slug($categoryName),
-                        'sort_order' => 0,
-                        'status' => 'active',
-                    ]);
-                    $categoryCache[$catKey] = $newCat;
+                    $baseSlug = \Illuminate\Support\Str::slug($categoryName) ?: 'category';
+                    $existingBySlug = Category::where('slug', $baseSlug)->first();
+                    if ($existingBySlug) {
+                        $existingBySlug->update(['sort_order' => $categoryOrderCounter]);
+                        $categoryCache[$catKey] = $existingBySlug;
+                    } else {
+                        $newCat = Category::create([
+                            'name' => $categoryName,
+                            'slug' => $baseSlug,
+                            'sort_order' => $categoryOrderCounter,
+                            'status' => 'active',
+                        ]);
+                        $categoryCache[$catKey] = $newCat;
+                    }
+                    $categoryOrderCounter++;
                 }
                 $category = $categoryCache[$catKey];
+
+                $excelRowPosition = $rowIndex + 1; // 1-based exact row order in Excel file
 
                 // Check if product already exists in same category with same name
                 $existingProduct = Product::where('name', $productName)
@@ -632,21 +669,22 @@ class AdminApiController extends Controller
 
                 if ($existingProduct) {
                     $existingProduct->update([
-                        'product_code' => $productCode ?: $existingProduct->product_code,
+                        'product_code' => ($productCode !== null && $productCode !== '') ? $productCode : $existingProduct->product_code,
                         'pack_size' => $packSize ?: $existingProduct->pack_size,
                         'mrp' => (float) $mrp,
                         'selling_price' => (float) $sellingPrice,
+                        'sort_order' => $excelRowPosition,
                     ]);
                     $updated++;
                 } else {
                     Product::create([
                         'category_id' => $category->id,
-                        'product_code' => $productCode ?: null,
+                        'product_code' => ($productCode !== null && $productCode !== '') ? $productCode : null,
                         'name' => $productName,
                         'pack_size' => $packSize ?: '-',
                         'mrp' => (float) $mrp,
                         'selling_price' => (float) $sellingPrice,
-                        'sort_order' => 0,
+                        'sort_order' => $excelRowPosition,
                         'status' => 'active',
                     ]);
                     $imported++;

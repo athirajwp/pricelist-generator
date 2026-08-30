@@ -16,22 +16,11 @@ class StorefrontApiController extends Controller
     {
         $categories = Category::active()
             ->with(['products' => function ($query) {
-                $query->active();
+                $query->active()->orderBy('sort_order', 'asc')->orderBy('id', 'asc');
             }])
             ->orderBy('sort_order', 'asc')
+            ->orderBy('id', 'asc')
             ->get();
-
-        foreach ($categories as $cat) {
-            $sortedProducts = $cat->products->sort(function ($a, $b) {
-                $codeA = (is_numeric($a->product_code) && intval($a->product_code) > 0) ? intval($a->product_code) : 99999;
-                $codeB = (is_numeric($b->product_code) && intval($b->product_code) > 0) ? intval($b->product_code) : 99999;
-                if ($codeA === $codeB) {
-                    return strcmp($a->name, $b->name);
-                }
-                return $codeA <=> $codeB;
-            })->values();
-            $cat->setRelation('products', $sortedProducts);
-        }
 
         $company = view()->shared('currentCompany');
 
@@ -321,23 +310,15 @@ class StorefrontApiController extends Controller
     {
         $categories = Category::active()
             ->with(['products' => function ($query) {
-                $query->active();
+                $query->active()->orderBy('sort_order', 'asc')->orderBy('id', 'asc');
             }])
             ->orderBy('sort_order', 'asc')
+            ->orderBy('id', 'asc')
             ->get();
 
         $allFilteredProducts = [];
         foreach ($categories as $cat) {
-            $sortedProducts = $cat->products->sort(function ($a, $b) {
-                $codeA = (is_numeric($a->product_code) && intval($a->product_code) > 0) ? intval($a->product_code) : 99999;
-                $codeB = (is_numeric($b->product_code) && intval($b->product_code) > 0) ? intval($b->product_code) : 99999;
-                if ($codeA === $codeB) {
-                    return strcmp($a->name, $b->name);
-                }
-                return $codeA <=> $codeB;
-            })->values();
-
-            foreach ($sortedProducts as $p) {
+            foreach ($cat->products as $p) {
                 $allFilteredProducts[] = [
                     'id' => $p->id,
                     'product_code' => $p->product_code,

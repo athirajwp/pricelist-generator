@@ -270,6 +270,7 @@
     </div>
 
     <!-- PRODUCT PAGES -->
+    @php $globalSnoCounter = 1; @endphp
     @foreach($productPageChunks as $chunkIdx => $chunkProducts)
         <div class="page-sheet">
             <table class="pricelist-table">
@@ -306,8 +307,14 @@
                             <td colspan="{{ $showMrp ? 6 : 5 }}">{{ $cat['name'] }}</td>
                         </tr>
                         @foreach($cat['products'] as $product)
+                            @php
+                                $displaySno = (!empty($product['product_code']) && trim((string)$product['product_code']) !== '')
+                                    ? $product['product_code']
+                                    : $globalSnoCounter;
+                                $globalSnoCounter++;
+                            @endphp
                             <tr class="product-row" style="color: #000000; font-weight: bold;">
-                                <td class="text-center font-bold" style="color: #000000;">{{ $product['product_code'] ?? $loop->iteration }}</td>
+                                <td class="text-center font-bold" style="color: #000000;">{{ $displaySno }}</td>
                                 <td class="font-bold" style="color: #000000;">{{ $product['name'] }}</td>
                                 <td class="text-center font-bold" style="color: #000000; font-size: 10px;">{{ $product['pack_size'] }}</td>
                                 @if($showMrp)

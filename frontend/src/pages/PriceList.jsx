@@ -329,6 +329,9 @@ export default function PriceList({ defaultTab }) {
     try {
       const res = await fetch('/api/admin/products/import', {
         method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+        },
         body: postData,
       });
       const data = await res.json();
@@ -636,15 +639,10 @@ export default function PriceList({ defaultTab }) {
     return { ...cat, products: filteredProducts };
   }).filter(Boolean);
 
-  // 2. Flatten all filtered products into a single ordered array
+  // 2. Flatten all filtered products into a single ordered array (preserving exact Excel row order)
   const allFilteredProducts = [];
   filteredCategories.forEach((cat) => {
-    const sorted = [...cat.products].sort((a, b) => {
-      const codeA = (!isNaN(a.product_code) && parseInt(a.product_code, 10) > 0) ? parseInt(a.product_code, 10) : 99999;
-      const codeB = (!isNaN(b.product_code) && parseInt(b.product_code, 10) > 0) ? parseInt(b.product_code, 10) : 99999;
-      return codeA - codeB;
-    });
-    sorted.forEach((p) => {
+    cat.products.forEach((p) => {
       allFilteredProducts.push({
         ...p,
         category_id: cat.id,
