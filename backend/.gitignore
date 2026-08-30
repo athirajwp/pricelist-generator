@@ -1,0 +1,16 @@
+/vendor
+/.tools
+/storage/framework/cache/data/*
+!/storage/framework/cache/data/.gitkeep
+/storage/framework/sessions/*
+/storage/framework/views/*
+/storage/logs/*
+!/storage/logs/.gitkeep
+/public/uploads/*
+!/public/uploads/.gitkeep
+.env
+.env.backup
+.env.production
+
+# Never overwrite the production database with local dev data
+/database/database.sqlite

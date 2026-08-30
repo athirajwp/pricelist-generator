@@ -1,0 +1,9 @@
+{
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/((?!api|uploads|images|assets).*)" ,
+      "destination": "/index.html"
+    }
+  ]
+}
