@@ -2,13 +2,11 @@ DirectoryIndex public/index.php index.php index.html
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
+    RewriteBase /
 
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
-
-    # Redirect root to public/index.php
-    RewriteRule ^$ public/index.php [L]
 
     # Direct requests for public assets to public/ folder
     RewriteCond %{REQUEST_URI} !^/public/
@@ -21,3 +19,4 @@ DirectoryIndex public/index.php index.php index.html
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ public/index.php [L]
 </IfModule>
+
