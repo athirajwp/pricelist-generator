@@ -1,9 +1,9 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    DirectoryIndex public/index.php index.php index.html
+    DirectoryIndex backend/public/index.php public/index.php index.php index.html
 
-    # Direct all requests to public folder if not already in public/
+    # Route all incoming requests to backend/public/
+    RewriteCond %{REQUEST_URI} !^/backend/public/
     RewriteCond %{REQUEST_URI} !^/public/
-    RewriteRule ^(.*)$ public/$1 [L]
+    RewriteRule ^(.*)$ backend/public/$1 [L]
 </IfModule>
-
