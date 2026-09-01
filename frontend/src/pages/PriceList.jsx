@@ -48,6 +48,185 @@ export default function PriceList({ defaultTab }) {
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef(null);
 
+  // Project Management States & Refs
+  const [savedProjects, setSavedProjects] = useState([]);
+  const [activeProjectId, setActiveProjectId] = useState(null);
+  const [activeProjectName, setActiveProjectName] = useState('');
+  const [showProjectsModal, setShowProjectsModal] = useState(false);
+  const [showSaveAsModal, setShowSaveAsModal] = useState(false);
+  const [newProjectNameInput, setNewProjectNameInput] = useState('');
+  const [projectSearchQuery, setProjectSearchQuery] = useState('');
+  const projectFileInputRef = useRef(null);
+
+  // Load Saved Projects from localStorage on initialization
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('pricelist_saved_projects');
+      if (stored) {
+        setSavedProjects(JSON.parse(stored));
+      }
+    } catch (err) {
+      console.error('Error loading saved projects from localStorage:', err);
+    }
+  }, []);
+
+  // Save current state into a project snapshot
+  const handleSaveCurrentProject = (customName = null) => {
+    const projName = (customName || activeProjectName || editForm.store_name || 'My Price List Project').trim();
+    const projId = activeProjectId || `proj_${Date.now()}`;
+    const timestamp = new Date().toISOString();
+
+    const snapshot = {
+      id: projId,
+      name: projName,
+      createdAt: activeProjectId ? (savedProjects.find((p) => p.id === activeProjectId)?.createdAt || timestamp) : timestamp,
+      updatedAt: timestamp,
+      editForm: { ...editForm },
+      categories: JSON.parse(JSON.stringify(categories || [])),
+      colWidths: { ...colWidths },
+      showMrp: showMrp,
+      productCount: (categories || []).reduce((acc, cat) => acc + (cat.products?.length || 0), 0),
+    };
+
+    let updatedList;
+    const existingIdx = savedProjects.findIndex((p) => p.id === projId);
+    if (existingIdx >= 0) {
+      updatedList = [...savedProjects];
+      updatedList[existingIdx] = snapshot;
+    } else {
+      updatedList = [snapshot, ...savedProjects];
+    }
+
+    setSavedProjects(updatedList);
+    setActiveProjectId(projId);
+    setActiveProjectName(projName);
+    localStorage.setItem('pricelist_saved_projects', JSON.stringify(updatedList));
+
+    if (window.Swal) {
+      window.Swal.fire({
+        icon: 'success',
+        title: 'Project Saved!',
+        text: `"${projName}" has been saved successfully.`,
+        timer: 1800,
+        showConfirmButton: false,
+      });
+    }
+    setShowSaveAsModal(false);
+  };
+
+  // Open & restore a saved project
+  const handleOpenProject = (project) => {
+    if (!project) return;
+    if (project.editForm) {
+      setEditForm(project.editForm);
+    }
+    if (project.categories && setCategories) {
+      setCategories(project.categories);
+    }
+    if (project.colWidths) {
+      setColWidths(project.colWidths);
+    }
+    if (project.showMrp !== undefined) {
+      setShowMrp(project.showMrp);
+    }
+    setActiveProjectId(project.id);
+    setActiveProjectName(project.name);
+    setShowProjectsModal(false);
+
+    if (window.Swal) {
+      window.Swal.fire({
+        icon: 'success',
+        title: 'Project Loaded!',
+        text: `"${project.name}" has been loaded into the editor.`,
+        timer: 1800,
+        showConfirmButton: false,
+      });
+    }
+  };
+
+  // Duplicate a project
+  const handleDuplicateProject = (project) => {
+    const copyName = `${project.name} (Copy)`;
+    const copyId = `proj_${Date.now()}`;
+    const copy = {
+      ...project,
+      id: copyId,
+      name: copyName,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    const updated = [copy, ...savedProjects];
+    setSavedProjects(updated);
+    localStorage.setItem('pricelist_saved_projects', JSON.stringify(updated));
+  };
+
+  // Delete a project
+  const handleDeleteProject = (projectId) => {
+    if (window.Swal) {
+      window.Swal.fire({
+        title: 'Delete Saved Project?',
+        text: 'Are you sure you want to delete this project snapshot?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, Delete',
+      }).then((result) => {
+        if (result.isConfirmed) {
+          const updated = savedProjects.filter((p) => p.id !== projectId);
+          setSavedProjects(updated);
+          localStorage.setItem('pricelist_saved_projects', JSON.stringify(updated));
+          if (activeProjectId === projectId) {
+            setActiveProjectId(null);
+            setActiveProjectName('');
+          }
+        }
+      });
+    }
+  };
+
+  // Export project snapshot as JSON file download
+  const handleExportProjectJson = (project) => {
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(project, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute('href', dataStr);
+    downloadAnchor.setAttribute('download', `${project.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_project.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
+
+  // Import project from JSON file
+  const handleImportProjectFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target.result);
+        if (parsed && (parsed.editForm || parsed.categories)) {
+          const importedProj = {
+            ...parsed,
+            id: `proj_${Date.now()}`,
+            name: parsed.name ? `${parsed.name} (Imported)` : 'Imported Project',
+            updatedAt: new Date().toISOString(),
+          };
+          const updated = [importedProj, ...savedProjects];
+          setSavedProjects(updated);
+          localStorage.setItem('pricelist_saved_projects', JSON.stringify(updated));
+          handleOpenProject(importedProj);
+        } else {
+          alert('Invalid project JSON file format.');
+        }
+      } catch (err) {
+        alert('Failed to parse project JSON file.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = null;
+  };
+
   // Excel-style draggable column widths state (in px)
   const [colWidths, setColWidths] = useState({
     sno: 45,
@@ -130,6 +309,8 @@ export default function PriceList({ defaultTab }) {
     bank_account_no: '1118104000136815',
     bank_ifsc: 'IBKL0001118',
     footer_position: 'below_table',
+    show_bank_details: true,
+    show_upi_qr: true,
     important_note_1: 'தொடர்ந்து பல ஆண்டுகளாக எங்கள் நிறுவன பட்டாசுகளை வாங்கி தீபாவளியை குடும்பத்தினருடன் கொண்டாடி மகிழும் உங்கள் அனைவருக்கும் இனிய தீபாவளி நல்வாழ்த்துக்கள்!',
     important_note_2: 'வரவிருக்கும் தீபாவளி பண்டிகைக்கான பட்டாசுகளை அக்டோபர் 15 - ஆம் தேதிக்குள் ஆர்டர் செய்து பெற்றுக்கொள்ளுமாறு வேண்டுகிறோம்.',
   });
@@ -159,6 +340,7 @@ export default function PriceList({ defaultTab }) {
         store_address: settings.store_address || 'Virudhunagar to Sivakasi Main Road, Opposite to Nayagara Petrol Bulk, Amathur - 626005.',
         discount_percent: settings.discount_percent !== undefined ? settings.discount_percent : 50,
         show_bank_details: settings.show_bank_details !== undefined ? settings.show_bank_details : true,
+        show_upi_qr: settings.show_upi_qr !== undefined ? settings.show_upi_qr : true,
         bank_name: settings.bank_name || settings.bank_holder || 'Muthusamy Ganesan',
         bank_branch: settings.bank_branch || settings.bank_acc_name || 'IDBI Bank',
         bank_account_no: settings.bank_account_no || settings.bank_acc_no || '1118104000136815',
@@ -811,8 +993,24 @@ export default function PriceList({ defaultTab }) {
         <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm mb-8 space-y-6 print:hidden" style={cardBgStyle}>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-slate-100">
             <div>
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight flex flex-wrap items-center gap-2">
                 <i className="fa-solid fa-file-invoice-dollar text-crimson-600"></i> Price List Generator
+                {activeProjectName && (
+                  <span className="inline-flex items-center gap-1.5 bg-amber-100 border border-amber-300 text-amber-900 font-extrabold text-[11px] px-3 py-1 rounded-full ml-1">
+                    <i className="fa-solid fa-folder-check text-amber-600"></i>
+                    <span>Project: <strong>{activeProjectName}</strong></span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewProjectNameInput(activeProjectName);
+                        setShowSaveAsModal(true);
+                      }}
+                      className="text-[10px] text-indigo-700 hover:underline font-black ml-1 cursor-pointer uppercase"
+                    >
+                      Save As
+                    </button>
+                  </span>
+                )}
               </h2>
               <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mt-1">
                 A4 Sheet Sized Catalogue ({allFilteredProducts.length} Products across {totalDocPages} A4 Pages • 210mm × 297mm)
@@ -820,10 +1018,40 @@ export default function PriceList({ defaultTab }) {
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+              {/* SAVE PROJECT Button */}
+              <button
+                onClick={() => {
+                  if (activeProjectId) {
+                    handleSaveCurrentProject(activeProjectName);
+                  } else {
+                    setNewProjectNameInput(editForm.store_name || 'My Price List Project');
+                    setShowSaveAsModal(true);
+                  }
+                }}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold px-4 py-2 rounded-full text-xs uppercase tracking-wider shadow-xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                title="Save current project configuration & products"
+              >
+                <i className="fa-solid fa-floppy-disk text-sm"></i>
+                {activeProjectId ? 'UPDATE PROJECT' : 'SAVE PROJECT'}
+              </button>
+
+              {/* SAVED PROJECTS Manager Button */}
+              <button
+                onClick={() => setShowProjectsModal(true)}
+                className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-3.5 py-2 rounded-full text-xs uppercase tracking-wider shadow-xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer border border-amber-400"
+                title="View & manage saved projects"
+              >
+                <i className="fa-solid fa-folder-open text-slate-950 text-sm"></i>
+                <span>PROJECTS</span>
+                <span className="bg-slate-950 text-amber-400 text-[10px] font-black px-1.5 py-0.5 rounded-full ml-0.5">
+                  {savedProjects.length}
+                </span>
+              </button>
+
               {/* 1. TEMPLATE Button */}
               <button
                 onClick={handleDownloadTemplate}
-                className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 font-extrabold px-3.5 py-2 rounded-full text-xs uppercase tracking-wider shadow-xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 font-extrabold px-3 py-2 rounded-full text-xs uppercase tracking-wider shadow-xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
                 title="Download Excel template"
               >
                 <i className="fa-solid fa-file-excel text-emerald-600 text-sm"></i> TEMPLATE
@@ -832,7 +1060,7 @@ export default function PriceList({ defaultTab }) {
               {/* 2. EXPORT Button */}
               <button
                 onClick={handleExportProducts}
-                className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 font-extrabold px-3.5 py-2 rounded-full text-xs uppercase tracking-wider shadow-xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 font-extrabold px-3 py-2 rounded-full text-xs uppercase tracking-wider shadow-xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
                 title="Export all products as Excel"
               >
                 <i className="fa-solid fa-download text-indigo-600 text-sm"></i> EXPORT
@@ -1524,24 +1752,33 @@ export default function PriceList({ defaultTab }) {
             {/* 5. Display Options */}
             <div>
               <label className="block text-slate-700 mb-1 font-extrabold">Display Options</label>
-              <div className="flex items-center justify-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2.5 h-[42px]">
+              <div className="flex items-center justify-between gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 h-[42px]">
                 <label className="inline-flex items-center cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={showMrp}
                     onChange={(e) => setShowMrp(e.target.checked)}
-                    className="rounded text-amber-600 focus:ring-amber-500 w-4 h-4 cursor-pointer"
+                    className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer"
                   />
-                  <span className="ml-1 text-slate-800 font-extrabold text-[11px]">MRP</span>
+                  <span className="ml-0.5 text-slate-800 font-extrabold text-[10px]">MRP</span>
                 </label>
                 <label className="inline-flex items-center cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={editForm.show_bank_details !== false}
                     onChange={(e) => handleInputChange('show_bank_details', e.target.checked)}
-                    className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                    className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer"
                   />
-                  <span className="ml-1 text-slate-800 font-extrabold text-[11px]">Bank Info</span>
+                  <span className="ml-0.5 text-slate-800 font-extrabold text-[10px]">Bank</span>
+                </label>
+                <label className="inline-flex items-center cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={editForm.show_upi_qr !== false}
+                    onChange={(e) => handleInputChange('show_upi_qr', e.target.checked)}
+                    className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
+                  />
+                  <span className="ml-0.5 text-slate-800 font-extrabold text-[10px]">UPI QR</span>
                 </label>
               </div>
             </div>
@@ -1974,37 +2211,39 @@ export default function PriceList({ defaultTab }) {
                     {/* RIGHT AFTER TABLE ENDS: CLEAN TABLE-MATCHING PAYMENT BLOCK */}
                     {(editForm.footer_position || 'below_table') === 'below_table' && chunkIdx === productPageChunks.length - 1 && (
                       <div className="mt-2 bg-white border-2 border-slate-700 rounded-xl overflow-hidden shadow-sm p-2 font-sans">
-                        <div className={`grid grid-cols-1 ${editForm.show_bank_details !== false ? 'md:grid-cols-2' : 'md:grid-cols-1'} gap-3 text-slate-900 items-center`}>
+                        <div className={`grid grid-cols-1 ${editForm.show_upi_qr !== false && editForm.show_bank_details !== false ? 'md:grid-cols-2' : 'md:grid-cols-1'} gap-3 text-slate-900 items-center`}>
 
                           {/* Left: Clean UPI Scan & Pay Card */}
-                          <div className="flex flex-col items-center justify-center text-center space-y-1 p-1.5 border border-slate-200 rounded-lg bg-slate-50/50">
-                            <div className={`${theme.tableHeader} text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded w-full flex items-center justify-center gap-1.5`}>
-                              <i className="fa-solid fa-qrcode"></i> SCAN & PAY VIA UPI
-                            </div>
-
-                            <div className="p-1 bg-white border border-slate-300 rounded-lg shadow-xs my-0.5">
-                              <img
-                                src={
-                                  editForm.store_upi_qr || settings?.store_upi_qr
-                                    ? getImageUrl(editForm.store_upi_qr || settings.store_upi_qr)
-                                    : `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=${encodeURIComponent(editForm.store_gpay || '9787772038')}%40okicici&pn=${encodeURIComponent(editForm.store_name)}`
-                                }
-                                alt="UPI QR Code"
-                                className="w-22 h-22 sm:w-26 sm:h-26 object-contain"
-                              />
-                            </div>
-
-                            <div className="space-y-0.5">
-                              <div className="flex items-center justify-center gap-1 text-[8.5px] font-extrabold">
-                                <span className="bg-sky-500 text-white font-black px-1.5 py-0.2 rounded">GPay</span>
-                                <span className="bg-indigo-600 text-white font-black px-1.5 py-0.2 rounded">PhonePe</span>
-                                <span className="bg-blue-600 text-white font-black px-1.5 py-0.2 rounded">Paytm</span>
+                          {editForm.show_upi_qr !== false && (
+                            <div className="flex flex-col items-center justify-center text-center space-y-1 p-1.5 border border-slate-200 rounded-lg bg-slate-50/50">
+                              <div className={`${theme.tableHeader} text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded w-full flex items-center justify-center gap-1.5`}>
+                                <i className="fa-solid fa-qrcode"></i> SCAN & PAY VIA UPI
                               </div>
-                              <p className="text-[10px] font-black font-mono text-slate-900 pt-0.5">
-                                UPI: {editForm.store_gpay || editForm.store_phone_3 || '9787772038'}
-                              </p>
+
+                              <div className="p-1 bg-white border border-slate-300 rounded-lg shadow-xs my-0.5">
+                                <img
+                                  src={
+                                    editForm.store_upi_qr || settings?.store_upi_qr
+                                      ? getImageUrl(editForm.store_upi_qr || settings.store_upi_qr)
+                                      : `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=${encodeURIComponent(editForm.store_gpay || '9787772038')}%40okicici&pn=${encodeURIComponent(editForm.store_name)}`
+                                  }
+                                  alt="UPI QR Code"
+                                  className="w-22 h-22 sm:w-26 sm:h-26 object-contain"
+                                />
+                              </div>
+
+                              <div className="space-y-0.5">
+                                <div className="flex items-center justify-center gap-1 text-[8.5px] font-extrabold">
+                                  <span className="bg-sky-500 text-white font-black px-1.5 py-0.2 rounded">GPay</span>
+                                  <span className="bg-indigo-600 text-white font-black px-1.5 py-0.2 rounded">PhonePe</span>
+                                  <span className="bg-blue-600 text-white font-black px-1.5 py-0.2 rounded">Paytm</span>
+                                </div>
+                                <p className="text-[10px] font-black font-mono text-slate-900 pt-0.5">
+                                  UPI: {editForm.store_gpay || editForm.store_phone_3 || '9787772038'}
+                                </p>
+                              </div>
                             </div>
-                          </div>
+                          )}
 
                           {/* Right: Clean Bank Details Table (Conditionally Displayed) */}
                           {editForm.show_bank_details !== false && (
@@ -2079,34 +2318,36 @@ export default function PriceList({ defaultTab }) {
               >
                 {/* Content Starts Right at Top (Same Level as Product Tables) */}
                 <div className="w-full space-y-4 mt-0">
-                  <div className={`grid grid-cols-1 ${editForm.show_bank_details !== false ? 'md:grid-cols-2' : 'md:grid-cols-1'} gap-4 items-stretch`}>
+                  <div className={`grid grid-cols-1 ${editForm.show_upi_qr !== false && editForm.show_bank_details !== false ? 'md:grid-cols-2' : 'md:grid-cols-1'} gap-4 items-stretch`}>
                     {/* UPI Card */}
-                    <div className="flex flex-col items-center justify-center text-center space-y-3 p-5 border-2 border-amber-400 rounded-2xl bg-white/95 shadow-md backdrop-blur-xs">
-                      <div className={`${theme.tableHeader} text-slate-950 text-xs font-black uppercase px-4 py-1.5 rounded-full flex items-center justify-center gap-2 border border-amber-400`}>
-                        <i className="fa-solid fa-qrcode"></i> SCAN & PAY VIA UPI
-                      </div>
-                      <div className="p-2 bg-white border-2 border-amber-300 rounded-xl shadow-sm">
-                        <img
-                          src={
-                            editForm.store_upi_qr || settings?.store_upi_qr
-                              ? getImageUrl(editForm.store_upi_qr || settings.store_upi_qr)
-                              : `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=${encodeURIComponent(editForm.store_gpay || '9787772038')}%40okicici&pn=${encodeURIComponent(editForm.store_name)}`
-                          }
-                          alt="UPI QR Code"
-                          className="w-36 h-36 object-contain"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-center gap-1.5 text-xs font-extrabold">
-                          <span className="bg-sky-500 text-white font-black px-2 py-0.5 rounded">GPay</span>
-                          <span className="bg-indigo-600 text-white font-black px-2 py-0.5 rounded">PhonePe</span>
-                          <span className="bg-blue-600 text-white font-black px-2 py-0.5 rounded">Paytm</span>
+                    {editForm.show_upi_qr !== false && (
+                      <div className="flex flex-col items-center justify-center text-center space-y-3 p-5 border-2 border-amber-400 rounded-2xl bg-white/95 shadow-md backdrop-blur-xs">
+                        <div className={`${theme.tableHeader} text-slate-950 text-xs font-black uppercase px-4 py-1.5 rounded-full flex items-center justify-center gap-2 border border-amber-400`}>
+                          <i className="fa-solid fa-qrcode"></i> SCAN & PAY VIA UPI
                         </div>
-                        <p className="text-sm font-black font-mono text-slate-900 pt-1">
-                          UPI: {editForm.store_gpay || editForm.store_phone_3 || '9787772038'}
-                        </p>
+                        <div className="p-2 bg-white border-2 border-amber-300 rounded-xl shadow-sm">
+                          <img
+                            src={
+                              editForm.store_upi_qr || settings?.store_upi_qr
+                                ? getImageUrl(editForm.store_upi_qr || settings.store_upi_qr)
+                                : `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=${encodeURIComponent(editForm.store_gpay || '9787772038')}%40okicici&pn=${encodeURIComponent(editForm.store_name)}`
+                            }
+                            alt="UPI QR Code"
+                            className="w-36 h-36 object-contain"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-center gap-1.5 text-xs font-extrabold">
+                            <span className="bg-sky-500 text-white font-black px-2 py-0.5 rounded">GPay</span>
+                            <span className="bg-indigo-600 text-white font-black px-2 py-0.5 rounded">PhonePe</span>
+                            <span className="bg-blue-600 text-white font-black px-2 py-0.5 rounded">Paytm</span>
+                          </div>
+                          <p className="text-sm font-black font-mono text-slate-900 pt-1">
+                            UPI: {editForm.store_gpay || editForm.store_phone_3 || '9787772038'}
+                          </p>
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     {/* Bank Details Card */}
                     {editForm.show_bank_details !== false && (
@@ -2438,6 +2679,233 @@ export default function PriceList({ defaultTab }) {
                     Import Now
                   </button>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SAVED PROJECTS MANAGER MODAL */}
+        {showProjectsModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-fadeIn">
+            <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-black text-lg shadow-sm">
+                    <i className="fa-solid fa-folder-open"></i>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900 tracking-tight">Saved Projects Manager</h3>
+                    <p className="text-xs text-slate-500 font-bold">Open, update, duplicate, export, or manage your price list projects</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowProjectsModal(false)}
+                  className="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 flex items-center justify-center text-sm font-bold transition-all cursor-pointer"
+                >
+                  <i className="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+
+              {/* Search & Actions Bar */}
+              <div className="p-4 bg-slate-50 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-3">
+                <div className="relative w-full sm:w-72">
+                  <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                  <input
+                    type="text"
+                    value={projectSearchQuery}
+                    onChange={(e) => setProjectSearchQuery(e.target.value)}
+                    placeholder="Search projects..."
+                    className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <input
+                    type="file"
+                    accept=".json"
+                    ref={projectFileInputRef}
+                    onChange={handleImportProjectFile}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => projectFileInputRef.current?.click()}
+                    className="bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 font-black px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                  >
+                    <i className="fa-solid fa-file-import text-indigo-600"></i> Import Project (.json)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewProjectNameInput(editForm.store_name || 'My Price List Project');
+                      setShowProjectsModal(false);
+                      setShowSaveAsModal(true);
+                    }}
+                    className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-4 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                  >
+                    <i className="fa-solid fa-plus"></i> Save Current as New
+                  </button>
+                </div>
+              </div>
+
+              {/* Projects List Container */}
+              <div className="p-6 overflow-y-auto flex-1 space-y-3">
+                {savedProjects.length === 0 ? (
+                  <div className="text-center py-16 bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-200">
+                    <div className="w-16 h-16 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-2xl mx-auto mb-3">
+                      <i className="fa-solid fa-folder-plus"></i>
+                    </div>
+                    <h4 className="text-base font-black text-slate-900">No Saved Projects Yet</h4>
+                    <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 font-semibold">
+                      Save your current shop details, products, and configurations to reopen and edit them anytime.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewProjectNameInput(editForm.store_name || 'My Price List Project');
+                        setShowProjectsModal(false);
+                        setShowSaveAsModal(true);
+                      }}
+                      className="mt-4 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-5 py-2 rounded-xl text-xs inline-flex items-center gap-2 shadow-xs transition-all cursor-pointer"
+                    >
+                      <i className="fa-solid fa-floppy-disk"></i> Save Current Project Now
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {savedProjects
+                      .filter((p) => p.name.toLowerCase().includes(projectSearchQuery.toLowerCase()))
+                      .map((proj) => {
+                        const isActive = activeProjectId === proj.id;
+                        return (
+                          <div
+                            key={proj.id}
+                            className={`p-4 rounded-2xl border-2 transition-all flex flex-col justify-between space-y-3 ${
+                              isActive
+                                ? 'bg-amber-50/80 border-amber-500 shadow-md ring-2 ring-amber-400/50'
+                                : 'bg-white border-slate-200 hover:border-amber-300 hover:shadow-md'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-black text-slate-900 text-sm">{proj.name}</h4>
+                                  {isActive && (
+                                    <span className="bg-amber-500 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                      Active Editor
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-slate-500 font-extrabold mt-0.5">
+                                  Store: {proj.editForm?.store_name || 'N/A'} • {proj.productCount || 0} Products
+                                </p>
+                                <p className="text-[10px] text-slate-400 font-semibold mt-1">
+                                  Updated: {new Date(proj.updatedAt || proj.createdAt).toLocaleString()}
+                                </p>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => handleExportProjectJson(proj)}
+                                title="Export project as .json file"
+                                className="text-slate-400 hover:text-indigo-600 p-1.5 rounded-lg hover:bg-indigo-50 transition-all cursor-pointer"
+                              >
+                                <i className="fa-solid fa-download text-xs"></i>
+                              </button>
+                            </div>
+
+                            {/* Project Actions */}
+                            <div className="flex items-center justify-between pt-3 border-t border-slate-100 gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenProject(proj)}
+                                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                                  isActive
+                                    ? 'bg-amber-500 text-slate-950 shadow-xs'
+                                    : 'bg-slate-900 hover:bg-slate-800 text-white'
+                                }`}
+                              >
+                                <i className="fa-solid fa-folder-open text-xs"></i>
+                                {isActive ? 'Currently Active' : 'Open Project'}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleDuplicateProject(proj)}
+                                title="Duplicate Project"
+                                className="p-2 text-slate-600 hover:text-amber-700 bg-slate-100 hover:bg-amber-100 rounded-xl text-xs transition-all cursor-pointer"
+                              >
+                                <i className="fa-solid fa-copy"></i>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteProject(proj.id)}
+                                title="Delete Project"
+                                className="p-2 text-slate-400 hover:text-red-600 bg-slate-100 hover:bg-red-100 rounded-xl text-xs transition-all cursor-pointer"
+                              >
+                                <i className="fa-solid fa-trash-can"></i>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SAVE AS PROJECT NAME MODAL */}
+        {showSaveAsModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-fadeIn">
+            <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                  <i className="fa-solid fa-floppy-disk text-amber-500"></i> Save Project Snapshot
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowSaveAsModal(false)}
+                  className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold transition-all cursor-pointer"
+                >
+                  <i className="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+
+              <div>
+                <label className="block text-xs font-extrabold text-slate-700 mb-1">
+                  Project Title / Name
+                </label>
+                <input
+                  type="text"
+                  value={newProjectNameInput}
+                  onChange={(e) => setNewProjectNameInput(e.target.value)}
+                  placeholder="e.g. Diwali Wholesale 2026"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowSaveAsModal(false)}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSaveCurrentProject(newProjectNameInput)}
+                  className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-5 py-2 rounded-xl text-xs uppercase tracking-wider shadow-xs transition-all cursor-pointer"
+                >
+                  Save Project
+                </button>
               </div>
             </div>
           </div>

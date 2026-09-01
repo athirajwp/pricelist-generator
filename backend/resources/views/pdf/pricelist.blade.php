@@ -332,11 +332,17 @@
             @if(($settings['footer_position'] ?? 'below_table') === 'new_page')
             <div style="page-break-before: always; height: 1px;"></div>
             @endif
+            @php
+                $showUpiQr = isset($settings['show_upi_qr']) ? (bool)$settings['show_upi_qr'] : true;
+                $showBankDetails = isset($settings['show_bank_details']) ? (bool)$settings['show_bank_details'] : true;
+            @endphp
+            @if($showUpiQr || $showBankDetails)
             <!-- UPI SCAN & PAY QR CODE + BANK ACCOUNT INFO CARDS -->
             <table style="width: 100%; border-collapse: separate; border-spacing: 12px; margin-top: 15px;">
                 <tr>
+                    @if($showUpiQr)
                     <!-- Left: UPI QR Code Card -->
-                    <td style="width: 50%; vertical-align: top; background: #ffffff; color: #0f172a; border-radius: 16px; border: 3.5px solid #f59e0b; padding: 15px; text-align: center;">
+                    <td style="width: {{ $showBankDetails ? '50%' : '100%' }}; vertical-align: top; background: #ffffff; color: #0f172a; border-radius: 16px; border: 3.5px solid #f59e0b; padding: 15px; text-align: center;">
                         <div style="background: #f59e0b; color: #ffffff; font-size: 11px; font-weight: 900; padding: 3px 10px; border-radius: 20px; display: inline-block; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">
                             📱 SCAN & PAY VIA UPI
                         </div>
@@ -353,9 +359,11 @@
                             <span style="font-family: monospace; font-size: 12px; color: #0f172a;">UPI / Mobile: {{ $settings['store_gpay'] ?? $editForm['store_phone_3'] ?? '9787772038' }}</span>
                         </div>
                     </td>
+                    @endif
 
+                    @if($showBankDetails)
                     <!-- Right: Bank Account Info Card -->
-                    <td style="width: 50%; vertical-align: top; background: #ffffff; color: #0f172a; border-radius: 16px; border: 3.5px solid #f59e0b; padding: 15px; text-align: left;">
+                    <td style="width: {{ $showUpiQr ? '50%' : '100%' }}; vertical-align: top; background: #ffffff; color: #0f172a; border-radius: 16px; border: 3.5px solid #f59e0b; padding: 15px; text-align: left;">
                         <div style="background: #f59e0b; color: #ffffff; font-size: 11px; font-weight: 900; padding: 3px 10px; border-radius: 20px; display: inline-block; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">
                             🏦 BANK ACCOUNT INFO
                         </div>
@@ -369,8 +377,10 @@
                             ⚡ Quick Bank Transfer / IMPS Available
                         </div>
                     </td>
+                    @endif
                 </tr>
             </table>
+            @endif
 
             @if(!empty($editForm['important_note_1']) || !empty($editForm['important_note_2']))
             <div style="margin-top: 10px; background: #fffbeb; border: 1.5px solid #fde047; border-radius: 10px; padding: 10px 14px; text-align: center;">

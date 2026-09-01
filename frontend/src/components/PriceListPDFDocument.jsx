@@ -481,18 +481,20 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
             {/* Payment Info Section on Last Page */}
             {(editForm.footer_position || 'below_table') === 'below_table' && chunkIdx === productPageChunks.length - 1 && (
               <View style={styles.paymentSection}>
-                <View style={editForm.show_bank_details !== false ? styles.paymentLeft : styles.paymentFull}>
-                  <Text style={styles.payTitle}>SCAN & PAY VIA UPI</Text>
-                  {upiQrUrl ? (
-                    <Image src={upiQrUrl} style={styles.qrImg} />
-                  ) : null}
-                  <Text style={{ fontSize: 7, fontWeight: 'bold', color: '#0f172a' }}>
-                    GPay / PhonePe / Paytm: {editForm.store_gpay || editForm.store_phone || ''}
-                  </Text>
-                </View>
+                {editForm.show_upi_qr !== false && (
+                  <View style={editForm.show_bank_details !== false ? styles.paymentLeft : styles.paymentFull}>
+                    <Text style={styles.payTitle}>SCAN & PAY VIA UPI</Text>
+                    {upiQrUrl ? (
+                      <Image src={upiQrUrl} style={styles.qrImg} />
+                    ) : null}
+                    <Text style={{ fontSize: 7, fontWeight: 'bold', color: '#0f172a' }}>
+                      GPay / PhonePe / Paytm: {editForm.store_gpay || editForm.store_phone || ''}
+                    </Text>
+                  </View>
+                )}
 
                 {editForm.show_bank_details !== false && (
-                  <View style={styles.paymentRight}>
+                  <View style={editForm.show_upi_qr !== false ? styles.paymentRight : styles.paymentFull}>
                     <Text style={styles.payTitle}>BANK ACCOUNT INFO</Text>
                     <View style={styles.bankRow}>
                       <Text style={styles.bankLabel}>A/C Name:</Text>
@@ -536,18 +538,20 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
             </Text>
 
             <View style={styles.paymentSection}>
-              <View style={editForm.show_bank_details !== false ? styles.paymentLeft : styles.paymentFull}>
-                <Text style={styles.payTitle}>SCAN & PAY VIA UPI</Text>
-                {upiQrUrl ? (
-                  <Image src={upiQrUrl} style={styles.qrImg} />
-                ) : null}
-                <Text style={{ fontSize: 8, fontWeight: 'bold', color: '#0f172a', marginTop: 5 }}>
-                  GPay / PhonePe / Paytm: {editForm.store_gpay || editForm.store_phone || ''}
-                </Text>
-              </View>
+              {editForm.show_upi_qr !== false && (
+                <View style={editForm.show_bank_details !== false ? styles.paymentLeft : styles.paymentFull}>
+                  <Text style={styles.payTitle}>SCAN & PAY VIA UPI</Text>
+                  {upiQrUrl ? (
+                    <Image src={upiQrUrl} style={styles.qrImg} />
+                  ) : null}
+                  <Text style={{ fontSize: 8, fontWeight: 'bold', color: '#0f172a', marginTop: 5 }}>
+                    GPay / PhonePe / Paytm: {editForm.store_gpay || editForm.store_phone || ''}
+                  </Text>
+                </View>
+              )}
 
               {editForm.show_bank_details !== false && (
-                <View style={styles.paymentRight}>
+                <View style={editForm.show_upi_qr !== false ? styles.paymentRight : styles.paymentFull}>
                   <Text style={styles.payTitle}>BANK ACCOUNT INFO</Text>
                   <View style={styles.bankRow}>
                     <Text style={styles.bankLabel}>A/C Name:</Text>
