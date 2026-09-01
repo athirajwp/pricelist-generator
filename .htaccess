@@ -2,14 +2,8 @@
     RewriteEngine On
     DirectoryIndex public/index.php index.php index.html
 
-    # Redirect requests to public directory
+    # Direct all requests to public folder if not already in public/
     RewriteCond %{REQUEST_URI} !^/public/
-    RewriteCond %{DOCUMENT_ROOT}/public/$1 -f [OR]
-    RewriteCond %{DOCUMENT_ROOT}/public/$1 -d
     RewriteRule ^(.*)$ public/$1 [L]
-
-    # Route everything else to public/index.php
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteRule ^ public/index.php [L]
 </IfModule>
+
