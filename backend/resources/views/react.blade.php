@@ -170,7 +170,7 @@
         100% { transform: translateX(-100%); }
       }
     </style>
-    <script type="module" crossorigin src="/build/assets/index-BtW5cfCj.js"></script>
+    <script type="module" crossorigin src="/build/assets/index-6-Or1Ls7.js"></script>
     <link rel="stylesheet" crossorigin href="/build/assets/index-Bu65YOXy.css">
   </head>
   <body class="bg-slate-50 text-slate-800 font-sans">

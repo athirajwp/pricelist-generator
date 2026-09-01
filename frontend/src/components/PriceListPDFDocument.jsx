@@ -85,11 +85,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: 10,
-    height: 260,
+    height: 390,
   },
   deityImg: {
-    maxHeight: 260,
-    maxWidth: 260,
+    maxHeight: 390,
+    maxWidth: 390,
     objectFit: 'contain',
   },
   coverBanner: {
@@ -479,7 +479,7 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
             </View>
 
             {/* Payment Info Section on Last Page */}
-            {chunkIdx === productPageChunks.length - 1 && (
+            {(editForm.footer_position || 'below_table') === 'below_table' && chunkIdx === productPageChunks.length - 1 && (
               <View style={styles.paymentSection}>
                 <View style={editForm.show_bank_details !== false ? styles.paymentLeft : styles.paymentFull}>
                   <Text style={styles.payTitle}>SCAN & PAY VIA UPI</Text>
@@ -518,11 +518,64 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
             {/* Footer */}
             <View style={styles.footer}>
               <Text>{editForm.store_name} - Official Price List</Text>
-              <Text>Page {chunkIdx + 2} of {productPageChunks.length + 1}</Text>
+              <Text>Page {chunkIdx + 2} of {productPageChunks.length + 1 + (editForm.footer_position === 'new_page' ? 1 : 0)}</Text>
             </View>
           </Page>
         );
       })}
+
+      {/* Standalone Back Cover / Footer Page */}
+      {editForm.footer_position === 'new_page' && (
+        <Page size="A4" style={styles.page}>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 15, textTransform: 'uppercase' }}>
+              {editForm.store_name}
+            </Text>
+            <Text style={{ fontSize: 11, fontWeight: 'bold', color: '#b45309', marginBottom: 20 }}>
+              Payment Information & Terms & Conditions
+            </Text>
+
+            <View style={styles.paymentSection}>
+              <View style={editForm.show_bank_details !== false ? styles.paymentLeft : styles.paymentFull}>
+                <Text style={styles.payTitle}>SCAN & PAY VIA UPI</Text>
+                {upiQrUrl ? (
+                  <Image src={upiQrUrl} style={styles.qrImg} />
+                ) : null}
+                <Text style={{ fontSize: 8, fontWeight: 'bold', color: '#0f172a', marginTop: 5 }}>
+                  GPay / PhonePe / Paytm: {editForm.store_gpay || editForm.store_phone || ''}
+                </Text>
+              </View>
+
+              {editForm.show_bank_details !== false && (
+                <View style={styles.paymentRight}>
+                  <Text style={styles.payTitle}>BANK ACCOUNT INFO</Text>
+                  <View style={styles.bankRow}>
+                    <Text style={styles.bankLabel}>A/C Name:</Text>
+                    <Text style={styles.bankValue}>{editForm.bank_name || ''}</Text>
+                  </View>
+                  <View style={styles.bankRow}>
+                    <Text style={styles.bankLabel}>Bank / Branch:</Text>
+                    <Text style={styles.bankValue}>{editForm.bank_branch || ''}</Text>
+                  </View>
+                  <View style={styles.bankRow}>
+                    <Text style={styles.bankLabel}>Account No:</Text>
+                    <Text style={styles.bankValue}>{editForm.bank_account_no || ''}</Text>
+                  </View>
+                  <View style={styles.bankRow}>
+                    <Text style={styles.bankLabel}>IFSC Code:</Text>
+                    <Text style={styles.bankValue}>{editForm.bank_ifsc || ''}</Text>
+                  </View>
+                </View>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.footer}>
+            <Text>{editForm.store_name} - Official Price List</Text>
+            <Text>Page {productPageChunks.length + 2} of {productPageChunks.length + 2}</Text>
+          </View>
+        </Page>
+      )}
     </Document>
   );
 };

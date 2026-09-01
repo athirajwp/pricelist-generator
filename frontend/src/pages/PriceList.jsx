@@ -129,6 +129,7 @@ export default function PriceList({ defaultTab }) {
     bank_branch: 'IDBI Bank',
     bank_account_no: '1118104000136815',
     bank_ifsc: 'IBKL0001118',
+    footer_position: 'below_table',
     important_note_1: 'தொடர்ந்து பல ஆண்டுகளாக எங்கள் நிறுவன பட்டாசுகளை வாங்கி தீபாவளியை குடும்பத்தினருடன் கொண்டாடி மகிழும் உங்கள் அனைவருக்கும் இனிய தீபாவளி நல்வாழ்த்துக்கள்!',
     important_note_2: 'வரவிருக்கும் தீபாவளி பண்டிகைக்கான பட்டாசுகளை அக்டோபர் 15 - ஆம் தேதிக்குள் ஆர்டர் செய்து பெற்றுக்கொள்ளுமாறு வேண்டுகிறோம்.',
   });
@@ -162,6 +163,7 @@ export default function PriceList({ defaultTab }) {
         bank_branch: settings.bank_branch || settings.bank_acc_name || 'IDBI Bank',
         bank_account_no: settings.bank_account_no || settings.bank_acc_no || '1118104000136815',
         bank_ifsc: settings.bank_ifsc || 'IBKL0001118',
+        footer_position: settings.footer_position || 'below_table',
         max_tr_per_page: settings.max_tr_per_page || 30,
         important_note_1: settings.important_note_1 || 'தொடர்ந்து பல ஆண்டுகளாக எங்கள் நிறுவன பட்டாசுகளை வாங்கி தீபாவளியை குடும்பத்தினருடன் கொண்டாடி மகிழும் உங்கள் அனைவருக்கும் இனிய தீபாவளி நல்வாழ்த்துக்கள்!',
         important_note_2: settings.important_note_2 || 'வரவிருக்கும் தீபாவளி பண்டிகைக்கான பட்டாசுகளை அக்டோபர் 15 - ஆம் தேதிக்குள் ஆர்டர் செய்து பெற்றுக்கொள்ளுமாறு வேண்டுகிறோம்.',
@@ -509,15 +511,15 @@ export default function PriceList({ defaultTab }) {
   const handleDeleteAllProducts = async () => {
     const confirmDelete = window.Swal
       ? await window.Swal.fire({
-          title: 'Delete All Products?',
-          text: 'This will permanently delete ALL products from your database. This action cannot be undone!',
-          icon: 'warning',
-          showCancelButton: true,
-          confirmButtonColor: '#dc2626',
-          cancelButtonColor: '#64748b',
-          confirmButtonText: 'Yes, Delete All!',
-          cancelButtonText: 'Cancel',
-        })
+        title: 'Delete All Products?',
+        text: 'This will permanently delete ALL products from your database. This action cannot be undone!',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Yes, Delete All!',
+        cancelButtonText: 'Cancel',
+      })
       : { isConfirmed: window.confirm('Are you sure you want to delete ALL products? This action cannot be undone!') };
 
     if (confirmDelete.isConfirmed) {
@@ -686,7 +688,7 @@ export default function PriceList({ defaultTab }) {
     productPageChunks.push([]);
   }
 
-  const totalDocPages = 1 + productPageChunks.length + 1; // Page 1 = Cover Page, Page 2..N-1 = Product Sheets, Last = Back Cover Sheet
+  const totalDocPages = 1 + productPageChunks.length + (editForm.footer_position === 'new_page' ? 1 : 0);
   const cardBgStyle = { backgroundColor: settings?.card_bg_color || '#FFFFFF' };
   const discountPercent = editForm.discount_percent !== undefined ? editForm.discount_percent : (settings?.discount_percent || 50);
 
@@ -860,6 +862,7 @@ export default function PriceList({ defaultTab }) {
               >
                 <i className="fa-solid fa-trash-can text-sm"></i> DELETE ALL
               </button>
+
 
               {/* Edit Details Drawer Button */}
               <button
@@ -1387,6 +1390,22 @@ export default function PriceList({ defaultTab }) {
                   />
                 </div>
 
+                {/* Footer Position Selector (Input Style) */}
+                <div className="md:col-span-2 lg:col-span-3 bg-amber-100/70 p-3.5 rounded-2xl border-2 border-amber-300 space-y-2">
+                  <label className="block text-slate-800 font-black text-xs uppercase tracking-wide flex items-center gap-1.5">
+                    <i className="fa-solid fa-square-poll-vertical text-amber-600 text-sm"></i>
+                    Footer Position (Bank Info & Notes Placement)
+                  </label>
+                  <select
+                    value={editForm.footer_position || 'below_table'}
+                    onChange={(e) => handleInputChange('footer_position', e.target.value)}
+                    className="w-full bg-white border-2 border-amber-300 rounded-xl px-3.5 py-2.5 text-xs font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer shadow-xs"
+                  >
+                    <option value="below_table">📍 Below Product Table (Next to Table)</option>
+                    <option value="new_page">📄 New Dedicated Page (Standalone Page)</option>
+                  </select>
+                </div>
+
                 {/* Tamil Terms & Note */}
                 <div className="md:col-span-2 lg:col-span-3 pt-3 border-t border-amber-200 font-extrabold text-amber-900 text-xs uppercase tracking-wider">
                   📜 Important Note Text (பின்குறிப்பு)
@@ -1411,7 +1430,7 @@ export default function PriceList({ defaultTab }) {
           )}
 
           {/* Useful Document Controls Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs font-semibold">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 text-xs font-semibold">
 
             {/* 1. Upload Image Quick Status */}
             <div>
@@ -1445,87 +1464,60 @@ export default function PriceList({ defaultTab }) {
               </div>
             </div>
 
-            {/* 2. Rows Per Page (TR Count) */}
+            {/* 2. Rows Per Page (TR Count - Input Type) */}
             <div>
               <label className="block text-slate-700 mb-1 font-extrabold flex items-center justify-between">
                 <span>Rows / Page</span>
                 <span className="text-amber-700 font-black text-[11px] bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">{editForm.max_tr_per_page || 30} TRs</span>
               </label>
-              <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl p-1 h-[42px]">
-                {[
-                  { label: '25 TR', val: 25 },
-                  { label: '30 TR', val: 30 },
-                  { label: '35 TR', val: 35 },
-                  { label: '40 TR', val: 40 },
-                ].map((r) => (
-                  <button
-                    key={r.val}
-                    type="button"
-                    onClick={() => handleInputChange('max_tr_per_page', r.val)}
-                    className={`flex-1 py-1 rounded-lg text-[10px] font-black transition-all ${parseInt(editForm.max_tr_per_page || 30, 10) === r.val
-                        ? 'bg-amber-500 text-slate-950 shadow-sm'
-                        : 'text-slate-600 hover:bg-slate-200/60'
-                      }`}
-                  >
-                    {r.label}
-                  </button>
-                ))}
+              <div className="relative">
+                <input
+                  type="number"
+                  min={10}
+                  max={60}
+                  value={editForm.max_tr_per_page || 30}
+                  onChange={(e) => handleInputChange('max_tr_per_page', parseInt(e.target.value, 10) || 30)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1 text-xs font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 h-[42px] transition-all shadow-2xs pr-10"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 pointer-events-none">TRs</span>
               </div>
             </div>
 
-            {/* 3. Row Height */}
+            {/* 3. Row Height (Input Type) */}
             <div>
               <label className="block text-slate-700 mb-1 font-extrabold flex items-center justify-between">
                 <span>Row Height</span>
                 <span className="text-amber-700 font-black text-[11px] bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">{editForm.table_row_height || 22}px</span>
               </label>
-              <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl p-1 h-[42px]">
-                {[
-                  { label: '18px', val: 18 },
-                  { label: '22px', val: 22 },
-                  { label: '26px', val: 26 },
-                  { label: '30px', val: 30 },
-                ].map((h) => (
-                  <button
-                    key={h.val}
-                    type="button"
-                    onClick={() => handleInputChange('table_row_height', h.val)}
-                    className={`flex-1 py-1 rounded-lg text-[10px] font-black transition-all ${parseInt(editForm.table_row_height || 22, 10) === h.val
-                        ? 'bg-amber-500 text-slate-950 shadow-sm'
-                        : 'text-slate-600 hover:bg-slate-200/60'
-                      }`}
-                  >
-                    {h.label}
-                  </button>
-                ))}
+              <div className="relative">
+                <input
+                  type="number"
+                  min={14}
+                  max={45}
+                  value={editForm.table_row_height || 22}
+                  onChange={(e) => handleInputChange('table_row_height', parseInt(e.target.value, 10) || 22)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1 text-xs font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 h-[42px] transition-all shadow-2xs pr-10"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 pointer-events-none">px</span>
               </div>
             </div>
 
-            {/* 4. Discount Offer % */}
+            {/* 4. Discount Offer % (Input Type) */}
             <div>
               <label className="block text-slate-700 mb-1 font-extrabold flex items-center justify-between">
                 <span>Discount Offer</span>
-                <span className="text-amber-700 font-black text-[11px] bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">{editForm.discount_percent || 50}% OFF</span>
+                <span className="text-amber-700 font-black text-[11px] bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">{editForm.discount_percent !== undefined ? editForm.discount_percent : 50}% OFF</span>
               </label>
-              <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl p-1 h-[42px]">
-                {[
-                  { label: '50%', val: 50 },
-                  { label: '60%', val: 60 },
-                  { label: '70%', val: 70 },
-                  { label: '75%', val: 75 },
-                ].map((d) => (
-                  <button
-                    key={d.val}
-                    type="button"
-                    onClick={() => handleInputChange('discount_percent', d.val)}
-                    className={`flex-1 py-1 rounded-lg text-[10px] font-black transition-all ${parseInt(editForm.discount_percent || 50, 10) === d.val
-                        ? 'bg-amber-500 text-slate-950 shadow-sm'
-                        : 'text-slate-600 hover:bg-slate-200/60'
-                      }`}
-                  >
-                    {d.label}
-                  </button>
-                ))}
+              <div className="relative">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={editForm.discount_percent !== undefined ? editForm.discount_percent : 50}
+                  onChange={(e) => handleInputChange('discount_percent', parseFloat(e.target.value) || 0)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1 text-xs font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 h-[42px] transition-all shadow-2xs pr-12"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 pointer-events-none">% OFF</span>
               </div>
             </div>
 
@@ -1553,6 +1545,22 @@ export default function PriceList({ defaultTab }) {
                 </label>
               </div>
             </div>
+
+            {/* 6. Footer Position Option (Input Style) */}
+            <div>
+              <label className="block text-slate-700 mb-1 font-extrabold flex items-center justify-between">
+                <span>Footer Position</span>
+              </label>
+              <select
+                value={editForm.footer_position || 'below_table'}
+                onChange={(e) => handleInputChange('footer_position', e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 text-xs font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer h-[42px] transition-all shadow-2xs"
+              >
+                <option value="below_table">📍 Below Table</option>
+                <option value="new_page">📄 New Page</option>
+              </select>
+            </div>
+
           </div>
         </div>
 
@@ -1613,13 +1621,13 @@ export default function PriceList({ defaultTab }) {
                 </div>
               </div>
 
-              {/* Center Cover Image Section (Natural Unmodified Colors) */}
+              {/* Center Cover Image Section (Natural Unmodified Colors - 50% Size Increase) */}
               {getDeityImageUrl() && (
-                <div className="relative z-10 my-auto flex justify-center items-center pointer-events-none py-1 overflow-hidden">
+                <div className="relative z-10 flex-1 min-h-0 my-auto flex justify-center items-center pointer-events-none py-1 overflow-hidden">
                   <img
                     src={getDeityImageUrl()}
                     alt="Cover Image"
-                    className="max-h-[360px] sm:max-h-[420px] w-auto object-contain relative z-10 drop-shadow-[0_20px_40px_rgba(0,0,0,0.85)]"
+                    className="max-h-[540px] sm:max-h-[630px] w-auto object-contain relative z-10 drop-shadow-[0_20px_40px_rgba(0,0,0,0.85)]"
                   />
                 </div>
               )}
@@ -1964,7 +1972,7 @@ export default function PriceList({ defaultTab }) {
                     )}
 
                     {/* RIGHT AFTER TABLE ENDS: CLEAN TABLE-MATCHING PAYMENT BLOCK */}
-                    {chunkIdx === productPageChunks.length - 1 && (
+                    {(editForm.footer_position || 'below_table') === 'below_table' && chunkIdx === productPageChunks.length - 1 && (
                       <div className="mt-2 bg-white border-2 border-slate-700 rounded-xl overflow-hidden shadow-sm p-2 font-sans">
                         <div className={`grid grid-cols-1 ${editForm.show_bank_details !== false ? 'md:grid-cols-2' : 'md:grid-cols-1'} gap-3 text-slate-900 items-center`}>
 
@@ -2061,6 +2069,102 @@ export default function PriceList({ defaultTab }) {
               </div>
             );
           })}
+
+          {/* A4 STANDALONE BACK COVER / FOOTER PAGE */}
+          {editForm.footer_position === 'new_page' && (
+            <div className="w-full max-w-[210mm] print:w-[210mm]">
+              <div
+                className="a4-page-sheet w-[210mm] h-[297mm] max-h-[297mm] overflow-hidden text-slate-900 transition-all duration-300 relative shadow-2xl flex flex-col justify-between p-4 sm:p-5 select-none mx-auto break-after-page bg-cover bg-center bg-no-repeat box-border"
+                style={{ backgroundImage: `url(${editForm.store_cover_bg ? getImageUrl(editForm.store_cover_bg) : '/images/cover_bg.jpg'})`, pageBreakAfter: 'always' }}
+              >
+                {/* Content Starts Right at Top (Same Level as Product Tables) */}
+                <div className="w-full space-y-4 mt-0">
+                  <div className={`grid grid-cols-1 ${editForm.show_bank_details !== false ? 'md:grid-cols-2' : 'md:grid-cols-1'} gap-4 items-stretch`}>
+                    {/* UPI Card */}
+                    <div className="flex flex-col items-center justify-center text-center space-y-3 p-5 border-2 border-amber-400 rounded-2xl bg-white/95 shadow-md backdrop-blur-xs">
+                      <div className={`${theme.tableHeader} text-slate-950 text-xs font-black uppercase px-4 py-1.5 rounded-full flex items-center justify-center gap-2 border border-amber-400`}>
+                        <i className="fa-solid fa-qrcode"></i> SCAN & PAY VIA UPI
+                      </div>
+                      <div className="p-2 bg-white border-2 border-amber-300 rounded-xl shadow-sm">
+                        <img
+                          src={
+                            editForm.store_upi_qr || settings?.store_upi_qr
+                              ? getImageUrl(editForm.store_upi_qr || settings.store_upi_qr)
+                              : `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=${encodeURIComponent(editForm.store_gpay || '9787772038')}%40okicici&pn=${encodeURIComponent(editForm.store_name)}`
+                          }
+                          alt="UPI QR Code"
+                          className="w-36 h-36 object-contain"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-center gap-1.5 text-xs font-extrabold">
+                          <span className="bg-sky-500 text-white font-black px-2 py-0.5 rounded">GPay</span>
+                          <span className="bg-indigo-600 text-white font-black px-2 py-0.5 rounded">PhonePe</span>
+                          <span className="bg-blue-600 text-white font-black px-2 py-0.5 rounded">Paytm</span>
+                        </div>
+                        <p className="text-sm font-black font-mono text-slate-900 pt-1">
+                          UPI: {editForm.store_gpay || editForm.store_phone_3 || '9787772038'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Bank Details Card */}
+                    {editForm.show_bank_details !== false && (
+                      <div className="flex flex-col justify-between space-y-3 p-5 border-2 border-amber-400 rounded-2xl bg-white/95 shadow-md backdrop-blur-xs h-full">
+                        <div className={`${theme.tableHeader} text-slate-950 text-xs font-black uppercase px-4 py-1.5 rounded-full flex items-center gap-2 border border-amber-400`}>
+                          <i className="fa-solid fa-building-columns"></i> BANK ACCOUNT INFO
+                        </div>
+                        <div className="border border-slate-300 rounded-xl overflow-hidden bg-white text-xs">
+                          <div className="flex justify-between border-b border-slate-200 p-2.5">
+                            <span className="text-slate-500 font-bold">Account Name</span>
+                            <span className="font-black text-slate-900 text-right">{editForm.bank_name}</span>
+                          </div>
+                          <div className="flex justify-between border-b border-slate-200 p-2.5">
+                            <span className="text-slate-500 font-bold">Bank / Branch</span>
+                            <span className="font-black text-slate-900 text-right">{editForm.bank_branch}</span>
+                          </div>
+                          <div className="flex justify-between border-b border-slate-200 p-2.5">
+                            <span className="text-slate-500 font-bold">Account No</span>
+                            <span className="font-mono font-black text-slate-900 text-right">{editForm.bank_account_no}</span>
+                          </div>
+                          <div className="flex justify-between p-2.5">
+                            <span className="text-slate-500 font-bold">IFSC Code</span>
+                            <span className="font-mono font-black text-slate-900 text-right">{editForm.bank_ifsc}</span>
+                          </div>
+                        </div>
+                        <div className="text-center text-slate-700 text-xs font-bold bg-amber-100/80 p-2 rounded-lg border border-amber-300">
+                          ⚡ Quick Bank Transfer / IMPS Available
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Important Notes */}
+                  {(editForm.important_note_1 || editForm.important_note_2) && (
+                    <div className="bg-white/95 border-2 border-amber-400 rounded-2xl p-4 text-center shadow-md backdrop-blur-xs space-y-1.5">
+                      {editForm.important_note_1 && (
+                        <p className="text-slate-900 font-black text-xs sm:text-sm leading-relaxed">
+                          {editForm.important_note_1}
+                        </p>
+                      )}
+                      {editForm.important_note_2 && (
+                        <p className="text-red-700 font-black text-xs sm:text-sm leading-relaxed">
+                          {editForm.important_note_2}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer Bar */}
+                <div className="flex items-center justify-between text-[11px] font-black text-slate-900 bg-white/95 px-4 py-2 rounded-xl border-2 border-amber-400 shadow-md backdrop-blur-xs">
+                  <span>Page {totalDocPages} of {totalDocPages}</span>
+                  <span>{editForm.store_name || 'Guru Vishnu Traders'} • Official Price List</span>
+                  <span>210mm × 297mm</span>
+                </div>
+              </div>
+            </div>
+          )}
 
         </div>
         {/* ─── Modal: Add Product ─────────────────────────────────────────── */}

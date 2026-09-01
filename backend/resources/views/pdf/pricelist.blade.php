@@ -221,7 +221,7 @@
 
         @if(!empty($deityImgPath) && file_exists($deityImgPath))
         <div style="text-align: center; margin-top: 5px; margin-bottom: 5px;">
-            <img src="{{ $deityImgPath }}" style="max-height: 494px; width: auto;" alt="Deity"/>
+            <img src="{{ $deityImgPath }}" style="max-height: 741px; width: auto;" alt="Deity"/>
         </div>
         @endif
 
@@ -329,7 +329,10 @@
             </table>
 
             @if($loop->last)
-            <!-- RIGHT AFTER TABLE ENDS: UPI SCAN & PAY QR CODE + BANK ACCOUNT INFO CARDS -->
+            @if(($settings['footer_position'] ?? 'below_table') === 'new_page')
+            <div style="page-break-before: always; height: 1px;"></div>
+            @endif
+            <!-- UPI SCAN & PAY QR CODE + BANK ACCOUNT INFO CARDS -->
             <table style="width: 100%; border-collapse: separate; border-spacing: 12px; margin-top: 15px;">
                 <tr>
                     <!-- Left: UPI QR Code Card -->
@@ -382,7 +385,7 @@
             @endif
 
             <div class="footer-note">
-                📄 Page {{ $chunkIdx + 2 }} of {{ count($productPageChunks) + 1 }} &bull; {{ $editForm['store_name'] ?? 'MASS CRACKERS' }} &bull; 210mm × 297mm
+                📄 Page {{ $chunkIdx + 2 }} of {{ count($productPageChunks) + 1 + (($settings['footer_position'] ?? 'below_table') === 'new_page' ? 1 : 0) }} &bull; {{ $editForm['store_name'] ?? 'MASS CRACKERS' }} &bull; 210mm × 297mm
             </div>
         </div>
     @endforeach
