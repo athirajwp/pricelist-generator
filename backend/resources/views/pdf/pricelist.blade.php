@@ -141,12 +141,14 @@
         table.pricelist-table th {
             background-color: #fef3c7;
             color: #000000;
-            font-size: 11px;
+            font-size: 10px;
+            line-height: 1.15;
             font-weight: 900;
             text-transform: uppercase;
-            padding: 6px {{ $settings['table_col_padding'] ?? '4' }}px;
+            padding: 4px {{ $settings['table_col_padding'] ?? '3' }}px;
             border: 1px solid #d97706;
             text-align: center;
+            vertical-align: middle;
         }
         table.pricelist-table td {
             font-size: 11px;
@@ -283,20 +285,40 @@
     </div>
 
     <!-- PRODUCT PAGES -->
-    @php $globalSnoCounter = 1; @endphp
+    @php 
+        $globalSnoCounter = 1; 
+        $showSno = ($editForm['show_col_sno'] ?? true) !== false;
+        $showProduct = ($editForm['show_col_product'] ?? true) !== false;
+        $showUnit = ($editForm['show_col_unit'] ?? true) !== false;
+        $showMrpCol = $showMrp && (($editForm['show_col_mrp'] ?? true) !== false);
+        $showOffer = ($editForm['show_col_offer'] ?? true) !== false;
+        $showReq = ($editForm['show_col_req'] ?? true) !== false;
+
+        $activeColCount = ($showSno ? 1 : 0) + ($showProduct ? 1 : 0) + ($showUnit ? 1 : 0) + ($showMrpCol ? 1 : 0) + ($showOffer ? 1 : 0) + ($showReq ? 1 : 0);
+    @endphp
     @foreach($productPageChunks as $chunkIdx => $chunkProducts)
         <div class="page-sheet">
             <table class="pricelist-table">
                 <thead>
                     <tr>
-                        <th style="width: 38px;">S.No</th>
-                        <th>PRODUCT</th>
-                        <th style="width: 85px;">Unit</th>
-                        @if($showMrp)
-                        <th style="width: 70px;">Rate (₹)</th>
+                        @if($showSno)
+                        <th style="width: 38px;">{!! nl2br(e($editForm['header_sno'] ?? 'S.No')) !!}</th>
                         @endif
-                        <th style="width: 100px;">{{ $discountPercent }}% Offer Rate (₹)</th>
-                        <th style="width: 35px;">Req</th>
+                        @if($showProduct)
+                        <th style="text-align: left;">{!! nl2br(e($editForm['header_product'] ?? 'PRODUCT')) !!}</th>
+                        @endif
+                        @if($showUnit)
+                        <th style="width: 80px;">{!! nl2br(e($editForm['header_unit'] ?? 'Unit')) !!}</th>
+                        @endif
+                        @if($showMrpCol)
+                        <th style="width: 75px; text-align: right;">{!! nl2br(e($editForm['header_mrp'] ?? 'Rate (₹)')) !!}</th>
+                        @endif
+                        @if($showOffer)
+                        <th style="width: 110px; text-align: right;">{!! nl2br(e($editForm['header_offer'] ?? ($discountPercent.'% Offer Rate (₹)'))) !!}</th>
+                        @endif
+                        @if($showReq)
+                        <th style="width: 35px;">{!! nl2br(e($editForm['header_req'] ?? 'Req')) !!}</th>
+                        @endif
                     </tr>
                 </thead>
                 <tbody>
@@ -317,7 +339,7 @@
 
                     @foreach($chunkCategories as $cat)
                         <tr class="category-row">
-                            <td colspan="{{ $showMrp ? 6 : 5 }}">{{ $cat['name'] }}</td>
+                            <td colspan="{{ $activeColCount || 1 }}">{{ $cat['name'] }}</td>
                         </tr>
                         @foreach($cat['products'] as $product)
                             @php
@@ -327,14 +349,24 @@
                                 $globalSnoCounter++;
                             @endphp
                             <tr class="product-row" style="color: #000000; font-weight: bold;">
+                                @if($showSno)
                                 <td class="text-center font-bold" style="color: #000000;">{{ $displaySno }}</td>
+                                @endif
+                                @if($showProduct)
                                 <td class="font-bold" style="color: #000000;">{{ $product['name'] }}</td>
+                                @endif
+                                @if($showUnit)
                                 <td class="text-center font-bold" style="color: #000000; font-size: 10px;">{{ $product['pack_size'] }}</td>
-                                @if($showMrp)
+                                @endif
+                                @if($showMrpCol)
                                 <td class="text-right font-bold" style="color: #000000;">₹{{ number_format((float)$product['mrp'], 2) }}</td>
                                 @endif
+                                @if($showOffer)
                                 <td class="text-right font-bold" style="color: #000000;">₹{{ number_format((float)$product['selling_price'], 2) }}</td>
-                                <td class="text-center"></td>
+                                @endif
+                                @if($showReq)
+                                <td class="text-center font-bold" style="color: #000000;">{{ $product['req'] ?? '' }}</td>
+                                @endif
                             </tr>
                         @endforeach
                     @endforeach

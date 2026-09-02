@@ -898,6 +898,31 @@ export default function PriceList({ defaultTab }) {
       console.error('Error re-sequencing S.No:', err);
     }
   };
+  // Canva-style Drag Resize Handler for Header Elements (Logo, Contact, Discount, Address)
+  const handleElementResizeStart = (elementKey, currentScale, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startScale = currentScale || 100;
+
+    const onMouseMove = (moveEvent) => {
+      const deltaX = moveEvent.clientX - startX;
+      const deltaY = moveEvent.clientY - startY;
+      const delta = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
+      const newScale = Math.min(250, Math.max(40, Math.round(startScale + delta * 0.5)));
+      handleInputChange(`${elementKey}_scale`, newScale);
+    };
+
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
 
 
   const handleDeleteAllProducts = async () => {
@@ -2060,6 +2085,78 @@ export default function PriceList({ defaultTab }) {
               </div>
             </div>
 
+            {/* 6. Canva-Style Element Scaling Controls */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2.5">
+              <label className="block text-slate-800 font-extrabold text-xs flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-sky-700"><i className="fa-solid fa-expand text-sky-500"></i> Canva Header Element Resizing</span>
+                <span className="text-[10px] text-slate-400 font-normal">Drag handles or use sliders</span>
+              </label>
+
+              {/* Logo Scale Slider */}
+              <div>
+                <div className="flex justify-between text-[11px] font-bold text-slate-700 mb-0.5">
+                  <span>🖼️ Logo / Brand Size</span>
+                  <span className="font-mono text-sky-600">{editForm.logo_scale || 100}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="40"
+                  max="200"
+                  value={editForm.logo_scale || 100}
+                  onChange={(e) => handleInputChange('logo_scale', parseInt(e.target.value, 10))}
+                  className="w-full accent-sky-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
+                />
+              </div>
+
+              {/* Contact Scale Slider */}
+              <div>
+                <div className="flex justify-between text-[11px] font-bold text-slate-700 mb-0.5">
+                  <span>📞 Contact Details Size</span>
+                  <span className="font-mono text-sky-600">{editForm.contact_scale || 100}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="40"
+                  max="200"
+                  value={editForm.contact_scale || 100}
+                  onChange={(e) => handleInputChange('contact_scale', parseInt(e.target.value, 10))}
+                  className="w-full accent-sky-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
+                />
+              </div>
+
+              {/* Discount Box Scale Slider */}
+              <div>
+                <div className="flex justify-between text-[11px] font-bold text-slate-700 mb-0.5">
+                  <span>🏷️ Discount Box Size</span>
+                  <span className="font-mono text-sky-600">{editForm.discount_scale || 100}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="40"
+                  max="200"
+                  value={editForm.discount_scale || 100}
+                  onChange={(e) => handleInputChange('discount_scale', parseInt(e.target.value, 10))}
+                  className="w-full accent-sky-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
+                />
+              </div>
+
+              {/* Address Scale Slider */}
+              <div>
+                <div className="flex justify-between text-[11px] font-bold text-slate-700 mb-0.5">
+                  <span>📍 Address Row Size</span>
+                  <span className="font-mono text-sky-600">{editForm.address_scale || 100}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="40"
+                  max="200"
+                  value={editForm.address_scale || 100}
+                  onChange={(e) => handleInputChange('address_scale', parseInt(e.target.value, 10))}
+                  className="w-full accent-sky-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
+                />
+              </div>
+            </div>
+
             {/* 6. Footer Position Option (Input Style) */}
             <div>
               <label className="block text-slate-700 mb-1 font-extrabold flex items-center justify-between">
@@ -2149,101 +2246,165 @@ export default function PriceList({ defaultTab }) {
               {/* For Order Full-Width Banner Card (Spans Start to End Flush Across Sheet - Compact & High-Legibility) */}
               <div className="relative z-10 w-full mx-0 mt-auto mb-0">
                 <div className="bg-white text-slate-950 p-2.5 sm:p-3 rounded-2xl shadow-2xl border-2 border-amber-400 grid grid-cols-1 sm:grid-cols-12 gap-2 items-center px-3 sm:px-4">
-                  {/* Left: Store Logo (Direct clean logo without circle ring) */}
+                  {/* Left: Store Logo (Direct clean logo without circle ring with Canva Resize Handle) */}
                   <div className="sm:col-span-3 flex justify-center sm:justify-start items-center">
-                    {editForm.store_logo || settings?.store_logo ? (
-                      <img
-                        src={getImageUrl(editForm.store_logo || settings?.store_logo)}
-                        alt={editForm.store_name}
-                        className="max-h-16 sm:max-h-20 max-w-[130px] sm:max-w-[160px] object-contain drop-shadow-xs"
-                      />
-                    ) : (
-                      <div className="flex items-center gap-1.5 text-amber-600 font-black text-lg">
-                        <i className="fa-solid fa-fire text-xl text-red-600"></i>
-                        <span>{editForm.store_name}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Center: Contact Details (Website, 4 Phone Numbers, GPay - 100% Visible & Crisp) */}
-                  <div className={`${editForm.show_discount_badge !== false ? 'sm:col-span-6' : 'sm:col-span-9'} flex flex-col items-center sm:items-start text-center sm:text-left space-y-1 sm:space-y-1.5`}>
-                    {editForm.store_email && (
-                      <div className="flex items-center gap-2 text-slate-950 text-xs sm:text-sm font-black tracking-wide">
-                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-black text-white flex items-center justify-center text-[10px] sm:text-xs shrink-0 shadow-xs">
-                          <i className="fa-solid fa-globe"></i>
+                    <div
+                      className="relative group border border-transparent hover:border-sky-400 hover:border-dashed rounded-lg p-1 transition-all"
+                      style={{
+                        transform: `scale(${(editForm.logo_scale || 100) / 100})`,
+                        transformOrigin: 'left center',
+                      }}
+                    >
+                      {editForm.store_logo || settings?.store_logo ? (
+                        <img
+                          src={getImageUrl(editForm.store_logo || settings?.store_logo)}
+                          alt={editForm.store_name}
+                          className="max-h-16 sm:max-h-20 max-w-[130px] sm:max-w-[160px] object-contain drop-shadow-xs"
+                        />
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-amber-600 font-black text-lg">
+                          <i className="fa-solid fa-fire text-xl text-red-600"></i>
+                          <span>{editForm.store_name}</span>
                         </div>
-                        <span className="truncate">{editForm.store_email}</span>
+                      )}
+                      {/* Canva Resize Handle */}
+                      <div
+                        onMouseDown={(e) => handleElementResizeStart('logo', editForm.logo_scale || 100, e)}
+                        className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-sky-500 hover:bg-sky-600 rounded-full border-2 border-white cursor-se-resize shadow-md opacity-0 group-hover:opacity-100 z-30 transition-opacity print:hidden flex items-center justify-center text-[8px] text-white"
+                        title="Drag corner to resize Logo like Canva"
+                      >
+                        <i className="fa-solid fa-up-right-and-down-left-from-center"></i>
                       </div>
-                    )}
-                    <div className="flex items-center gap-2 text-slate-950 text-xs sm:text-sm font-black tracking-wide">
-                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] sm:text-xs shrink-0 shadow-xs">
-                        <i className="fa-solid fa-phone"></i>
-                      </div>
-                      <span className="leading-snug">
-                        {[editForm.store_phone, editForm.store_phone_2, editForm.store_phone_3, editForm.store_phone_4].filter(Boolean).join(' , ')}
-                      </span>
                     </div>
-                    {(editForm.store_gpay || editForm.store_phone_3) && (
-                      <div className="flex items-center gap-2 text-slate-950 text-xs sm:text-sm font-black tracking-wide">
-                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-sky-500 text-white flex items-center justify-center text-[9px] sm:text-[10px] font-black shrink-0 shadow-xs">
-                          GPay
-                        </div>
-                        <span className="font-mono">{editForm.store_gpay || editForm.store_phone_3}</span>
-                      </div>
-                    )}
                   </div>
 
-                  {/* Right: Dynamic Mega Sale Discount Offer Badge & Rocket (Optional) */}
+                  {/* Center: Contact Details (Website, 4 Phone Numbers, GPay with Canva Resize Handle) */}
+                  <div className={`${editForm.show_discount_badge !== false ? 'sm:col-span-6' : 'sm:col-span-9'} flex flex-col items-center sm:items-start text-center sm:text-left`}>
+                    <div
+                      className="relative group border border-transparent hover:border-sky-400 hover:border-dashed rounded-lg p-1 transition-all space-y-1 sm:space-y-1.5"
+                      style={{
+                        transform: `scale(${(editForm.contact_scale || 100) / 100})`,
+                        transformOrigin: 'left center',
+                      }}
+                    >
+                      {editForm.store_email && (
+                        <div className="flex items-center gap-2 text-slate-950 text-xs sm:text-sm font-black tracking-wide">
+                          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-black text-white flex items-center justify-center text-[10px] sm:text-xs shrink-0 shadow-xs">
+                            <i className="fa-solid fa-globe"></i>
+                          </div>
+                          <span className="truncate">{editForm.store_email}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 text-slate-950 text-xs sm:text-sm font-black tracking-wide">
+                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] sm:text-xs shrink-0 shadow-xs">
+                          <i className="fa-solid fa-phone"></i>
+                        </div>
+                        <span className="leading-snug">
+                          {[editForm.store_phone, editForm.store_phone_2, editForm.store_phone_3, editForm.store_phone_4].filter(Boolean).join(' , ')}
+                        </span>
+                      </div>
+                      {(editForm.store_gpay || editForm.store_phone_3) && (
+                        <div className="flex items-center gap-2 text-slate-950 text-xs sm:text-sm font-black tracking-wide">
+                          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-sky-500 text-white flex items-center justify-center text-[9px] sm:text-[10px] font-black shrink-0 shadow-xs">
+                            GPay
+                          </div>
+                          <span className="font-mono">{editForm.store_gpay || editForm.store_phone_3}</span>
+                        </div>
+                      )}
+                      {/* Canva Resize Handle */}
+                      <div
+                        onMouseDown={(e) => handleElementResizeStart('contact', editForm.contact_scale || 100, e)}
+                        className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-sky-500 hover:bg-sky-600 rounded-full border-2 border-white cursor-se-resize shadow-md opacity-0 group-hover:opacity-100 z-30 transition-opacity print:hidden flex items-center justify-center text-[8px] text-white"
+                        title="Drag corner to resize Contact Details like Canva"
+                      >
+                        <i className="fa-solid fa-up-right-and-down-left-from-center"></i>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right: Dynamic Mega Sale Discount Offer Badge & Rocket (Optional with Canva Resize Handle) */}
                   {editForm.show_discount_badge !== false && (
                     <div className="sm:col-span-3 flex justify-center sm:justify-end items-center">
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <div className="flex flex-col items-center justify-center text-center">
-                          {/* 3D MEGA SALE Header */}
-                          <div
-                            className="text-amber-500 font-black text-base sm:text-lg uppercase tracking-wider leading-none"
-                            style={{ textShadow: '-1.5px -1.5px 0 #78350f, 1.5px -1.5px 0 #78350f, -1.5px 1.5px 0 #78350f, 1.5px 1.5px 0 #78350f, 0 2px 4px rgba(0,0,0,0.3)' }}
-                          >
-                            MEGA SALE
+                      <div
+                        className="relative group border border-transparent hover:border-sky-400 hover:border-dashed rounded-lg p-1 transition-all"
+                        style={{
+                          transform: `scale(${(editForm.discount_scale || 100) / 100})`,
+                          transformOrigin: 'right center',
+                        }}
+                      >
+                        <div className="flex items-center gap-2 sm:gap-3">
+                          <div className="flex flex-col items-center justify-center text-center">
+                            {/* 3D MEGA SALE Header */}
+                            <div
+                              className="text-amber-500 font-black text-base sm:text-lg uppercase tracking-wider leading-none"
+                              style={{ textShadow: '-1.5px -1.5px 0 #78350f, 1.5px -1.5px 0 #78350f, -1.5px 1.5px 0 #78350f, 1.5px 1.5px 0 #78350f, 0 2px 4px rgba(0,0,0,0.3)' }}
+                            >
+                              MEGA SALE
+                            </div>
+                            {/* Dynamic Offer Percentage Value */}
+                            <div
+                              className="text-3xl sm:text-4xl font-black my-0.5 leading-none transition-colors duration-300"
+                              style={{
+                                color: getThemeAccentColor(editForm.store_cover_bg).hex,
+                                textShadow: '-2px -2px 0 #ffffff, 2px -2px 0 #ffffff, -2px 2px 0 #ffffff, 2px 2px 0 #ffffff, 0 3px 6px rgba(0,0,0,0.4)'
+                              }}
+                            >
+                              {discountPercent}%
+                            </div>
+                            {/* DISCOUNT Badge */}
+                            <div
+                              className="text-white text-[9px] sm:text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md shadow tracking-widest transition-colors duration-300"
+                              style={{
+                                backgroundColor: getThemeAccentColor(editForm.store_cover_bg).hex
+                              }}
+                            >
+                              DISCOUNT
+                            </div>
                           </div>
-                          {/* Dynamic Offer Percentage Value */}
-                          <div
-                            className="text-3xl sm:text-4xl font-black my-0.5 leading-none transition-colors duration-300"
-                            style={{
-                              color: getThemeAccentColor(editForm.store_cover_bg).hex,
-                              textShadow: '-2px -2px 0 #ffffff, 2px -2px 0 #ffffff, -2px 2px 0 #ffffff, 2px 2px 0 #ffffff, 0 3px 6px rgba(0,0,0,0.4)'
-                            }}
-                          >
-                            {discountPercent}%
-                          </div>
-                          {/* DISCOUNT Badge */}
-                          <div
-                            className="text-white text-[9px] sm:text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md shadow tracking-widest transition-colors duration-300"
-                            style={{
-                              backgroundColor: getThemeAccentColor(editForm.store_cover_bg).hex
-                            }}
-                          >
-                            DISCOUNT
+                          {/* Skyrocket Clipart */}
+                          <div className="text-2xl sm:text-3xl">
+                            🚀
                           </div>
                         </div>
-                        {/* Skyrocket Clipart */}
-                        <div className="text-2xl sm:text-3xl">
-                          🚀
+                        {/* Canva Resize Handle */}
+                        <div
+                          onMouseDown={(e) => handleElementResizeStart('discount', editForm.discount_scale || 100, e)}
+                          className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-sky-500 hover:bg-sky-600 rounded-full border-2 border-white cursor-se-resize shadow-md opacity-0 group-hover:opacity-100 z-30 transition-opacity print:hidden flex items-center justify-center text-[8px] text-white"
+                          title="Drag corner to resize Discount Box like Canva"
+                        >
+                          <i className="fa-solid fa-up-right-and-down-left-from-center"></i>
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {/* Bottom Centered Address Row */}
-                  <div className="sm:col-span-12 flex items-center justify-center gap-1.5 text-slate-950 text-[11px] sm:text-xs font-black pt-1.5 border-t border-slate-200 text-center w-full mt-0.5">
+                  {/* Bottom Centered Address Row with Canva Resize Handle */}
+                  <div className="sm:col-span-12 flex items-center justify-center pt-1.5 border-t border-slate-200 text-center w-full mt-0.5">
                     <div
-                      className="w-4.5 h-4.5 rounded-full text-white flex items-center justify-center text-[9px] shrink-0 shadow-xs transition-colors duration-300"
+                      className="relative group border border-transparent hover:border-sky-400 hover:border-dashed rounded-lg p-1 transition-all flex items-center justify-center gap-1.5 text-slate-950 text-[11px] sm:text-xs font-black"
                       style={{
-                        backgroundColor: getThemeAccentColor(editForm.store_cover_bg).hex
+                        transform: `scale(${(editForm.address_scale || 100) / 100})`,
+                        transformOrigin: 'center center',
                       }}
                     >
-                      <i className="fa-solid fa-location-dot"></i>
+                      <div
+                        className="w-4.5 h-4.5 rounded-full text-white flex items-center justify-center text-[9px] shrink-0 shadow-xs transition-colors duration-300"
+                        style={{
+                          backgroundColor: getThemeAccentColor(editForm.store_cover_bg).hex
+                        }}
+                      >
+                        <i className="fa-solid fa-location-dot"></i>
+                      </div>
+                      <span>{editForm.store_address || 'Virudhunagar to Sivakasi Main Road, Sivakasi'}</span>
+                      {/* Canva Resize Handle */}
+                      <div
+                        onMouseDown={(e) => handleElementResizeStart('address', editForm.address_scale || 100, e)}
+                        className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-sky-500 hover:bg-sky-600 rounded-full border-2 border-white cursor-se-resize shadow-md opacity-0 group-hover:opacity-100 z-30 transition-opacity print:hidden flex items-center justify-center text-[8px] text-white"
+                        title="Drag corner to resize Address Row like Canva"
+                      >
+                        <i className="fa-solid fa-up-right-and-down-left-from-center"></i>
+                      </div>
                     </div>
-                    <span>{editForm.store_address || 'Virudhunagar to Sivakasi Main Road, Sivakasi'}</span>
                   </div>
                 </div>
               </div>

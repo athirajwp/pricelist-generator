@@ -209,9 +209,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tableHeaderRow: {
-    backgroundColor: '#991b1b',
-    color: '#ffffff',
+    backgroundColor: '#fef3c7',
+    color: '#000000',
     fontWeight: 'bold',
+    minHeight: 26,
+    paddingVertical: 2,
+    alignItems: 'center',
   },
   catRow: {
     backgroundColor: '#d97706',
@@ -238,9 +241,10 @@ const styles = StyleSheet.create({
     fontSize: 8,
   },
   thText: {
-    color: '#ffffff',
+    color: '#000000',
     fontWeight: 'bold',
-    fontSize: 8,
+    fontSize: 7.5,
+    lineHeight: 1.15,
   },
   footer: {
     position: 'absolute',
@@ -379,32 +383,32 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
             <View style={styles.coverBanner}>
               <View style={styles.coverBannerLeft}>
                 {logoUrl ? (
-                  <Image src={logoUrl} style={styles.coverLogo} />
+                  <Image src={logoUrl} style={[styles.coverLogo, { height: 45 * ((editForm.logo_scale || 100) / 100), width: 85 * ((editForm.logo_scale || 100) / 100) }]} />
                 ) : (
-                  <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#991b1b' }}>{editForm.store_name}</Text>
+                  <Text style={{ fontSize: 12 * ((editForm.logo_scale || 100) / 100), fontWeight: 'bold', color: '#991b1b' }}>{editForm.store_name}</Text>
                 )}
               </View>
               <View style={styles.coverBannerCenter}>
                 {editForm.store_email ? (
-                  <Text style={styles.contactItem}>🌐 {editForm.store_email}</Text>
+                  <Text style={[styles.contactItem, { fontSize: 8 * ((editForm.contact_scale || 100) / 100) }]}>🌐 {editForm.store_email}</Text>
                 ) : null}
-                <Text style={styles.contactItem}>
+                <Text style={[styles.contactItem, { fontSize: 8 * ((editForm.contact_scale || 100) / 100) }]}>
                   📞 {[editForm.store_phone, editForm.store_phone_2].filter(Boolean).join(', ')}
                 </Text>
                 {editForm.store_gpay ? (
-                  <Text style={styles.contactItem}>💳 GPay: {editForm.store_gpay}</Text>
+                  <Text style={[styles.contactItem, { fontSize: 8 * ((editForm.contact_scale || 100) / 100) }]}>💳 GPay: {editForm.store_gpay}</Text>
                 ) : null}
               </View>
               {editForm.show_discount_badge !== false && (
                 <View style={styles.coverBannerRight}>
-                  <Text style={styles.megaSaleText}>MEGA SALE</Text>
-                  <Text style={styles.discountVal}>{editForm.discount_percent || 50}%</Text>
-                  <Text style={styles.discountBadge}>DISCOUNT</Text>
+                  <Text style={[styles.megaSaleText, { fontSize: 9 * ((editForm.discount_scale || 100) / 100) }]}>MEGA SALE</Text>
+                  <Text style={[styles.discountVal, { fontSize: 22 * ((editForm.discount_scale || 100) / 100) }]}>{editForm.discount_percent || 50}%</Text>
+                  <Text style={[styles.discountBadge, { fontSize: 7 * ((editForm.discount_scale || 100) / 100) }]}>DISCOUNT</Text>
                 </View>
               )}
             </View>
             {editForm.store_address ? (
-              <Text style={styles.addressRow}>📍 {editForm.store_address}</Text>
+              <Text style={[styles.addressRow, { fontSize: 8 * ((editForm.address_scale || 100) / 100) }]}>📍 {editForm.store_address}</Text>
             ) : null}
           </View>
         </View>
