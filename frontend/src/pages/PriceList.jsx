@@ -2231,7 +2231,7 @@ export default function PriceList({ defaultTab }) {
                     {/* RIGHT AFTER TABLE ENDS: CLEAN TABLE-MATCHING PAYMENT BLOCK */}
                     {(editForm.footer_position || 'below_table') === 'below_table' && chunkIdx === productPageChunks.length - 1 && (
                       <div className="mt-2 bg-white border-2 border-slate-700 rounded-xl overflow-hidden shadow-sm p-2 font-sans">
-                        <div className={`grid grid-cols-1 ${editForm.show_upi_qr !== false && editForm.show_bank_details !== false ? 'md:grid-cols-2' : 'md:grid-cols-1'} gap-3 text-slate-900 items-center`}>
+                        <div className={`grid ${editForm.show_upi_qr !== false && editForm.show_bank_details !== false ? 'grid-cols-2' : 'grid-cols-1'} gap-3 text-slate-900 items-center`}>
 
                           {/* Left: Clean UPI Scan & Pay Card */}
                           {editForm.show_upi_qr !== false && (
@@ -2340,7 +2340,7 @@ export default function PriceList({ defaultTab }) {
               >
                 {/* Content Starts Right at Top (Same Level as Product Tables) */}
                 <div className="w-full space-y-4 mt-0">
-                  <div className={`grid grid-cols-1 ${editForm.show_upi_qr !== false && editForm.show_bank_details !== false ? 'md:grid-cols-2' : 'md:grid-cols-1'} gap-4 items-stretch`}>
+                  <div className={`grid ${editForm.show_upi_qr !== false && editForm.show_bank_details !== false ? 'grid-cols-2' : 'grid-cols-1'} gap-4 items-stretch`}>
                     {/* UPI Card */}
                     {editForm.show_upi_qr !== false && (
                       <div className="flex flex-col items-center justify-center text-center space-y-3 p-5 border-2 border-amber-400 rounded-2xl bg-white/95 shadow-md backdrop-blur-xs">
