@@ -209,12 +209,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tableHeaderRow: {
-    backgroundColor: '#fef3c7',
-    color: '#000000',
+    backgroundColor: '#991b1b',
+    color: '#ffffff',
     fontWeight: 'bold',
-    minHeight: 26,
-    paddingVertical: 2,
+    minHeight: 22,
     alignItems: 'center',
+    paddingVertical: 2,
   },
   catRow: {
     backgroundColor: '#d97706',
@@ -241,10 +241,11 @@ const styles = StyleSheet.create({
     fontSize: 8,
   },
   thText: {
-    color: '#000000',
+    color: '#ffffff',
     fontWeight: 'bold',
     fontSize: 7.5,
     lineHeight: 1.15,
+    textAlign: 'center',
   },
   footer: {
     position: 'absolute',
@@ -372,7 +373,7 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
           {/* Center Deity Motif Image */}
           {deityUrl ? (
             <View style={styles.deityImageContainer}>
-              <Image src={deityUrl} style={styles.deityImg} />
+              <Image src={deityUrl} style={[styles.deityImg, { maxHeight: 390 * ((editForm.deity_scale || 100) / 100), maxWidth: 390 * ((editForm.deity_scale || 100) / 100) }]} />
             </View>
           ) : (
             <View style={{ flex: 1 }} />

@@ -2155,6 +2155,22 @@ export default function PriceList({ defaultTab }) {
                   className="w-full accent-sky-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
                 />
               </div>
+
+              {/* God / Deity Image Scale Slider */}
+              <div>
+                <div className="flex justify-between text-[11px] font-bold text-slate-700 mb-0.5">
+                  <span>🕉️ God / Deity Image Size</span>
+                  <span className="font-mono text-sky-600">{editForm.deity_scale || 100}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="40"
+                  max="200"
+                  value={editForm.deity_scale || 100}
+                  onChange={(e) => handleInputChange('deity_scale', parseInt(e.target.value, 10))}
+                  className="w-full accent-sky-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
+                />
+              </div>
             </div>
 
             {/* 6. Footer Position Option (Input Style) */}
@@ -2232,14 +2248,30 @@ export default function PriceList({ defaultTab }) {
                 </div>
               </div>
 
-              {/* Center Cover Image Section (Natural Unmodified Colors - 50% Size Increase) */}
+              {/* Center Cover Image Section (Natural Unmodified Colors - Canva Resizable) */}
               {getDeityImageUrl() && (
-                <div className="relative z-10 flex-1 min-h-0 my-auto flex justify-center items-center pointer-events-none py-1 overflow-hidden">
-                  <img
-                    src={getDeityImageUrl()}
-                    alt="Cover Image"
-                    className="max-h-[540px] sm:max-h-[630px] w-auto object-contain relative z-10 drop-shadow-[0_20px_40px_rgba(0,0,0,0.85)]"
-                  />
+                <div className="relative z-10 flex-1 min-h-0 my-auto flex justify-center items-center py-1 overflow-hidden">
+                  <div
+                    className="relative group border border-transparent hover:border-sky-400 hover:border-dashed rounded-2xl p-1.5 transition-all flex items-center justify-center"
+                    style={{
+                      transform: `scale(${(editForm.deity_scale || 100) / 100})`,
+                      transformOrigin: 'center center',
+                    }}
+                  >
+                    <img
+                      src={getDeityImageUrl()}
+                      alt="Cover Image"
+                      className="max-h-[540px] sm:max-h-[630px] w-auto object-contain relative z-10 drop-shadow-[0_20px_40px_rgba(0,0,0,0.85)] pointer-events-auto"
+                    />
+                    {/* Canva Resize Handle */}
+                    <div
+                      onMouseDown={(e) => handleElementResizeStart('deity', editForm.deity_scale || 100, e)}
+                      className="absolute bottom-2 right-2 w-5 h-5 bg-sky-500 hover:bg-sky-600 rounded-full border-2 border-white cursor-se-resize shadow-lg opacity-0 group-hover:opacity-100 z-30 transition-opacity print:hidden flex items-center justify-center text-[9px] text-white"
+                      title="Drag corner to resize God Image like Canva"
+                    >
+                      <i className="fa-solid fa-up-right-and-down-left-from-center"></i>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -2463,6 +2495,9 @@ export default function PriceList({ defaultTab }) {
                                     paddingRight: `${editForm.table_col_padding || 4}px`,
                                   }}
                                 >
+                                  <span className="hidden print:block w-full text-center font-black uppercase text-[10px] leading-tight py-0.5 break-words">
+                                    {editForm.header_sno || 'S.No'}
+                                  </span>
                                   <textarea
                                     rows={2}
                                     value={editForm.header_sno || 'S.No'}
@@ -2470,10 +2505,10 @@ export default function PriceList({ defaultTab }) {
                                     onFocus={(e) => e.target.select()}
                                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
                                     title="Click to edit header"
-                                    className="w-full h-full bg-transparent border-0 text-center font-black uppercase text-[10px] leading-tight resize-none whitespace-pre-wrap break-words overflow-hidden focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-0.5 cursor-text hover:bg-black/5 transition-colors focus:outline-none py-1"
+                                    className="print:hidden w-full h-full bg-transparent border-0 text-center font-black uppercase text-[10px] leading-tight resize-none whitespace-pre-wrap break-words overflow-hidden focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-0.5 cursor-text hover:bg-black/5 transition-colors focus:outline-none py-1"
                                   />
                                   <div
-                                    className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-amber-600/70 active:bg-amber-700 z-20 transition-colors"
+                                    className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-amber-600/70 active:bg-amber-700 z-20 transition-colors print:hidden"
                                     onMouseDown={(e) => handleColumnResizeStart('sno', e)}
                                     title="Drag to resize S.No column"
                                   />
@@ -2491,6 +2526,9 @@ export default function PriceList({ defaultTab }) {
                                     paddingRight: `${editForm.table_col_padding || 4}px`,
                                   }}
                                 >
+                                  <span className="hidden print:block w-full text-left font-black uppercase text-[10px] leading-tight py-0.5 break-words px-1">
+                                    {editForm.header_product || 'PRODUCT'}
+                                  </span>
                                   <textarea
                                     rows={2}
                                     value={editForm.header_product || 'PRODUCT'}
@@ -2498,10 +2536,10 @@ export default function PriceList({ defaultTab }) {
                                     onFocus={(e) => e.target.select()}
                                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
                                     title="Click to edit header"
-                                    className="w-full h-full bg-transparent border-0 text-left font-black uppercase text-[10px] leading-tight resize-none whitespace-pre-wrap break-words overflow-hidden focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none py-1"
+                                    className="print:hidden w-full h-full bg-transparent border-0 text-left font-black uppercase text-[10px] leading-tight resize-none whitespace-pre-wrap break-words overflow-hidden focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none py-1"
                                   />
                                   <div
-                                    className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-amber-600/70 active:bg-amber-700 z-20 transition-colors"
+                                    className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-amber-600/70 active:bg-amber-700 z-20 transition-colors print:hidden"
                                     onMouseDown={(e) => handleColumnResizeStart('product', e)}
                                     title="Drag to resize Product column"
                                   />
@@ -2519,17 +2557,20 @@ export default function PriceList({ defaultTab }) {
                                     paddingRight: `${editForm.table_col_padding || 4}px`,
                                   }}
                                 >
+                                  <span className="hidden print:block w-full text-center font-black uppercase text-[10px] leading-tight py-0.5 break-words">
+                                    {editForm.header_unit || 'UNIT'}
+                                  </span>
                                   <textarea
                                     rows={2}
-                                    value={editForm.header_unit || 'Unit'}
+                                    value={editForm.header_unit || 'UNIT'}
                                     onChange={(e) => handleInputChange('header_unit', e.target.value)}
                                     onFocus={(e) => e.target.select()}
                                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
                                     title="Click to edit header"
-                                    className="w-full h-full bg-transparent border-0 text-center font-black uppercase text-[10px] leading-tight resize-none whitespace-pre-wrap break-words overflow-hidden focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-0.5 cursor-text hover:bg-black/5 transition-colors focus:outline-none py-1"
+                                    className="print:hidden w-full h-full bg-transparent border-0 text-center font-black uppercase text-[10px] leading-tight resize-none whitespace-pre-wrap break-words overflow-hidden focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-0.5 cursor-text hover:bg-black/5 transition-colors focus:outline-none py-1"
                                   />
                                   <div
-                                    className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-amber-600/70 active:bg-amber-700 z-20 transition-colors"
+                                    className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-amber-600/70 active:bg-amber-700 z-20 transition-colors print:hidden"
                                     onMouseDown={(e) => handleColumnResizeStart('unit', e)}
                                     title="Drag to resize Unit column"
                                   />
@@ -2547,6 +2588,9 @@ export default function PriceList({ defaultTab }) {
                                     paddingRight: `${editForm.table_col_padding || 4}px`,
                                   }}
                                 >
+                                  <span className="hidden print:block w-full text-right font-black uppercase text-[10px] leading-tight py-0.5 break-words px-1">
+                                    {editForm.header_mrp || 'RATE (₹)'}
+                                  </span>
                                   <textarea
                                     rows={2}
                                     value={editForm.header_mrp || 'Rate (₹)'}
@@ -2554,10 +2598,10 @@ export default function PriceList({ defaultTab }) {
                                     onFocus={(e) => e.target.select()}
                                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
                                     title="Click to edit header"
-                                    className="w-full h-full bg-transparent border-0 text-right font-black uppercase text-[10px] leading-tight resize-none whitespace-pre-wrap break-words overflow-hidden focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none py-1"
+                                    className="print:hidden w-full h-full bg-transparent border-0 text-right font-black uppercase text-[10px] leading-tight resize-none whitespace-pre-wrap break-words overflow-hidden focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none py-1"
                                   />
                                   <div
-                                    className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-amber-600/70 active:bg-amber-700 z-20 transition-colors"
+                                    className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-amber-600/70 active:bg-amber-700 z-20 transition-colors print:hidden"
                                     onMouseDown={(e) => handleColumnResizeStart('mrp', e)}
                                     title="Drag to resize Rate column"
                                   />
@@ -2575,6 +2619,9 @@ export default function PriceList({ defaultTab }) {
                                     paddingRight: `${editForm.table_col_padding || 4}px`,
                                   }}
                                 >
+                                  <span className="hidden print:block w-full text-right font-black uppercase text-[10px] leading-tight py-0.5 break-words px-1">
+                                    {editForm.header_offer || `${discountPercent}% OFFER RATE (₹)`}
+                                  </span>
                                   <textarea
                                     rows={2}
                                     value={editForm.header_offer || `${discountPercent}% Offer Rate (₹)`}
@@ -2582,10 +2629,10 @@ export default function PriceList({ defaultTab }) {
                                     onFocus={(e) => e.target.select()}
                                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
                                     title="Click to edit header"
-                                    className="w-full h-full bg-transparent border-0 text-right font-black uppercase text-[10px] leading-tight resize-none whitespace-pre-wrap break-words overflow-hidden focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none py-1"
+                                    className="print:hidden w-full h-full bg-transparent border-0 text-right font-black uppercase text-[10px] leading-tight resize-none whitespace-pre-wrap break-words overflow-hidden focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none py-1"
                                   />
                                   <div
-                                    className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-amber-600/70 active:bg-amber-700 z-20 transition-colors"
+                                    className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-amber-600/70 active:bg-amber-700 z-20 transition-colors print:hidden"
                                     onMouseDown={(e) => handleColumnResizeStart('offer', e)}
                                     title="Drag to resize Offer Rate column"
                                   />
@@ -2603,6 +2650,9 @@ export default function PriceList({ defaultTab }) {
                                     paddingRight: `${editForm.table_col_padding || 4}px`,
                                   }}
                                 >
+                                  <span className="hidden print:block w-full text-center font-black uppercase text-[10px] leading-tight py-0.5 break-words">
+                                    {editForm.header_req || 'REQ'}
+                                  </span>
                                   <textarea
                                     rows={2}
                                     value={editForm.header_req || 'Req'}
@@ -2610,7 +2660,7 @@ export default function PriceList({ defaultTab }) {
                                     onFocus={(e) => e.target.select()}
                                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
                                     title="Click to edit header"
-                                    className="w-full h-full bg-transparent border-0 text-center font-black uppercase text-[10px] leading-tight resize-none whitespace-pre-wrap break-words overflow-hidden focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-0.5 cursor-text hover:bg-black/5 transition-colors focus:outline-none py-1"
+                                    className="print:hidden w-full h-full bg-transparent border-0 text-center font-black uppercase text-[10px] leading-tight resize-none whitespace-pre-wrap break-words overflow-hidden focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-0.5 cursor-text hover:bg-black/5 transition-colors focus:outline-none py-1"
                                   />
                                 </th>
                               )}

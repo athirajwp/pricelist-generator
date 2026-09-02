@@ -41,10 +41,11 @@
         @endphp
         .page-sheet {
             width: 210mm;
-            height: 297mm;
+            height: 277mm;
             padding: 10mm 12mm;
             box-sizing: border-box;
             page-break-after: always;
+            page-break-inside: avoid;
             position: relative;
             background-image: url('{{ $bgPath }}');
             background-size: cover;
@@ -55,10 +56,11 @@
         /* COVER PAGE STYLING */
         .cover-sheet {
             width: 210mm;
-            height: 297mm;
+            height: 273mm;
             padding: 12mm 15mm;
             box-sizing: border-box;
             page-break-after: always;
+            page-break-inside: avoid;
             position: relative;
             background-image: url('{{ $bgPath }}');
             background-size: cover;
@@ -142,13 +144,15 @@
             background-color: #fef3c7;
             color: #000000;
             font-size: 10px;
-            line-height: 1.15;
             font-weight: 900;
             text-transform: uppercase;
-            padding: 4px {{ $settings['table_col_padding'] ?? '3' }}px;
+            padding: 4px {{ $settings['table_col_padding'] ?? '4' }}px;
             border: 1px solid #d97706;
             text-align: center;
             vertical-align: middle;
+            word-wrap: break-word;
+            white-space: normal;
+            line-height: 1.15;
         }
         table.pricelist-table td {
             font-size: 11px;
@@ -220,104 +224,96 @@
         @php
             $deityPreset = $settings['store_deity_preset'] ?? 'vinayagar';
             $deityImgPath = null;
-            if ($deityPreset === 'custom' && !empty($settings['store_deity_image']) && file_exists(public_path($settings['store_deity_image']))) {
+            if(!empty($settings['store_deity_image']) && file_exists(public_path($settings['store_deity_image']))) {
                 $deityImgPath = public_path($settings['store_deity_image']);
-            } elseif ($deityPreset !== 'none') {
-                $presetMap = [
-                    'vinayagar' => public_path('images/god_vinayagar.png'),
-                    'murugan' => public_path('images/god_murugan.png'),
-                    'perumal' => public_path('images/god_perumal.png'),
-                    'lakshmi' => public_path('images/god_lakshmi.png'),
-                    'default' => public_path('images/god_default.png'),
-                ];
-                $deityImgPath = $presetMap[$deityPreset] ?? public_path('images/god_vinayagar.png');
             }
         @endphp
 
-        @if(!empty($deityImgPath) && file_exists($deityImgPath))
-        <div style="text-align: center; margin-top: 5px; margin-bottom: 5px;">
-            <img src="{{ $deityImgPath }}" style="max-height: 741px; width: auto;" alt="Deity"/>
+        @if($deityImgPath)
+        <div class="cover-deity">
+            <img src="{{ $deityImgPath }}" alt="Deity Motif"/>
         </div>
+        @else
+        <div style="height: 250px;"></div>
         @endif
 
-        <div style="width: 100%; margin-left: 0; margin-top: auto; margin-bottom: 0;">
-            <div style="background: #ffffff; border: 2px solid #f59e0b; border-radius: 12px; padding: 10px 14px;">
-                <table style="width: 100%; border-collapse: collapse;">
-                    <tr>
-                        <!-- Left: Store Logo (Golden Double Circle Ring) -->
-                        <td style="width: 25%; vertical-align: middle; text-align: left;">
-                            @if(!empty($settings['store_logo']) && file_exists(public_path($settings['store_logo'])))
-                            <img src="{{ public_path($settings['store_logo']) }}" style="max-height: 85px; width: auto; border-radius: 50%; border: 4px solid #f59e0b;" alt="Store Logo"/>
+        <div style="width: 100%; margin-top: auto;">
+            <div class="cover-banner">
+                <div style="display: table; width: 100%;">
+                    <div style="display: table-row;">
+                        <div style="display: table-cell; width: 25%; vertical-align: middle;">
+                            @php
+                                $logoPath = !empty($settings['store_logo']) && file_exists(public_path($settings['store_logo']))
+                                    ? public_path($settings['store_logo'])
+                                    : null;
+                            @endphp
+                            @if($logoPath)
+                            <img src="{{ $logoPath }}" class="cover-logo" alt="Logo"/>
                             @else
-                            <img src="{{ public_path('images/festive_firecrackers.png') }}" style="max-height: 85px; width: auto;" alt="Logo"/>
+                            <div style="font-size: 16px; font-weight: 900; color: #dc2626;">{{ $editForm['store_name'] ?? 'MASS CRACKERS' }}</div>
                             @endif
-                        </td>
-                        <!-- Center: Contact Info (Website, up to 4 Phone numbers, GPay) -->
-                        <td style="width: 48%; vertical-align: middle; text-align: left; padding: 0 10px;">
-                            <div style="font-size: 12px; font-weight: 900; line-height: 1.8; color: #0f172a; letter-spacing: 0.3px;">
-                                @if(!empty($editForm['store_email']))
-                                🌐 <strong>{{ $editForm['store_email'] }}</strong><br/>
-                                @endif
-                                📞 <strong>{{ implode(' , ', array_filter([$editForm['store_phone'] ?? '', $editForm['store_phone_2'] ?? '', $editForm['store_phone_3'] ?? '', $editForm['store_phone_4'] ?? ''])) }}</strong><br/>
-                                @if(!empty($settings['store_gpay']) || !empty($editForm['store_phone_3']))
-                                💳 <strong>{{ $settings['store_gpay'] ?? $editForm['store_phone_3'] }}</strong>
-                                @endif
+                        </div>
+                        <div style="display: table-cell; width: 50%; vertical-align: middle;">
+                            @if(!empty($editForm['store_email']))
+                            <div class="contact-item">🌐 {{ $editForm['store_email'] }}</div>
+                            @endif
+                            <div class="contact-item">📞 {{ implode(' , ', array_filter([$editForm['store_phone'] ?? '', $editForm['store_phone_2'] ?? '', $editForm['store_phone_3'] ?? '', $editForm['store_phone_4'] ?? ''])) }}</div>
+                            @if(!empty($editForm['store_gpay']) || !empty($editForm['store_phone_3']))
+                            <div class="contact-item">💳 GPay: {{ $editForm['store_gpay'] ?? $editForm['store_phone_3'] }}</div>
+                            @endif
+                        </div>
+                        @if(($editForm['show_discount_badge'] ?? true) !== false)
+                        <div style="display: table-cell; width: 25%; vertical-align: middle; text-align: right;">
+                            <div class="cover-badge">
+                                <div style="font-size: 12px; font-weight: 900; color: #fde047; text-transform: uppercase;">MEGA SALE</div>
+                                <div style="font-size: 26px; font-weight: 900; color: #ffffff; line-height: 1;">{{ $discountPercent }}%</div>
+                                <div style="font-size: 9px; font-weight: 900; color: #ffffff; letter-spacing: 1px;">DISCOUNT</div>
                             </div>
-                        </td>
-                        <!-- Right: Dynamic Mega Sale Offer Badge -->
-                        <td style="width: 27%; vertical-align: middle; text-align: right;">
-                            <div style="text-align: center; display: inline-block;">
-                                <div style="font-size: 13px; font-weight: 900; color: #d97706; text-transform: uppercase; letter-spacing: 1px;">MEGA SALE</div>
-                                <div style="font-size: 38px; font-weight: 900; color: #dc2626; line-height: 1; text-shadow: -1px -1px 0 #ffffff, 1px -1px 0 #ffffff, -1px 1px 0 #ffffff, 1px 1px 0 #ffffff;">{{ $discountPercent }}%</div>
-                                <div style="background: #dc2626; color: #ffffff; font-size: 9px; font-weight: 900; padding: 2px 8px; border-radius: 3px; display: inline-block; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px;">DISCOUNT</div>
-                            </div>
-                        </td>
-                    </tr>
-                </table>
-
-                @if(!empty($editForm['store_address']))
-                <div style="text-align: center; font-size: 10.5px; font-weight: 900; color: #0f172a; margin-top: 8px; padding-top: 6px; border-top: 1px solid #e2e8f0;">
-                    📍 {{ $editForm['store_address'] }}
+                        </div>
+                        @endif
+                    </div>
                 </div>
-                @endif
             </div>
+            @if(!empty($editForm['store_address']))
+            <div class="cover-address">📍 {{ $editForm['store_address'] }}</div>
+            @endif
         </div>
     </div>
 
     <!-- PRODUCT PAGES -->
     @php 
         $globalSnoCounter = 1; 
-        $showSno = ($editForm['show_col_sno'] ?? true) !== false;
-        $showProduct = ($editForm['show_col_product'] ?? true) !== false;
-        $showUnit = ($editForm['show_col_unit'] ?? true) !== false;
-        $showMrpCol = $showMrp && (($editForm['show_col_mrp'] ?? true) !== false);
-        $showOffer = ($editForm['show_col_offer'] ?? true) !== false;
-        $showReq = ($editForm['show_col_req'] ?? true) !== false;
-
-        $activeColCount = ($showSno ? 1 : 0) + ($showProduct ? 1 : 0) + ($showUnit ? 1 : 0) + ($showMrpCol ? 1 : 0) + ($showOffer ? 1 : 0) + ($showReq ? 1 : 0);
+        $showSno = isset($editForm['show_col_sno']) ? (bool)$editForm['show_col_sno'] : true;
+        $showProduct = isset($editForm['show_col_product']) ? (bool)$editForm['show_col_product'] : true;
+        $showUnit = isset($editForm['show_col_unit']) ? (bool)$editForm['show_col_unit'] : true;
+        $showMrp = isset($showMrp) ? (bool)$showMrp : (isset($editForm['show_col_mrp']) ? (bool)$editForm['show_col_mrp'] : true);
+        $showOffer = isset($editForm['show_col_offer']) ? (bool)$editForm['show_col_offer'] : true;
+        $showReq = isset($editForm['show_col_req']) ? (bool)$editForm['show_col_req'] : true;
+        $activeColCount = ($showSno ? 1 : 0) + ($showProduct ? 1 : 0) + ($showUnit ? 1 : 0) + ($showMrp ? 1 : 0) + ($showOffer ? 1 : 0) + ($showReq ? 1 : 0);
     @endphp
+
     @foreach($productPageChunks as $chunkIdx => $chunkProducts)
         <div class="page-sheet">
             <table class="pricelist-table">
                 <thead>
                     <tr>
                         @if($showSno)
-                        <th style="width: 38px;">{!! nl2br(e($editForm['header_sno'] ?? 'S.No')) !!}</th>
+                        <th style="width: 38px;">{{ $editForm['header_sno'] ?? 'S.NO' }}</th>
                         @endif
                         @if($showProduct)
-                        <th style="text-align: left;">{!! nl2br(e($editForm['header_product'] ?? 'PRODUCT')) !!}</th>
+                        <th>{{ $editForm['header_product'] ?? 'PRODUCT' }}</th>
                         @endif
                         @if($showUnit)
-                        <th style="width: 80px;">{!! nl2br(e($editForm['header_unit'] ?? 'Unit')) !!}</th>
+                        <th style="width: 85px;">{{ $editForm['header_unit'] ?? 'UNIT' }}</th>
                         @endif
-                        @if($showMrpCol)
-                        <th style="width: 75px; text-align: right;">{!! nl2br(e($editForm['header_mrp'] ?? 'Rate (₹)')) !!}</th>
+                        @if($showMrp)
+                        <th style="width: 70px;">{{ $editForm['header_mrp'] ?? 'RATE (₹)' }}</th>
                         @endif
                         @if($showOffer)
-                        <th style="width: 110px; text-align: right;">{!! nl2br(e($editForm['header_offer'] ?? ($discountPercent.'% Offer Rate (₹)'))) !!}</th>
+                        <th style="width: 100px;">{{ $editForm['header_offer'] ?? ($discountPercent . '% OFFER RATE (₹)') }}</th>
                         @endif
                         @if($showReq)
-                        <th style="width: 35px;">{!! nl2br(e($editForm['header_req'] ?? 'Req')) !!}</th>
+                        <th style="width: 35px;">{{ $editForm['header_req'] ?? 'REQ' }}</th>
                         @endif
                     </tr>
                 </thead>
@@ -339,7 +335,7 @@
 
                     @foreach($chunkCategories as $cat)
                         <tr class="category-row">
-                            <td colspan="{{ $activeColCount || 1 }}">{{ $cat['name'] }}</td>
+                            <td colspan="{{ $activeColCount ?? 5 }}">{{ $cat['name'] }}</td>
                         </tr>
                         @foreach($cat['products'] as $product)
                             @php
@@ -358,14 +354,14 @@
                                 @if($showUnit)
                                 <td class="text-center font-bold" style="color: #000000; font-size: 10px;">{{ $product['pack_size'] }}</td>
                                 @endif
-                                @if($showMrpCol)
+                                @if($showMrp)
                                 <td class="text-right font-bold" style="color: #000000;">₹{{ number_format((float)$product['mrp'], 2) }}</td>
                                 @endif
                                 @if($showOffer)
                                 <td class="text-right font-bold" style="color: #000000;">₹{{ number_format((float)$product['selling_price'], 2) }}</td>
                                 @endif
                                 @if($showReq)
-                                <td class="text-center font-bold" style="color: #000000;">{{ $product['req'] ?? '' }}</td>
+                                <td class="text-center">{{ $product['req'] ?? '' }}</td>
                                 @endif
                             </tr>
                         @endforeach

@@ -43,14 +43,33 @@ body {
     animation: none !important;
   }
 
-  /* 3. Hide non-printable navigation, control panels, buttons & overlays */
-  header, footer, nav, aside, button, input, select, textarea, [role="dialog"], .no-print, .print\:hidden, .generator-control-panel {
+  /* 3. Hide non-printable navigation, control panels, buttons, textareas & overlays */
+  header, footer, nav, aside, button, select, textarea, [role="dialog"], .no-print, .print\:hidden, .generator-control-panel {
     display: none !important;
   }
 
-  /* 4. Force price-list-document and all children to be 100% visible and in flow */
+  /* 4. Force price-list-document inputs to be visible in print flow */
   #price-list-document, #price-list-document * {
     visibility: visible !important;
+  }
+
+  #price-list-document input {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    color: #000000 !important;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    font-weight: inherit !important;
+    font-size: inherit !important;
+    text-align: inherit !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
 
   #price-list-document {
