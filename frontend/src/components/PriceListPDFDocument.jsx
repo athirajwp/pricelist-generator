@@ -324,10 +324,21 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
   const logoUrl = resolveUrl(editForm.store_logo);
   const upiQrUrl = resolveUrl(editForm.store_upi_qr);
 
-  const colNameWidth = showMrp ? '40%' : '50%';
-  const colPackWidth = showMrp ? '16%' : '18%';
-  const colOfferWidth = showMrp ? '14%' : '16%';
-  const colMrpWidth = '14%';
+  const showSnoPdf = editForm.show_col_sno !== false;
+  const showProductPdf = editForm.show_col_product !== false;
+  const showUnitPdf = editForm.show_col_unit !== false;
+  const showMrpPdf = showMrp && editForm.show_col_mrp !== false;
+  const showOfferPdf = editForm.show_col_offer !== false;
+  const showReqPdf = editForm.show_col_req !== false;
+
+  const colSnoWidth = showSnoPdf ? '7%' : '0%';
+  const colReqWidth = showReqPdf ? '7%' : '0%';
+  const colPackWidth = showUnitPdf ? '16%' : '0%';
+  const colMrpWidth = showMrpPdf ? '14%' : '0%';
+  const colOfferWidth = showOfferPdf ? '16%' : '0%';
+
+  let fixedPct = (showSnoPdf ? 7 : 0) + (showReqPdf ? 7 : 0) + (showUnitPdf ? 16 : 0) + (showMrpPdf ? 14 : 0) + (showOfferPdf ? 16 : 0);
+  const colNameWidth = showProductPdf ? `${Math.max(20, 100 - fixedPct)}%` : '0%';
 
   return (
     <Document title={`${editForm.store_name || 'PriceList'}_Catalogue`}>
@@ -446,12 +457,12 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
             <View style={styles.table}>
               {/* Header Row */}
               <View style={[styles.tableRow, styles.tableHeaderRow]}>
-                <Text style={[styles.colSno, styles.thText]}>Code</Text>
-                <Text style={[{ width: colNameWidth, textAlign: 'left', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, paddingLeft: 4 }, styles.thText]}>Product Name</Text>
-                <Text style={[{ width: colPackWidth, textAlign: 'center', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2 }, styles.thText]}>Pack / Unit</Text>
-                {showMrp && <Text style={[{ width: colMrpWidth, textAlign: 'right', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2 }, styles.thText]}>Rate (₹)</Text>}
-                <Text style={[{ width: colOfferWidth, textAlign: 'right', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2 }, styles.thText]}>{editForm.discount_percent || 50}% Rate</Text>
-                <Text style={[styles.colReq, styles.thText]}>Req</Text>
+                {showSnoPdf && <Text style={[styles.colSno, styles.thText]}>{editForm.header_sno || 'S.No'}</Text>}
+                {showProductPdf && <Text style={[{ width: colNameWidth, textAlign: 'left', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, paddingLeft: 4 }, styles.thText]}>{editForm.header_product || 'Product Name'}</Text>}
+                {showUnitPdf && <Text style={[{ width: colPackWidth, textAlign: 'center', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2 }, styles.thText]}>{editForm.header_unit || 'Unit'}</Text>}
+                {showMrpPdf && <Text style={[{ width: colMrpWidth, textAlign: 'right', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2 }, styles.thText]}>{editForm.header_mrp || 'Rate (₹)'}</Text>}
+                {showOfferPdf && <Text style={[{ width: colOfferWidth, textAlign: 'right', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2 }, styles.thText]}>{editForm.header_offer || `${editForm.discount_percent || 50}% Rate`}</Text>}
+                {showReqPdf && <Text style={[styles.colReq, styles.thText]}>{editForm.header_req || 'Req'}</Text>}
               </View>
 
               {/* Category Rows & Products */}
@@ -465,12 +476,12 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
 
                     return (
                       <View key={product.id || pIdx} style={[styles.tableRow, { backgroundColor: pIdx % 2 === 1 ? '#f8fafc' : '#ffffff' }]}>
-                        <Text style={styles.colSno}>{currentCode}</Text>
-                        <Text style={{ width: colNameWidth, textAlign: 'left', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, paddingLeft: 4, fontSize: 8, fontWeight: 'bold' }}>{product.name}</Text>
-                        <Text style={{ width: colPackWidth, textAlign: 'center', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, fontSize: 8 }}>{product.pack_size}</Text>
-                        {showMrp && <Text style={{ width: colMrpWidth, textAlign: 'right', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, fontSize: 8 }}>{product.mrp}</Text>}
-                        <Text style={{ width: colOfferWidth, textAlign: 'right', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, fontSize: 8, fontWeight: 'bold', color: '#b91c1c' }}>₹{product.selling_price}</Text>
-                        <Text style={styles.colReq}>[   ]</Text>
+                        {showSnoPdf && <Text style={styles.colSno}>{currentCode}</Text>}
+                        {showProductPdf && <Text style={{ width: colNameWidth, textAlign: 'left', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, paddingLeft: 4, fontSize: 8, fontWeight: 'bold' }}>{product.name}</Text>}
+                        {showUnitPdf && <Text style={{ width: colPackWidth, textAlign: 'center', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, fontSize: 8 }}>{product.pack_size}</Text>}
+                        {showMrpPdf && <Text style={{ width: colMrpWidth, textAlign: 'right', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, fontSize: 8 }}>{product.mrp}</Text>}
+                        {showOfferPdf && <Text style={{ width: colOfferWidth, textAlign: 'right', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, fontSize: 8, fontWeight: 'bold', color: '#b91c1c' }}>₹{product.selling_price}</Text>}
+                        {showReqPdf && <Text style={styles.colReq}>{product.req || '[   ]'}</Text>}
                       </View>
                     );
                   })}

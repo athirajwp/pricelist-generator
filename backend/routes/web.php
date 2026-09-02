@@ -234,6 +234,7 @@ Route::prefix('api/admin')->group(function () {
         Route::post('/products/store', [AdminApiController::class, 'storeProduct']);
         Route::post('/products/{id}/update', [AdminApiController::class, 'updateProduct']);
         Route::post('/products/{id}/quick-update', [AdminApiController::class, 'quickUpdateProduct']);
+        Route::post('/products/bulk-update', [AdminApiController::class, 'bulkUpdateProducts']);
         Route::post('/products/{id}/toggle-bestseller', [AdminApiController::class, 'toggleBestsellerProduct']);
         Route::delete('/products/{id}/destroy', [AdminApiController::class, 'destroyProduct']);
         Route::post('/products/delete-all', [AdminApiController::class, 'deleteAllProducts']);

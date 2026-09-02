@@ -266,6 +266,30 @@ class AdminApiController extends Controller
         return response()->json(['success' => true, 'category' => $category]);
     }
 
+    public function bulkUpdateProducts(Request $request)
+    {
+        $updates = $request->input('products', []);
+        $allowedFields = ['name', 'pack_size', 'mrp', 'selling_price', 'product_code', 'category_id', 'status', 'sort_order'];
+        $updatedCount = 0;
+
+        foreach ($updates as $item) {
+            if (!isset($item['id'])) continue;
+            $product = Product::find($item['id']);
+            if (!$product) continue;
+
+            foreach ($allowedFields as $field) {
+                if (array_key_exists($field, $item)) {
+                    $product->$field = $item[$field];
+                }
+            }
+            $product->save();
+            $updatedCount++;
+        }
+
+        return response()->json(['success' => true, 'updated_count' => $updatedCount]);
+    }
+
+
     public function updateProduct(Request $request, $id)
     {
         $product = Product::findOrFail($id);

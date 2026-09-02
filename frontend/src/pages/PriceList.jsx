@@ -710,6 +710,196 @@ export default function PriceList({ defaultTab }) {
     }
   };
 
+  // Excel Grid Keyboard Navigation Handler (Enter, Tab, Arrow keys)
+  const handleExcelGridKeyDown = (e, rowIdx, colIdx) => {
+    const maxCol = showMrp ? 5 : 4;
+
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const targetRow = e.shiftKey ? rowIdx - 1 : rowIdx + 1;
+      const targetEl = document.querySelector(`[data-excel-row="${targetRow}"][data-excel-col="${colIdx}"]`);
+      if (targetEl) {
+        targetEl.focus();
+        if (targetEl.select) targetEl.select();
+      }
+    } else if (e.key === 'Tab') {
+      let targetRow = rowIdx;
+      let targetCol = e.shiftKey ? colIdx - 1 : colIdx + 1;
+      if (targetCol < 0) {
+        targetCol = maxCol;
+        targetRow = rowIdx - 1;
+      } else if (targetCol > maxCol) {
+        targetCol = 0;
+        targetRow = rowIdx + 1;
+      }
+      const targetEl = document.querySelector(`[data-excel-row="${targetRow}"][data-excel-col="${targetCol}"]`);
+      if (targetEl) {
+        e.preventDefault();
+        targetEl.focus();
+        if (targetEl.select) targetEl.select();
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const targetEl = document.querySelector(`[data-excel-row="${rowIdx - 1}"][data-excel-col="${colIdx}"]`);
+      if (targetEl) {
+        targetEl.focus();
+        if (targetEl.select) targetEl.select();
+      }
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const targetEl = document.querySelector(`[data-excel-row="${rowIdx + 1}"][data-excel-col="${colIdx}"]`);
+      if (targetEl) {
+        targetEl.focus();
+        if (targetEl.select) targetEl.select();
+      }
+    } else if (e.key === 'ArrowLeft') {
+      const isAtStart = e.target.selectionStart === 0 && e.target.selectionEnd === 0;
+      if (isAtStart && colIdx > 0) {
+        e.preventDefault();
+        const targetEl = document.querySelector(`[data-excel-row="${rowIdx}"][data-excel-col="${colIdx - 1}"]`);
+        if (targetEl) {
+          targetEl.focus();
+          if (targetEl.select) targetEl.select();
+        }
+      }
+    } else if (e.key === 'ArrowRight') {
+      const isAtEnd = e.target.selectionStart === (e.target.value || '').length;
+      if (isAtEnd && colIdx < maxCol) {
+        e.preventDefault();
+        const targetEl = document.querySelector(`[data-excel-row="${rowIdx}"][data-excel-col="${colIdx + 1}"]`);
+        if (targetEl) {
+          targetEl.focus();
+          if (targetEl.select) targetEl.select();
+        }
+      }
+    } else if (e.key === 'Escape') {
+      e.target.blur();
+    }
+  };
+
+  // Excel Clipboard TSV Multi-Cell / Multi-Row Paste Handler
+  const handleExcelGridPaste = async (e, startRowIdx, startColIdx) => {
+    const text = e.clipboardData ? e.clipboardData.getData('text/plain') : '';
+    if (!text || (!text.includes('\t') && !text.includes('\n'))) {
+      return;
+    }
+
+    e.preventDefault();
+
+    const rawRows = text.split(/\r?\n/).filter((r) => r.length > 0);
+    const matrix = rawRows.map((r) => r.split('\t'));
+
+    if (matrix.length === 0 || !allFilteredProducts.length) return;
+
+    const fields = showMrp
+      ? ['product_code', 'name', 'pack_size', 'mrp', 'selling_price', 'req']
+      : ['product_code', 'name', 'pack_size', 'selling_price', 'req'];
+
+    const currentDisc = editForm.discount_percent !== undefined ? editForm.discount_percent : 50;
+
+    const updatedProductsMap = {};
+    const bulkSavePayload = [];
+
+    matrix.forEach((rowCells, rOffset) => {
+      const targetRowIdx = startRowIdx + rOffset;
+      if (targetRowIdx >= allFilteredProducts.length) return;
+
+      const targetProduct = allFilteredProducts[targetRowIdx];
+      if (!targetProduct) return;
+
+      const prodUpdate = updatedProductsMap[targetProduct.id] || { id: targetProduct.id };
+
+      rowCells.forEach((cellVal, cOffset) => {
+        const targetColIdx = startColIdx + cOffset;
+        if (targetColIdx >= fields.length) return;
+
+        const fieldName = fields[targetColIdx];
+        const trimmedVal = cellVal.trim();
+
+        if (fieldName === 'mrp') {
+          const numericMrp = parseFloat(trimmedVal) || 0;
+          const newOffer = Math.round(numericMrp * (1 - currentDisc / 100));
+          prodUpdate.mrp = trimmedVal;
+          prodUpdate.selling_price = newOffer;
+        } else {
+          prodUpdate[fieldName] = trimmedVal;
+        }
+      });
+
+      updatedProductsMap[targetProduct.id] = prodUpdate;
+      bulkSavePayload.push(prodUpdate);
+    });
+
+    if (setCategories) {
+      setCategories((prevCategories) =>
+        prevCategories.map((cat) => ({
+          ...cat,
+          products: cat.products.map((p) =>
+            updatedProductsMap[p.id] ? { ...p, ...updatedProductsMap[p.id] } : p
+          ),
+        }))
+      );
+    }
+
+    try {
+      await fetch('/api/admin/products/bulk-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ products: bulkSavePayload }),
+      });
+      if (window.Swal) {
+        window.Swal.fire({
+          icon: 'success',
+          title: 'Pasted from Excel!',
+          text: `Updated ${bulkSavePayload.length} row(s) and ${matrix[0].length} column(s).`,
+          timer: 1800,
+          showConfirmButton: false,
+        });
+      }
+    } catch (err) {
+      console.error('Error batch updating products from paste:', err);
+    }
+  };
+
+  // Re-number all S.No sequentially 1 to N
+  const handleAutoNumberSno = async () => {
+    let globalCounter = 1;
+    const bulkSavePayload = [];
+
+    const newCategories = (categories || []).map((cat) => ({
+      ...cat,
+      products: (cat.products || []).map((p) => {
+        const newCode = String(globalCounter++);
+        bulkSavePayload.push({ id: p.id, product_code: newCode });
+        return { ...p, product_code: newCode };
+      }),
+    }));
+
+    if (setCategories) {
+      setCategories(newCategories);
+    }
+
+    try {
+      await fetch('/api/admin/products/bulk-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ products: bulkSavePayload }),
+      });
+      if (window.Swal) {
+        window.Swal.fire({
+          icon: 'success',
+          title: 'S.No Re-Sequenced!',
+          text: `Auto-numbered ${bulkSavePayload.length} products sequentially (1 to ${bulkSavePayload.length}).`,
+          timer: 1800,
+          showConfirmButton: false,
+        });
+      }
+    } catch (err) {
+      console.error('Error re-sequencing S.No:', err);
+    }
+  };
+
+
   const handleDeleteAllProducts = async () => {
     const confirmDelete = window.Swal
       ? await window.Swal.fire({
@@ -893,6 +1083,14 @@ export default function PriceList({ defaultTab }) {
   const totalDocPages = 1 + productPageChunks.length + (editForm.footer_position === 'new_page' ? 1 : 0);
   const cardBgStyle = { backgroundColor: settings?.card_bg_color || '#FFFFFF' };
   const discountPercent = editForm.discount_percent !== undefined ? editForm.discount_percent : (settings?.discount_percent || 50);
+
+  const showSno = editForm.show_col_sno !== false;
+  const showProduct = editForm.show_col_product !== false;
+  const showUnit = editForm.show_col_unit !== false;
+  const showMrpCol = showMrp && editForm.show_col_mrp !== false;
+  const showOffer = editForm.show_col_offer !== false;
+  const showReq = editForm.show_col_req !== false;
+  const activeColCount = (showSno ? 1 : 0) + (showProduct ? 1 : 0) + (showUnit ? 1 : 0) + (showMrpCol ? 1 : 0) + (showOffer ? 1 : 0) + (showReq ? 1 : 0);
 
   return (
     <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 py-6 select-none print:p-0 print:m-0 print:max-w-none">
@@ -1769,36 +1967,86 @@ export default function PriceList({ defaultTab }) {
               </div>
             </div>
 
-            {/* 5. Display Options */}
+            {/* 5. Display Options & Column Visibility */}
             <div>
-              <label className="block text-slate-700 mb-1 font-extrabold">Display Options</label>
-              <div className="flex items-center justify-between gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 h-[42px]">
-                <label className="inline-flex items-center cursor-pointer select-none">
+              <label className="block text-slate-700 mb-1 font-extrabold flex items-center justify-between">
+                <span>Display Options & Column Visibility</span>
+              </label>
+              <div className="grid grid-cols-3 gap-1.5 bg-slate-50 border border-slate-200 rounded-xl p-2 font-extrabold text-[10px]">
+                <label className="inline-flex items-center gap-1 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={editForm.show_col_sno !== false}
+                    onChange={(e) => handleInputChange('show_col_sno', e.target.checked)}
+                    className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer"
+                  />
+                  <span className="text-slate-800">S.No</span>
+                </label>
+                <label className="inline-flex items-center gap-1 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={editForm.show_col_product !== false}
+                    onChange={(e) => handleInputChange('show_col_product', e.target.checked)}
+                    className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer"
+                  />
+                  <span className="text-slate-800">Product</span>
+                </label>
+                <label className="inline-flex items-center gap-1 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={editForm.show_col_unit !== false}
+                    onChange={(e) => handleInputChange('show_col_unit', e.target.checked)}
+                    className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer"
+                  />
+                  <span className="text-slate-800">Unit</span>
+                </label>
+                <label className="inline-flex items-center gap-1 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={showMrp}
-                    onChange={(e) => setShowMrp(e.target.checked)}
+                    onChange={(e) => {
+                      setShowMrp(e.target.checked);
+                      handleInputChange('show_col_mrp', e.target.checked);
+                    }}
                     className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer"
                   />
-                  <span className="ml-0.5 text-slate-800 font-extrabold text-[10px]">MRP</span>
+                  <span className="text-slate-800">MRP (Rate)</span>
                 </label>
-                <label className="inline-flex items-center cursor-pointer select-none">
+                <label className="inline-flex items-center gap-1 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={editForm.show_col_offer !== false}
+                    onChange={(e) => handleInputChange('show_col_offer', e.target.checked)}
+                    className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer"
+                  />
+                  <span className="text-slate-800">Offer Rate</span>
+                </label>
+                <label className="inline-flex items-center gap-1 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={editForm.show_col_req !== false}
+                    onChange={(e) => handleInputChange('show_col_req', e.target.checked)}
+                    className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer"
+                  />
+                  <span className="text-slate-800">REQ</span>
+                </label>
+                <label className="inline-flex items-center gap-1 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={editForm.show_bank_details !== false}
                     onChange={(e) => handleInputChange('show_bank_details', e.target.checked)}
                     className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer"
                   />
-                  <span className="ml-0.5 text-slate-800 font-extrabold text-[10px]">Bank</span>
+                  <span className="text-slate-800">Bank</span>
                 </label>
-                <label className="inline-flex items-center cursor-pointer select-none">
+                <label className="inline-flex items-center gap-1 cursor-pointer select-none col-span-2">
                   <input
                     type="checkbox"
                     checked={editForm.show_upi_qr !== false}
                     onChange={(e) => handleInputChange('show_upi_qr', e.target.checked)}
                     className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
                   />
-                  <span className="ml-0.5 text-slate-800 font-extrabold text-[10px]">UPI QR</span>
+                  <span className="text-slate-800">UPI QR</span>
                 </label>
               </div>
             </div>
@@ -2023,73 +2271,103 @@ export default function PriceList({ defaultTab }) {
                       <div className="border-2 border-slate-700 rounded-xl overflow-hidden shadow-sm bg-white print:border-0">
                         <table className="w-full text-left border-collapse print:table table-fixed">
                           <colgroup>
-                            <col style={{ width: `${colWidths.sno}px` }} />
-                            <col style={{ width: `${colWidths.product}px` }} />
-                            <col style={{ width: `${colWidths.unit}px` }} />
-                            {showMrp && <col style={{ width: `${colWidths.mrp}px` }} />}
-                            <col style={{ width: `${colWidths.offer}px` }} />
-                            <col style={{ width: `${colWidths.req}px` }} />
+                            {showSno && <col style={{ width: `${colWidths.sno}px` }} />}
+                            {showProduct && <col style={{ width: `${colWidths.product}px` }} />}
+                            {showUnit && <col style={{ width: `${colWidths.unit}px` }} />}
+                            {showMrpCol && <col style={{ width: `${colWidths.mrp}px` }} />}
+                            {showOffer && <col style={{ width: `${colWidths.offer}px` }} />}
+                            {showReq && <col style={{ width: `${colWidths.req}px` }} />}
                           </colgroup>
                           <thead>
-                            <tr className={`${theme.tableHeader} font-black text-black uppercase tracking-wider text-[11px] h-[30px]`}>
+                            <tr className={`${theme.tableHeader} font-black text-black uppercase tracking-wider text-[11px] min-h-[34px]`}>
                               {/* S.No Header */}
-                              <th
-                                className="py-1 text-center border border-slate-400 relative select-none group"
-                                style={{
-                                  width: `${colWidths.sno}px`,
-                                  minWidth: `${colWidths.sno}px`,
-                                  paddingLeft: `${editForm.table_col_padding || 4}px`,
-                                  paddingRight: `${editForm.table_col_padding || 4}px`,
-                                }}
-                              >
-                                <span>S.No</span>
-                                <div
-                                  className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-amber-600/70 active:bg-amber-700 z-20 transition-colors"
-                                  onMouseDown={(e) => handleColumnResizeStart('sno', e)}
-                                  title="Drag to resize S.No column"
-                                />
-                              </th>
+                              {showSno && (
+                                <th
+                                  className="py-0.5 text-center border border-slate-400 relative select-none group p-0 align-middle"
+                                  style={{
+                                    width: `${colWidths.sno}px`,
+                                    minWidth: `${colWidths.sno}px`,
+                                    paddingLeft: `${editForm.table_col_padding || 4}px`,
+                                    paddingRight: `${editForm.table_col_padding || 4}px`,
+                                  }}
+                                >
+                                  <textarea
+                                    rows={2}
+                                    value={editForm.header_sno || 'S.No'}
+                                    onChange={(e) => handleInputChange('header_sno', e.target.value)}
+                                    onFocus={(e) => e.target.select()}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
+                                    title="Click to edit header"
+                                    className="w-full h-full bg-transparent border-0 text-center font-black uppercase text-[10px] leading-tight resize-none whitespace-pre-wrap break-words overflow-hidden focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-0.5 cursor-text hover:bg-black/5 transition-colors focus:outline-none py-1"
+                                  />
+                                  <div
+                                    className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-amber-600/70 active:bg-amber-700 z-20 transition-colors"
+                                    onMouseDown={(e) => handleColumnResizeStart('sno', e)}
+                                    title="Drag to resize S.No column"
+                                  />
+                                </th>
+                              )}
 
                               {/* Product Header */}
-                              <th
-                                className="py-1 border border-slate-400 relative select-none group"
-                                style={{
-                                  width: `${colWidths.product}px`,
-                                  minWidth: `${colWidths.product}px`,
-                                  paddingLeft: `${editForm.table_col_padding || 4}px`,
-                                  paddingRight: `${editForm.table_col_padding || 4}px`,
-                                }}
-                              >
-                                <span>PRODUCT</span>
-                                <div
-                                  className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-amber-600/70 active:bg-amber-700 z-20 transition-colors"
-                                  onMouseDown={(e) => handleColumnResizeStart('product', e)}
-                                  title="Drag to resize Product column"
-                                />
-                              </th>
+                              {showProduct && (
+                                <th
+                                  className="py-0.5 border border-slate-400 relative select-none group p-0 align-middle"
+                                  style={{
+                                    width: `${colWidths.product}px`,
+                                    minWidth: `${colWidths.product}px`,
+                                    paddingLeft: `${editForm.table_col_padding || 4}px`,
+                                    paddingRight: `${editForm.table_col_padding || 4}px`,
+                                  }}
+                                >
+                                  <textarea
+                                    rows={2}
+                                    value={editForm.header_product || 'PRODUCT'}
+                                    onChange={(e) => handleInputChange('header_product', e.target.value)}
+                                    onFocus={(e) => e.target.select()}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
+                                    title="Click to edit header"
+                                    className="w-full h-full bg-transparent border-0 text-left font-black uppercase text-[10px] leading-tight resize-none whitespace-pre-wrap break-words overflow-hidden focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none py-1"
+                                  />
+                                  <div
+                                    className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-amber-600/70 active:bg-amber-700 z-20 transition-colors"
+                                    onMouseDown={(e) => handleColumnResizeStart('product', e)}
+                                    title="Drag to resize Product column"
+                                  />
+                                </th>
+                              )}
 
                               {/* Unit Header */}
-                              <th
-                                className="py-1 text-center border border-slate-400 relative select-none group"
-                                style={{
-                                  width: `${colWidths.unit}px`,
-                                  minWidth: `${colWidths.unit}px`,
-                                  paddingLeft: `${editForm.table_col_padding || 4}px`,
-                                  paddingRight: `${editForm.table_col_padding || 4}px`,
-                                }}
-                              >
-                                <span>Unit</span>
-                                <div
-                                  className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-amber-600/70 active:bg-amber-700 z-20 transition-colors"
-                                  onMouseDown={(e) => handleColumnResizeStart('unit', e)}
-                                  title="Drag to resize Unit column"
-                                />
-                              </th>
+                              {showUnit && (
+                                <th
+                                  className="py-0.5 text-center border border-slate-400 relative select-none group p-0 align-middle"
+                                  style={{
+                                    width: `${colWidths.unit}px`,
+                                    minWidth: `${colWidths.unit}px`,
+                                    paddingLeft: `${editForm.table_col_padding || 4}px`,
+                                    paddingRight: `${editForm.table_col_padding || 4}px`,
+                                  }}
+                                >
+                                  <textarea
+                                    rows={2}
+                                    value={editForm.header_unit || 'Unit'}
+                                    onChange={(e) => handleInputChange('header_unit', e.target.value)}
+                                    onFocus={(e) => e.target.select()}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
+                                    title="Click to edit header"
+                                    className="w-full h-full bg-transparent border-0 text-center font-black uppercase text-[10px] leading-tight resize-none whitespace-pre-wrap break-words overflow-hidden focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-0.5 cursor-text hover:bg-black/5 transition-colors focus:outline-none py-1"
+                                  />
+                                  <div
+                                    className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-amber-600/70 active:bg-amber-700 z-20 transition-colors"
+                                    onMouseDown={(e) => handleColumnResizeStart('unit', e)}
+                                    title="Drag to resize Unit column"
+                                  />
+                                </th>
+                              )}
 
                               {/* Rate (MRP) Header */}
-                              {showMrp && (
+                              {showMrpCol && (
                                 <th
-                                  className="py-1 text-right border border-slate-400 relative select-none group"
+                                  className="py-0.5 text-right border border-slate-400 relative select-none group p-0 align-middle"
                                   style={{
                                     width: `${colWidths.mrp}px`,
                                     minWidth: `${colWidths.mrp}px`,
@@ -2097,7 +2375,15 @@ export default function PriceList({ defaultTab }) {
                                     paddingRight: `${editForm.table_col_padding || 4}px`,
                                   }}
                                 >
-                                  <span>Rate (₹)</span>
+                                  <textarea
+                                    rows={2}
+                                    value={editForm.header_mrp || 'Rate (₹)'}
+                                    onChange={(e) => handleInputChange('header_mrp', e.target.value)}
+                                    onFocus={(e) => e.target.select()}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
+                                    title="Click to edit header"
+                                    className="w-full h-full bg-transparent border-0 text-right font-black uppercase text-[10px] leading-tight resize-none whitespace-pre-wrap break-words overflow-hidden focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none py-1"
+                                  />
                                   <div
                                     className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-amber-600/70 active:bg-amber-700 z-20 transition-colors"
                                     onMouseDown={(e) => handleColumnResizeStart('mrp', e)}
@@ -2107,48 +2393,68 @@ export default function PriceList({ defaultTab }) {
                               )}
 
                               {/* Offer Rate Header */}
-                              <th
-                                className="py-1 text-right border border-slate-400 relative select-none group"
-                                style={{
-                                  width: `${colWidths.offer}px`,
-                                  minWidth: `${colWidths.offer}px`,
-                                  paddingLeft: `${editForm.table_col_padding || 4}px`,
-                                  paddingRight: `${editForm.table_col_padding || 4}px`,
-                                }}
-                              >
-                                <span>{discountPercent}% Offer Rate (₹)</span>
-                                <div
-                                  className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-amber-600/70 active:bg-amber-700 z-20 transition-colors"
-                                  onMouseDown={(e) => handleColumnResizeStart('offer', e)}
-                                  title="Drag to resize Offer Rate column"
-                                />
-                              </th>
+                              {showOffer && (
+                                <th
+                                  className="py-0.5 text-right border border-slate-400 relative select-none group p-0 align-middle"
+                                  style={{
+                                    width: `${colWidths.offer}px`,
+                                    minWidth: `${colWidths.offer}px`,
+                                    paddingLeft: `${editForm.table_col_padding || 4}px`,
+                                    paddingRight: `${editForm.table_col_padding || 4}px`,
+                                  }}
+                                >
+                                  <textarea
+                                    rows={2}
+                                    value={editForm.header_offer || `${discountPercent}% Offer Rate (₹)`}
+                                    onChange={(e) => handleInputChange('header_offer', e.target.value)}
+                                    onFocus={(e) => e.target.select()}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
+                                    title="Click to edit header"
+                                    className="w-full h-full bg-transparent border-0 text-right font-black uppercase text-[10px] leading-tight resize-none whitespace-pre-wrap break-words overflow-hidden focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none py-1"
+                                  />
+                                  <div
+                                    className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-amber-600/70 active:bg-amber-700 z-20 transition-colors"
+                                    onMouseDown={(e) => handleColumnResizeStart('offer', e)}
+                                    title="Drag to resize Offer Rate column"
+                                  />
+                                </th>
+                              )}
 
                               {/* Req Header */}
-                              <th
-                                className="py-1 text-center border border-slate-400 relative select-none group"
-                                style={{
-                                  width: `${colWidths.req}px`,
-                                  minWidth: `${colWidths.req}px`,
-                                  paddingLeft: `${editForm.table_col_padding || 4}px`,
-                                  paddingRight: `${editForm.table_col_padding || 4}px`,
-                                }}
-                              >
-                                <span>Req</span>
-
-                              </th>
+                              {showReq && (
+                                <th
+                                  className="py-0.5 text-center border border-slate-400 relative select-none group p-0 align-middle"
+                                  style={{
+                                    width: `${colWidths.req}px`,
+                                    minWidth: `${colWidths.req}px`,
+                                    paddingLeft: `${editForm.table_col_padding || 4}px`,
+                                    paddingRight: `${editForm.table_col_padding || 4}px`,
+                                  }}
+                                >
+                                  <textarea
+                                    rows={2}
+                                    value={editForm.header_req || 'Req'}
+                                    onChange={(e) => handleInputChange('header_req', e.target.value)}
+                                    onFocus={(e) => e.target.select()}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
+                                    title="Click to edit header"
+                                    className="w-full h-full bg-transparent border-0 text-center font-black uppercase text-[10px] leading-tight resize-none whitespace-pre-wrap break-words overflow-hidden focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-0.5 cursor-text hover:bg-black/5 transition-colors focus:outline-none py-1"
+                                  />
+                                </th>
+                              )}
                             </tr>
                           </thead>
                           <tbody className="font-bold text-slate-900 text-[11px]">
                             {chunkCategories.map((category) => (
                               <React.Fragment key={category.id}>
                                 <tr className={`${theme.categoryBar} h-[24px]`}>
-                                  <td colSpan={showMrp ? 6 : 5} className="py-0.5 text-center text-[11px] font-black tracking-wider uppercase border border-slate-400 p-0" style={{ paddingLeft: `${editForm.table_col_padding || 4}px`, paddingRight: `${editForm.table_col_padding || 4}px` }}>
+                                  <td colSpan={activeColCount || 1} className="py-0.5 text-center text-[11px] font-black tracking-wider uppercase border border-slate-400 p-0" style={{ paddingLeft: `${editForm.table_col_padding || 4}px`, paddingRight: `${editForm.table_col_padding || 4}px` }}>
                                     <input
                                       type="text"
                                       value={category.name}
                                       onChange={(e) => handleInlineCategoryChange(category.id, e.target.value)}
                                       onBlur={(e) => handleInlineCategorySave(category.id, e.target.value)}
+                                      onFocus={(e) => e.target.select()}
                                       title="Click to edit category name inline like Excel"
                                       className="w-full bg-transparent border-0 text-center text-[11px] font-black tracking-wider uppercase focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none"
                                     />
@@ -2160,64 +2466,114 @@ export default function PriceList({ defaultTab }) {
                                   const currentSno = absoluteIndex !== -1 ? absoluteIndex + 1 : (chunkIdx * pageSize) + idx + 1;
 
                                   return (
-                                    <tr key={product.id} className="hover:bg-slate-50 transition-colors text-black font-extrabold" style={{ height: `${editForm.table_row_height || 22}px` }}>
+                                    <tr key={product.id} className="hover:bg-amber-50/40 transition-colors text-black font-extrabold" style={{ height: `${editForm.table_row_height || 22}px` }}>
                                       {/* S.No / Code Cell */}
-                                      <td className="py-0 text-center text-black font-extrabold border border-slate-400 text-[11px] p-0" style={{ width: `${colWidths.sno}px`, paddingLeft: `${editForm.table_col_padding || 4}px`, paddingRight: `${editForm.table_col_padding || 4}px` }}>
-                                        <input
-                                          type="text"
-                                          value={product.product_code !== null && product.product_code !== undefined ? product.product_code : currentSno}
-                                          onChange={(e) => handleInlineProductChange(product.id, 'product_code', e.target.value)}
-                                          onBlur={(e) => handleInlineProductSave(product.id, 'product_code', e.target.value)}
-                                          className="w-full bg-transparent border-0 text-center text-black font-extrabold text-[11px] focus:bg-amber-50 focus:ring-2 focus:ring-amber-500 rounded px-0.5 cursor-text hover:bg-amber-50/50 transition-colors focus:outline-none"
-                                        />
-                                      </td>
+                                      {showSno && (
+                                        <td className="py-0 text-center text-black font-extrabold border border-slate-400 text-[11px] p-0" style={{ width: `${colWidths.sno}px`, paddingLeft: `${editForm.table_col_padding || 4}px`, paddingRight: `${editForm.table_col_padding || 4}px` }}>
+                                          <input
+                                            type="text"
+                                            data-excel-row={absoluteIndex}
+                                            data-excel-col={0}
+                                            value={product.product_code !== null && product.product_code !== undefined ? product.product_code : currentSno}
+                                            onChange={(e) => handleInlineProductChange(product.id, 'product_code', e.target.value)}
+                                            onBlur={(e) => handleInlineProductSave(product.id, 'product_code', e.target.value)}
+                                            onFocus={(e) => e.target.select()}
+                                            onKeyDown={(e) => handleExcelGridKeyDown(e, absoluteIndex, 0)}
+                                            onPaste={(e) => handleExcelGridPaste(e, absoluteIndex, 0)}
+                                            className="w-full bg-transparent border-0 text-center text-black font-extrabold text-[11px] focus:bg-emerald-50 focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 focus:z-20 rounded-xs px-0.5 cursor-text hover:bg-amber-50/50 transition-all focus:outline-none focus:shadow-md"
+                                          />
+                                        </td>
+                                      )}
 
                                       {/* Product Name Cell */}
-                                      <td className="py-0 font-extrabold text-black border border-slate-400 leading-tight text-[11px] p-0" style={{ width: `${colWidths.product}px`, paddingLeft: `${editForm.table_col_padding || 4}px`, paddingRight: `${editForm.table_col_padding || 4}px` }}>
-                                        <input
-                                          type="text"
-                                          value={product.name}
-                                          onChange={(e) => handleInlineProductChange(product.id, 'name', e.target.value)}
-                                          onBlur={(e) => handleInlineProductSave(product.id, 'name', e.target.value)}
-                                          className="w-full bg-transparent border-0 font-extrabold text-black text-[11px] leading-tight focus:bg-amber-50 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-amber-50/50 transition-colors focus:outline-none"
-                                        />
-                                      </td>
+                                      {showProduct && (
+                                        <td className="py-0 font-extrabold text-black border border-slate-400 leading-tight text-[11px] p-0" style={{ width: `${colWidths.product}px`, paddingLeft: `${editForm.table_col_padding || 4}px`, paddingRight: `${editForm.table_col_padding || 4}px` }}>
+                                          <input
+                                            type="text"
+                                            data-excel-row={absoluteIndex}
+                                            data-excel-col={1}
+                                            value={product.name}
+                                            onChange={(e) => handleInlineProductChange(product.id, 'name', e.target.value)}
+                                            onBlur={(e) => handleInlineProductSave(product.id, 'name', e.target.value)}
+                                            onFocus={(e) => e.target.select()}
+                                            onKeyDown={(e) => handleExcelGridKeyDown(e, absoluteIndex, 1)}
+                                            onPaste={(e) => handleExcelGridPaste(e, absoluteIndex, 1)}
+                                            className="w-full bg-transparent border-0 font-extrabold text-black text-[11px] leading-tight focus:bg-emerald-50 focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 focus:z-20 rounded-xs px-1 cursor-text hover:bg-amber-50/50 transition-all focus:outline-none focus:shadow-md"
+                                          />
+                                        </td>
+                                      )}
 
                                       {/* Unit / Pack Size Cell */}
-                                      <td className="py-0 text-center text-black border border-slate-400 font-extrabold text-[10.5px] leading-tight p-0" style={{ width: `${colWidths.unit}px`, paddingLeft: `${editForm.table_col_padding || 4}px`, paddingRight: `${editForm.table_col_padding || 4}px` }}>
-                                        <input
-                                          type="text"
-                                          value={product.pack_size}
-                                          onChange={(e) => handleInlineProductChange(product.id, 'pack_size', e.target.value)}
-                                          onBlur={(e) => handleInlineProductSave(product.id, 'pack_size', e.target.value)}
-                                          className="w-full bg-transparent border-0 text-center font-extrabold text-black text-[10.5px] leading-tight focus:bg-amber-50 focus:ring-2 focus:ring-amber-500 rounded px-0.5 cursor-text hover:bg-amber-50/50 transition-colors focus:outline-none"
-                                        />
-                                      </td>
+                                      {showUnit && (
+                                        <td className="py-0 text-center text-black border border-slate-400 font-extrabold text-[10.5px] leading-tight p-0" style={{ width: `${colWidths.unit}px`, paddingLeft: `${editForm.table_col_padding || 4}px`, paddingRight: `${editForm.table_col_padding || 4}px` }}>
+                                          <input
+                                            type="text"
+                                            data-excel-row={absoluteIndex}
+                                            data-excel-col={2}
+                                            value={product.pack_size}
+                                            onChange={(e) => handleInlineProductChange(product.id, 'pack_size', e.target.value)}
+                                            onBlur={(e) => handleInlineProductSave(product.id, 'pack_size', e.target.value)}
+                                            onFocus={(e) => e.target.select()}
+                                            onKeyDown={(e) => handleExcelGridKeyDown(e, absoluteIndex, 2)}
+                                            onPaste={(e) => handleExcelGridPaste(e, absoluteIndex, 2)}
+                                            className="w-full bg-transparent border-0 text-center font-extrabold text-black text-[10.5px] leading-tight focus:bg-emerald-50 focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 focus:z-20 rounded-xs px-0.5 cursor-text hover:bg-amber-50/50 transition-all focus:outline-none focus:shadow-md"
+                                          />
+                                        </td>
+                                      )}
 
                                       {/* Rate (MRP) Cell */}
-                                      {showMrp && (
+                                      {showMrpCol && (
                                         <td className="py-0 text-right text-black font-extrabold border border-slate-400 text-[11px] p-0" style={{ width: `${colWidths.mrp}px`, paddingLeft: `${editForm.table_col_padding || 4}px`, paddingRight: `${editForm.table_col_padding || 4}px` }}>
                                           <input
                                             type="text"
+                                            data-excel-row={absoluteIndex}
+                                            data-excel-col={3}
                                             value={product.mrp}
                                             onChange={(e) => handleInlineMrpChange(product.id, e.target.value)}
                                             onBlur={(e) => handleInlineMrpSave(product.id, e.target.value)}
-                                            className="w-full bg-transparent border-0 text-right font-extrabold text-black text-[11px] focus:bg-amber-50 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-amber-50/50 transition-colors focus:outline-none"
+                                            onFocus={(e) => e.target.select()}
+                                            onKeyDown={(e) => handleExcelGridKeyDown(e, absoluteIndex, 3)}
+                                            onPaste={(e) => handleExcelGridPaste(e, absoluteIndex, 3)}
+                                            className="w-full bg-transparent border-0 text-right font-extrabold text-black text-[11px] focus:bg-emerald-50 focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 focus:z-20 rounded-xs px-1 cursor-text hover:bg-amber-50/50 transition-all focus:outline-none focus:shadow-md"
                                           />
                                         </td>
                                       )}
 
                                       {/* Offer Rate Cell */}
-                                      <td className="py-0 text-right font-extrabold text-black border border-slate-400 text-[11px] p-0" style={{ width: `${colWidths.offer}px`, paddingLeft: `${editForm.table_col_padding || 4}px`, paddingRight: `${editForm.table_col_padding || 4}px` }}>
-                                        <input
-                                          type="text"
-                                          value={product.selling_price}
-                                          onChange={(e) => handleInlineOfferChange(product.id, e.target.value)}
-                                          onBlur={(e) => handleInlineProductSave(product.id, 'selling_price', e.target.value)}
-                                          className="w-full bg-transparent border-0 text-right font-extrabold text-black text-[11px] focus:bg-amber-50 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-amber-50/50 transition-colors focus:outline-none"
-                                        />
-                                      </td>
-                                      <td className="py-1 text-center border border-slate-400 overflow-hidden truncate" style={{ width: `${colWidths.req}px`, paddingLeft: `${editForm.table_col_padding || 4}px`, paddingRight: `${editForm.table_col_padding || 4}px` }}></td>
+                                      {showOffer && (
+                                        <td className="py-0 text-right font-extrabold text-black border border-slate-400 text-[11px] p-0" style={{ width: `${colWidths.offer}px`, paddingLeft: `${editForm.table_col_padding || 4}px`, paddingRight: `${editForm.table_col_padding || 4}px` }}>
+                                          <input
+                                            type="text"
+                                            data-excel-row={absoluteIndex}
+                                            data-excel-col={4}
+                                            value={product.selling_price}
+                                            onChange={(e) => handleInlineOfferChange(product.id, e.target.value)}
+                                            onBlur={(e) => handleInlineProductSave(product.id, 'selling_price', e.target.value)}
+                                            onFocus={(e) => e.target.select()}
+                                            onKeyDown={(e) => handleExcelGridKeyDown(e, absoluteIndex, 4)}
+                                            onPaste={(e) => handleExcelGridPaste(e, absoluteIndex, 4)}
+                                            className="w-full bg-transparent border-0 text-right font-extrabold text-black text-[11px] focus:bg-emerald-50 focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 focus:z-20 rounded-xs px-1 cursor-text hover:bg-amber-50/50 transition-all focus:outline-none focus:shadow-md"
+                                          />
+                                        </td>
+                                      )}
+
+                                      {/* Req Cell */}
+                                      {showReq && (
+                                        <td className="py-0 text-center font-extrabold text-black border border-slate-400 text-[11px] p-0" style={{ width: `${colWidths.req}px`, paddingLeft: `${editForm.table_col_padding || 4}px`, paddingRight: `${editForm.table_col_padding || 4}px` }}>
+                                          <input
+                                            type="text"
+                                            data-excel-row={absoluteIndex}
+                                            data-excel-col={5}
+                                            value={product.req || ''}
+                                            onChange={(e) => handleInlineProductChange(product.id, 'req', e.target.value)}
+                                            onBlur={(e) => handleInlineProductSave(product.id, 'req', e.target.value)}
+                                            onFocus={(e) => e.target.select()}
+                                            onKeyDown={(e) => handleExcelGridKeyDown(e, absoluteIndex, 5)}
+                                            onPaste={(e) => handleExcelGridPaste(e, absoluteIndex, 5)}
+                                            className="w-full bg-transparent border-0 text-center font-extrabold text-black text-[11px] focus:bg-emerald-50 focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 focus:z-20 rounded-xs px-0.5 cursor-text hover:bg-amber-50/50 transition-all focus:outline-none focus:shadow-md"
+                                          />
+                                        </td>
+                                      )}
                                     </tr>
                                   );
                                 })}
