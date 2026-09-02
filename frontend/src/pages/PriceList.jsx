@@ -402,6 +402,26 @@ export default function PriceList({ defaultTab }) {
     }
   };
 
+  const renderFormattedText = (text, defaultClass = "") => {
+    if (!text) return null;
+    let safeText = String(text)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    let formatted = safeText
+      .replace(/\*\*\*(.*?)\*\*\*/g, "<strong><em>$1</em></strong>")
+      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+      .replace(/__(.*?)__/g, "<strong>$1</strong>")
+      .replace(/\*(.*?)\*/g, "<em>$1</em>")
+      .replace(/_(.*?)_/g, "<em>$1</em>");
+    return (
+      <div
+        className={`whitespace-pre-wrap ${defaultClass}`}
+        dangerouslySetInnerHTML={{ __html: formatted }}
+      />
+    );
+  };
+
   const handleSaveSettings = async (e) => {
     e?.preventDefault();
     setSavingSettings(true);
@@ -1641,13 +1661,13 @@ export default function PriceList({ defaultTab }) {
 
                 <div className="md:col-span-2 lg:col-span-3">
                   <textarea
-                    rows={2}
+                    rows={4}
                     value={editForm.important_note_1}
                     onChange={(e) => handleInputChange('important_note_1', e.target.value)}
                     className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-semibold text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 mb-2"
                   ></textarea>
                   <textarea
-                    rows={2}
+                    rows={4}
                     value={editForm.important_note_2}
                     onChange={(e) => handleInputChange('important_note_2', e.target.value)}
                     className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-semibold text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
@@ -2282,22 +2302,24 @@ export default function PriceList({ defaultTab }) {
                         {/* Tamil Festive Greeting Message Notice Banner */}
                         {editForm.store_notice && (
                           <div className="mt-1.5 p-2 rounded-lg border-2 border-amber-400 bg-amber-50/70 text-center font-bold text-[10px] leading-snug text-amber-950">
-                            {editForm.store_notice}
+                            {renderFormattedText(editForm.store_notice)}
                           </div>
                         )}
 
                         {/* Bottom Tamil Important Notes Box matching reference screenshot */}
                         {(editForm.important_note_1 || editForm.important_note_2) && (
-                          <div className="mt-3 bg-amber-50/90 border-2 border-amber-300 rounded-xl p-3.5 text-center shadow-xs">
+                          <div className="mt-3 bg-amber-50/90 border-2 border-amber-300 rounded-xl p-3.5 text-center shadow-xs space-y-1.5">
                             {editForm.important_note_1 && (
-                              <p className="text-slate-900 font-black text-xs sm:text-[12px] leading-relaxed">
-                                {editForm.important_note_1}
-                              </p>
+                              renderFormattedText(
+                                editForm.important_note_1,
+                                "text-slate-900 font-black text-xs sm:text-[12px] leading-relaxed"
+                              )
                             )}
                             {editForm.important_note_2 && (
-                              <p className="text-red-700 font-black text-xs sm:text-[12px] leading-relaxed mt-1.5">
-                                {editForm.important_note_2}
-                              </p>
+                              renderFormattedText(
+                                editForm.important_note_2,
+                                "text-red-700 font-black text-xs sm:text-[12px] leading-relaxed"
+                              )
                             )}
                           </div>
                         )}
@@ -2384,25 +2406,21 @@ export default function PriceList({ defaultTab }) {
                   {(editForm.important_note_1 || editForm.important_note_2) && (
                     <div className="bg-white/95 border-2 border-amber-400 rounded-2xl p-4 text-center shadow-md backdrop-blur-xs space-y-1.5">
                       {editForm.important_note_1 && (
-                        <p className="text-slate-900 font-black text-xs sm:text-sm leading-relaxed">
-                          {editForm.important_note_1}
-                        </p>
+                        renderFormattedText(
+                          editForm.important_note_1,
+                          "text-slate-900 font-black text-xs sm:text-sm leading-relaxed"
+                        )
                       )}
                       {editForm.important_note_2 && (
-                        <p className="text-red-700 font-black text-xs sm:text-sm leading-relaxed">
-                          {editForm.important_note_2}
-                        </p>
+                        renderFormattedText(
+                          editForm.important_note_2,
+                          "text-red-700 font-black text-xs sm:text-sm leading-relaxed"
+                        )
                       )}
                     </div>
                   )}
                 </div>
 
-                {/* Footer Bar */}
-                <div className="flex items-center justify-between text-[11px] font-black text-slate-900 bg-white/95 px-4 py-2 rounded-xl border-2 border-amber-400 shadow-md backdrop-blur-xs">
-                  <span>Page {totalDocPages} of {totalDocPages}</span>
-                  <span>{editForm.store_name || 'Guru Vishnu Traders'} • Official Price List</span>
-                  <span>210mm × 297mm</span>
-                </div>
               </div>
             </div>
           )}

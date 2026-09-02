@@ -17,6 +17,19 @@
             font-size: 11px;
         }
         @php
+            if (!function_exists('formatMarkdownPdf')) {
+                function formatMarkdownPdf($text) {
+                    if (empty($text)) return '';
+                    $html = e($text);
+                    $html = preg_replace('/\*\*\*(.*?)\*\*\*/s', '<strong><em>$1</em></strong>', $html);
+                    $html = preg_replace('/\*\*(.*?)\*\*/s', '<strong>$1</strong>', $html);
+                    $html = preg_replace('/__(.*?)__/s', '<strong>$1</strong>', $html);
+                    $html = preg_replace('/\*(.*?)\*/s', '<em>$1</em>', $html);
+                    $html = preg_replace('/_(.*?)_/s', '<em>$1</em>', $html);
+                    return $html;
+                }
+            }
+
             $bgPath = public_path("images/cover_bg.jpg");
             if (!empty($settings['store_cover_bg'])) {
                 if (str_starts_with($settings['store_cover_bg'], 'uploads/')) {
@@ -385,10 +398,10 @@
             @if(!empty($editForm['important_note_1']) || !empty($editForm['important_note_2']))
             <div style="margin-top: 10px; background: #fffbeb; border: 1.5px solid #fde047; border-radius: 10px; padding: 10px 14px; text-align: center;">
                 @if(!empty($editForm['important_note_1']))
-                <div style="color: #0f172a; font-size: 10.5px; font-weight: 900; line-height: 1.4;">{{ $editForm['important_note_1'] }}</div>
+                <div style="color: #0f172a; font-size: 10.5px; font-weight: 900; line-height: 1.4; white-space: pre-wrap;">{!! formatMarkdownPdf($editForm['important_note_1']) !!}</div>
                 @endif
                 @if(!empty($editForm['important_note_2']))
-                <div style="color: #b91c1c; font-size: 10.5px; font-weight: 900; line-height: 1.4; margin-top: 4px;">{{ $editForm['important_note_2'] }}</div>
+                <div style="color: #b91c1c; font-size: 10.5px; font-weight: 900; line-height: 1.4; margin-top: 4px; white-space: pre-wrap;">{!! formatMarkdownPdf($editForm['important_note_2']) !!}</div>
                 @endif
             </div>
             @endif
