@@ -2039,7 +2039,7 @@ export default function PriceList({ defaultTab }) {
                   />
                   <span className="text-slate-800">Bank</span>
                 </label>
-                <label className="inline-flex items-center gap-1 cursor-pointer select-none col-span-2">
+                <label className="inline-flex items-center gap-1 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={editForm.show_upi_qr !== false}
@@ -2047,6 +2047,15 @@ export default function PriceList({ defaultTab }) {
                     className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
                   />
                   <span className="text-slate-800">UPI QR</span>
+                </label>
+                <label className="inline-flex items-center gap-1 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={editForm.show_discount_badge !== false}
+                    onChange={(e) => handleInputChange('show_discount_badge', e.target.checked)}
+                    className="rounded text-rose-600 focus:ring-rose-500 w-3.5 h-3.5 cursor-pointer"
+                  />
+                  <span className="text-slate-800">Discount Box</span>
                 </label>
               </div>
             </div>
@@ -2157,7 +2166,7 @@ export default function PriceList({ defaultTab }) {
                   </div>
 
                   {/* Center: Contact Details (Website, 4 Phone Numbers, GPay - 100% Visible & Crisp) */}
-                  <div className="sm:col-span-6 flex flex-col items-center sm:items-start text-center sm:text-left space-y-1 sm:space-y-1.5">
+                  <div className={`${editForm.show_discount_badge !== false ? 'sm:col-span-6' : 'sm:col-span-9'} flex flex-col items-center sm:items-start text-center sm:text-left space-y-1 sm:space-y-1.5`}>
                     {editForm.store_email && (
                       <div className="flex items-center gap-2 text-slate-950 text-xs sm:text-sm font-black tracking-wide">
                         <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-black text-white flex items-center justify-center text-[10px] sm:text-xs shrink-0 shadow-xs">
@@ -2184,43 +2193,45 @@ export default function PriceList({ defaultTab }) {
                     )}
                   </div>
 
-                  {/* Right: Dynamic Mega Sale Discount Offer Badge & Rocket */}
-                  <div className="sm:col-span-3 flex justify-center sm:justify-end items-center">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <div className="flex flex-col items-center justify-center text-center">
-                        {/* 3D MEGA SALE Header */}
-                        <div
-                          className="text-amber-500 font-black text-base sm:text-lg uppercase tracking-wider leading-none"
-                          style={{ textShadow: '-1.5px -1.5px 0 #78350f, 1.5px -1.5px 0 #78350f, -1.5px 1.5px 0 #78350f, 1.5px 1.5px 0 #78350f, 0 2px 4px rgba(0,0,0,0.3)' }}
-                        >
-                          MEGA SALE
+                  {/* Right: Dynamic Mega Sale Discount Offer Badge & Rocket (Optional) */}
+                  {editForm.show_discount_badge !== false && (
+                    <div className="sm:col-span-3 flex justify-center sm:justify-end items-center">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="flex flex-col items-center justify-center text-center">
+                          {/* 3D MEGA SALE Header */}
+                          <div
+                            className="text-amber-500 font-black text-base sm:text-lg uppercase tracking-wider leading-none"
+                            style={{ textShadow: '-1.5px -1.5px 0 #78350f, 1.5px -1.5px 0 #78350f, -1.5px 1.5px 0 #78350f, 1.5px 1.5px 0 #78350f, 0 2px 4px rgba(0,0,0,0.3)' }}
+                          >
+                            MEGA SALE
+                          </div>
+                          {/* Dynamic Offer Percentage Value */}
+                          <div
+                            className="text-3xl sm:text-4xl font-black my-0.5 leading-none transition-colors duration-300"
+                            style={{
+                              color: getThemeAccentColor(editForm.store_cover_bg).hex,
+                              textShadow: '-2px -2px 0 #ffffff, 2px -2px 0 #ffffff, -2px 2px 0 #ffffff, 2px 2px 0 #ffffff, 0 3px 6px rgba(0,0,0,0.4)'
+                            }}
+                          >
+                            {discountPercent}%
+                          </div>
+                          {/* DISCOUNT Badge */}
+                          <div
+                            className="text-white text-[9px] sm:text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md shadow tracking-widest transition-colors duration-300"
+                            style={{
+                              backgroundColor: getThemeAccentColor(editForm.store_cover_bg).hex
+                            }}
+                          >
+                            DISCOUNT
+                          </div>
                         </div>
-                        {/* Dynamic Offer Percentage Value */}
-                        <div
-                          className="text-3xl sm:text-4xl font-black my-0.5 leading-none transition-colors duration-300"
-                          style={{
-                            color: getThemeAccentColor(editForm.store_cover_bg).hex,
-                            textShadow: '-2px -2px 0 #ffffff, 2px -2px 0 #ffffff, -2px 2px 0 #ffffff, 2px 2px 0 #ffffff, 0 3px 6px rgba(0,0,0,0.4)'
-                          }}
-                        >
-                          {discountPercent}%
+                        {/* Skyrocket Clipart */}
+                        <div className="text-2xl sm:text-3xl">
+                          🚀
                         </div>
-                        {/* DISCOUNT Badge */}
-                        <div
-                          className="text-white text-[9px] sm:text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md shadow tracking-widest transition-colors duration-300"
-                          style={{
-                            backgroundColor: getThemeAccentColor(editForm.store_cover_bg).hex
-                          }}
-                        >
-                          DISCOUNT
-                        </div>
-                      </div>
-                      {/* Skyrocket Clipart */}
-                      <div className="text-2xl sm:text-3xl">
-                        🚀
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Bottom Centered Address Row */}
                   <div className="sm:col-span-12 flex items-center justify-center gap-1.5 text-slate-950 text-[11px] sm:text-xs font-black pt-1.5 border-t border-slate-200 text-center w-full mt-0.5">

@@ -395,11 +395,13 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
                   <Text style={styles.contactItem}>💳 GPay: {editForm.store_gpay}</Text>
                 ) : null}
               </View>
-              <View style={styles.coverBannerRight}>
-                <Text style={styles.megaSaleText}>MEGA SALE</Text>
-                <Text style={styles.discountVal}>{editForm.discount_percent || 50}%</Text>
-                <Text style={styles.discountBadge}>DISCOUNT</Text>
-              </View>
+              {editForm.show_discount_badge !== false && (
+                <View style={styles.coverBannerRight}>
+                  <Text style={styles.megaSaleText}>MEGA SALE</Text>
+                  <Text style={styles.discountVal}>{editForm.discount_percent || 50}%</Text>
+                  <Text style={styles.discountBadge}>DISCOUNT</Text>
+                </View>
+              )}
             </View>
             {editForm.store_address ? (
               <Text style={styles.addressRow}>📍 {editForm.store_address}</Text>
