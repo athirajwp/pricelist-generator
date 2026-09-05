@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Models\Product;
 use App\Models\Setting;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
@@ -22,15 +23,7 @@ class HomeController extends Controller
             ->get();
 
         foreach ($categories as $cat) {
-            $sortedProducts = $cat->products->sort(function ($a, $b) {
-                $codeA = (is_numeric($a->product_code) && intval($a->product_code) > 0) ? intval($a->product_code) : 99999;
-                $codeB = (is_numeric($b->product_code) && intval($b->product_code) > 0) ? intval($b->product_code) : 99999;
-                if ($codeA === $codeB) {
-                    return strcmp($a->name, $b->name);
-                }
-                return $codeA <=> $codeB;
-            })->values();
-            $cat->setRelation('products', $sortedProducts);
+            $cat->setRelation('products', Product::sortCollection($cat->products));
         }
 
         // Load specific configuration settings
@@ -78,15 +71,7 @@ class HomeController extends Controller
             ->get();
 
         foreach ($categories as $cat) {
-            $sortedProducts = $cat->products->sort(function ($a, $b) {
-                $codeA = (is_numeric($a->product_code) && intval($a->product_code) > 0) ? intval($a->product_code) : 99999;
-                $codeB = (is_numeric($b->product_code) && intval($b->product_code) > 0) ? intval($b->product_code) : 99999;
-                if ($codeA === $codeB) {
-                    return strcmp($a->name, $b->name);
-                }
-                return $codeA <=> $codeB;
-            })->values();
-            $cat->setRelation('products', $sortedProducts);
+            $cat->setRelation('products', Product::sortCollection($cat->products));
         }
 
         $settings = [

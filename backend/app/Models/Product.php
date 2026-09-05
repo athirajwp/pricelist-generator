@@ -76,4 +76,52 @@ class Product extends Model
         $discount = (($this->mrp - $this->selling_price) / $this->mrp) * 100;
         return (int) round($discount);
     }
+
+    /**
+     * Sort a collection or array of products by product_code (S.No / Code) naturally.
+     */
+    public static function sortCollection($products)
+    {
+        if (is_null($products)) {
+            return collect();
+        }
+
+        $collection = is_array($products) ? collect($products) : $products;
+
+        return $collection->sort(function ($a, $b) {
+            $codeA = is_object($a) ? ($a->product_code ?? '') : ($a['product_code'] ?? '');
+            $codeB = is_object($b) ? ($b->product_code ?? '') : ($b['product_code'] ?? '');
+            $codeA = trim((string)$codeA);
+            $codeB = trim((string)$codeB);
+
+            if ($codeA !== '' && $codeB !== '') {
+                if (is_numeric($codeA) && is_numeric($codeB)) {
+                    $numA = (float)$codeA;
+                    $numB = (float)$codeB;
+                    if ($numA !== $numB) {
+                        return $numA <=> $numB;
+                    }
+                } else {
+                    $cmp = strnatcasecmp($codeA, $codeB);
+                    if ($cmp !== 0) {
+                        return $cmp;
+                    }
+                }
+            } elseif ($codeA !== '') {
+                return -1;
+            } elseif ($codeB !== '') {
+                return 1;
+            }
+
+            $sortA = (int)(is_object($a) ? ($a->sort_order ?? 0) : ($a['sort_order'] ?? 0));
+            $sortB = (int)(is_object($b) ? ($b->sort_order ?? 0) : ($b['sort_order'] ?? 0));
+            if ($sortA !== $sortB) {
+                return $sortA <=> $sortB;
+            }
+
+            $idA = (int)(is_object($a) ? ($a->id ?? 0) : ($a['id'] ?? 0));
+            $idB = (int)(is_object($b) ? ($b->id ?? 0) : ($b['id'] ?? 0));
+            return $idA <=> $idB;
+        })->values();
+    }
 }

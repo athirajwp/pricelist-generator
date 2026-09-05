@@ -1,5 +1,6 @@
 import React from 'react';
 import { Document, Page, Text, View, Image, StyleSheet, pdf } from '@react-pdf/renderer';
+import { sortProductsByCode } from '../utils/productSorter';
 
 const styles = StyleSheet.create({
   page: {
@@ -435,6 +436,12 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
               chunkCategories.push(catGroup);
             }
             catGroup.products.push(item);
+          }
+        });
+
+        chunkCategories.forEach((cat) => {
+          if (cat && cat.products) {
+            cat.products = sortProductsByCode(cat.products);
           }
         });
 

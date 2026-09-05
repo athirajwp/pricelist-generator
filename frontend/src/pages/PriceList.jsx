@@ -4,6 +4,7 @@ import { useStore } from '../context/StoreContext';
 import { getImageUrl } from '../utils/imageUrl';
 import AdminProducts from './admin/AdminProducts';
 import { generateReactPDFBlob } from '../components/PriceListPDFDocument';
+import { sortProductsByCode } from '../utils/productSorter';
 
 export default function PriceList({ defaultTab }) {
   const location = useLocation();
@@ -1055,7 +1056,7 @@ export default function PriceList({ defaultTab }) {
     });
 
     if (filteredProducts.length === 0) return null;
-    return { ...cat, products: filteredProducts };
+    return { ...cat, products: sortProductsByCode(filteredProducts) };
   }).filter(Boolean);
 
   // 2. Flatten all filtered products into a single ordered array (preserving exact Excel row order)
@@ -1900,294 +1901,300 @@ export default function PriceList({ defaultTab }) {
             </div>
           )}
 
-          {/* Useful Document Controls Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 text-xs font-semibold">
-
-            {/* 1. Upload Image Quick Status */}
-            <div>
-              <label className="block text-slate-700 mb-1 font-extrabold flex items-center justify-between">
-                <span>Cover Image</span>
-                <span className="text-amber-700 font-black text-[10px] uppercase">
-                  {editForm.store_deity_image ? 'Uploaded' : 'None'}
-                </span>
-              </label>
-              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl p-1 h-[42px]">
-                {editForm.store_deity_image ? (
-                  <div className="flex items-center justify-between w-full px-2 text-xs font-black text-emerald-700">
-                    <span className="truncate">Image Active</span>
+          {/* Useful Document Controls Dashboard Bar */}
+          <div className="bg-slate-50/90 border border-slate-200 rounded-2xl p-3.5 space-y-3.5 shadow-2xs">
+            {/* Top Row: 5 Perfectly Aligned Input Columns */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs font-semibold items-end">
+              {/* 1. Cover Image Quick Status */}
+              <div>
+                <label className="block text-slate-700 mb-1 font-extrabold flex items-center justify-between text-[11px]">
+                  <span>Cover Image</span>
+                  <span className="text-amber-700 font-black text-[10px] uppercase">
+                    {editForm.store_deity_image ? 'Uploaded' : 'None'}
+                  </span>
+                </label>
+                <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl p-1 h-[42px] shadow-2xs">
+                  {editForm.store_deity_image ? (
+                    <div className="flex items-center justify-between w-full px-2 text-xs font-black text-emerald-700">
+                      <span className="truncate flex items-center gap-1"><i className="fa-solid fa-image"></i> Image Active</span>
+                      <button
+                        type="button"
+                        onClick={() => handleInputChange('store_deity_image', '')}
+                        className="text-[10px] bg-red-100 hover:bg-red-200 text-red-700 font-bold px-2 py-0.5 rounded-md transition-all cursor-pointer shrink-0"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  ) : (
                     <button
                       type="button"
-                      onClick={() => handleInputChange('store_deity_image', '')}
-                      className="text-[10px] bg-red-100 hover:bg-red-200 text-red-700 font-bold px-2 py-0.5 rounded-md transition-all"
+                      onClick={() => setShowEditDrawer(true)}
+                      className="w-full h-full text-[10px] font-black text-slate-700 hover:text-amber-700 bg-white hover:bg-amber-50 rounded-lg flex items-center justify-center gap-1 transition-all cursor-pointer"
                     >
-                      Clear
+                      <i className="fa-solid fa-upload"></i> Upload Image
                     </button>
+                  )}
+                </div>
+              </div>
+
+              {/* 2. Rows Per Page (TR Count) */}
+              <div>
+                <label className="block text-slate-700 mb-1 font-extrabold flex items-center justify-between text-[11px]">
+                  <span>Rows / Page</span>
+                  <span className="text-amber-700 font-black text-[10px] bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">{editForm.max_tr_per_page || 30} TRs</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={10}
+                    max={60}
+                    value={editForm.max_tr_per_page || 30}
+                    onChange={(e) => handleInputChange('max_tr_per_page', parseInt(e.target.value, 10) || 30)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1 text-xs font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 h-[42px] transition-all shadow-2xs pr-10"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 pointer-events-none">TRs</span>
+                </div>
+              </div>
+
+              {/* 3. Row Height */}
+              <div>
+                <label className="block text-slate-700 mb-1 font-extrabold flex items-center justify-between text-[11px]">
+                  <span>Row Height</span>
+                  <span className="text-amber-700 font-black text-[10px] bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">{editForm.table_row_height || 22}px</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={14}
+                    max={45}
+                    value={editForm.table_row_height || 22}
+                    onChange={(e) => handleInputChange('table_row_height', parseInt(e.target.value, 10) || 22)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1 text-xs font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 h-[42px] transition-all shadow-2xs pr-10"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 pointer-events-none">px</span>
+                </div>
+              </div>
+
+              {/* 4. Discount Offer % */}
+              <div>
+                <label className="block text-slate-700 mb-1 font-extrabold flex items-center justify-between text-[11px]">
+                  <span>Discount Offer</span>
+                  <span className="text-amber-700 font-black text-[10px] bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">{editForm.discount_percent !== undefined ? editForm.discount_percent : 50}% OFF</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={editForm.discount_percent !== undefined ? editForm.discount_percent : 50}
+                    onChange={(e) => handleInputChange('discount_percent', parseFloat(e.target.value) || 0)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1 text-xs font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 h-[42px] transition-all shadow-2xs pr-12"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 pointer-events-none">% OFF</span>
+                </div>
+              </div>
+
+              {/* 5. Footer Position */}
+              <div>
+                <label className="block text-slate-700 mb-1 font-extrabold flex items-center justify-between text-[11px]">
+                  <span>Footer Position</span>
+                </label>
+                <select
+                  value={editForm.footer_position || 'below_table'}
+                  onChange={(e) => handleInputChange('footer_position', e.target.value)}
+                  className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1 text-xs font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer h-[42px] transition-all shadow-2xs"
+                >
+                  <option value="below_table">📍 Below Table</option>
+                  <option value="new_page">📄 New Page</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Bottom Row: 2 Balanced Side-by-Side Control Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 items-stretch">
+              {/* Display Options & Column Visibility Card */}
+              <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs flex flex-col justify-between">
+                <label className="block text-slate-800 font-extrabold text-xs mb-2 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-slate-800"><i className="fa-solid fa-eye text-amber-500"></i> Display Options & Column Visibility</span>
+                </label>
+                <div className="grid grid-cols-3 gap-2 font-extrabold text-[11px]">
+                  <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={editForm.show_col_sno !== false}
+                      onChange={(e) => handleInputChange('show_col_sno', e.target.checked)}
+                      className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span className="text-slate-800">S.No</span>
+                  </label>
+                  <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={editForm.show_col_product !== false}
+                      onChange={(e) => handleInputChange('show_col_product', e.target.checked)}
+                      className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span className="text-slate-800">Product</span>
+                  </label>
+                  <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={editForm.show_col_unit !== false}
+                      onChange={(e) => handleInputChange('show_col_unit', e.target.checked)}
+                      className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span className="text-slate-800">Unit</span>
+                  </label>
+                  <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={showMrp}
+                      onChange={(e) => {
+                        setShowMrp(e.target.checked);
+                        handleInputChange('show_col_mrp', e.target.checked);
+                      }}
+                      className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span className="text-slate-800">MRP (Rate)</span>
+                  </label>
+                  <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={editForm.show_col_offer !== false}
+                      onChange={(e) => handleInputChange('show_col_offer', e.target.checked)}
+                      className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span className="text-slate-800">Offer Rate</span>
+                  </label>
+                  <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={editForm.show_col_req !== false}
+                      onChange={(e) => handleInputChange('show_col_req', e.target.checked)}
+                      className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span className="text-slate-800">REQ</span>
+                  </label>
+                  <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={editForm.show_bank_details !== false}
+                      onChange={(e) => handleInputChange('show_bank_details', e.target.checked)}
+                      className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span className="text-slate-800">Bank Details</span>
+                  </label>
+                  <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={editForm.show_upi_qr !== false}
+                      onChange={(e) => handleInputChange('show_upi_qr', e.target.checked)}
+                      className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span className="text-slate-800">UPI QR</span>
+                  </label>
+                  <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={editForm.show_discount_badge !== false}
+                      onChange={(e) => handleInputChange('show_discount_badge', e.target.checked)}
+                      className="rounded text-rose-600 focus:ring-rose-500 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span className="text-slate-800">Discount Box</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Canva-Style Element Scaling Controls Card */}
+              <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2">
+                <label className="block text-slate-800 font-extrabold text-xs flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-sky-700"><i className="fa-solid fa-expand text-sky-500"></i> Canva Header Element Resizing</span>
+                  <span className="text-[10px] text-slate-400 font-normal">Drag handles or use sliders</span>
+                </label>
+
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                  {/* Logo Scale Slider */}
+                  <div>
+                    <div className="flex justify-between text-[10px] font-bold text-slate-700 mb-0.5">
+                      <span>🖼️ Logo / Brand</span>
+                      <span className="font-mono text-sky-600">{editForm.logo_scale || 100}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="40"
+                      max="200"
+                      value={editForm.logo_scale || 100}
+                      onChange={(e) => handleInputChange('logo_scale', parseInt(e.target.value, 10))}
+                      className="w-full accent-sky-600 cursor-pointer h-1.5 bg-slate-100 rounded-lg"
+                    />
                   </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setShowEditDrawer(true)}
-                    className="w-full h-full text-[10px] font-black text-slate-700 hover:text-amber-700 bg-white hover:bg-amber-50 border border-slate-200 rounded-lg flex items-center justify-center gap-1 transition-all"
-                  >
-                    <i className="fa-solid fa-upload"></i> Upload Image
-                  </button>
-                )}
-              </div>
-            </div>
 
-            {/* 2. Rows Per Page (TR Count - Input Type) */}
-            <div>
-              <label className="block text-slate-700 mb-1 font-extrabold flex items-center justify-between">
-                <span>Rows / Page</span>
-                <span className="text-amber-700 font-black text-[11px] bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">{editForm.max_tr_per_page || 30} TRs</span>
-              </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  min={10}
-                  max={60}
-                  value={editForm.max_tr_per_page || 30}
-                  onChange={(e) => handleInputChange('max_tr_per_page', parseInt(e.target.value, 10) || 30)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1 text-xs font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 h-[42px] transition-all shadow-2xs pr-10"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 pointer-events-none">TRs</span>
-              </div>
-            </div>
+                  {/* Contact Scale Slider */}
+                  <div>
+                    <div className="flex justify-between text-[10px] font-bold text-slate-700 mb-0.5">
+                      <span>📞 Contact Details</span>
+                      <span className="font-mono text-sky-600">{editForm.contact_scale || 100}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="40"
+                      max="200"
+                      value={editForm.contact_scale || 100}
+                      onChange={(e) => handleInputChange('contact_scale', parseInt(e.target.value, 10))}
+                      className="w-full accent-sky-600 cursor-pointer h-1.5 bg-slate-100 rounded-lg"
+                    />
+                  </div>
 
-            {/* 3. Row Height (Input Type) */}
-            <div>
-              <label className="block text-slate-700 mb-1 font-extrabold flex items-center justify-between">
-                <span>Row Height</span>
-                <span className="text-amber-700 font-black text-[11px] bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">{editForm.table_row_height || 22}px</span>
-              </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  min={14}
-                  max={45}
-                  value={editForm.table_row_height || 22}
-                  onChange={(e) => handleInputChange('table_row_height', parseInt(e.target.value, 10) || 22)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1 text-xs font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 h-[42px] transition-all shadow-2xs pr-10"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 pointer-events-none">px</span>
-              </div>
-            </div>
+                  {/* Discount Box Scale Slider */}
+                  <div>
+                    <div className="flex justify-between text-[10px] font-bold text-slate-700 mb-0.5">
+                      <span>🏷️ Discount Box</span>
+                      <span className="font-mono text-sky-600">{editForm.discount_scale || 100}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="40"
+                      max="200"
+                      value={editForm.discount_scale || 100}
+                      onChange={(e) => handleInputChange('discount_scale', parseInt(e.target.value, 10))}
+                      className="w-full accent-sky-600 cursor-pointer h-1.5 bg-slate-100 rounded-lg"
+                    />
+                  </div>
 
-            {/* 4. Discount Offer % (Input Type) */}
-            <div>
-              <label className="block text-slate-700 mb-1 font-extrabold flex items-center justify-between">
-                <span>Discount Offer</span>
-                <span className="text-amber-700 font-black text-[11px] bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">{editForm.discount_percent !== undefined ? editForm.discount_percent : 50}% OFF</span>
-              </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={editForm.discount_percent !== undefined ? editForm.discount_percent : 50}
-                  onChange={(e) => handleInputChange('discount_percent', parseFloat(e.target.value) || 0)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1 text-xs font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 h-[42px] transition-all shadow-2xs pr-12"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 pointer-events-none">% OFF</span>
-              </div>
-            </div>
+                  {/* Address Scale Slider */}
+                  <div>
+                    <div className="flex justify-between text-[10px] font-bold text-slate-700 mb-0.5">
+                      <span>📍 Address Row</span>
+                      <span className="font-mono text-sky-600">{editForm.address_scale || 100}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="40"
+                      max="200"
+                      value={editForm.address_scale || 100}
+                      onChange={(e) => handleInputChange('address_scale', parseInt(e.target.value, 10))}
+                      className="w-full accent-sky-600 cursor-pointer h-1.5 bg-slate-100 rounded-lg"
+                    />
+                  </div>
 
-            {/* 5. Display Options & Column Visibility */}
-            <div>
-              <label className="block text-slate-700 mb-1 font-extrabold flex items-center justify-between">
-                <span>Display Options & Column Visibility</span>
-              </label>
-              <div className="grid grid-cols-3 gap-1.5 bg-slate-50 border border-slate-200 rounded-xl p-2 font-extrabold text-[10px]">
-                <label className="inline-flex items-center gap-1 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={editForm.show_col_sno !== false}
-                    onChange={(e) => handleInputChange('show_col_sno', e.target.checked)}
-                    className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer"
-                  />
-                  <span className="text-slate-800">S.No</span>
-                </label>
-                <label className="inline-flex items-center gap-1 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={editForm.show_col_product !== false}
-                    onChange={(e) => handleInputChange('show_col_product', e.target.checked)}
-                    className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer"
-                  />
-                  <span className="text-slate-800">Product</span>
-                </label>
-                <label className="inline-flex items-center gap-1 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={editForm.show_col_unit !== false}
-                    onChange={(e) => handleInputChange('show_col_unit', e.target.checked)}
-                    className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer"
-                  />
-                  <span className="text-slate-800">Unit</span>
-                </label>
-                <label className="inline-flex items-center gap-1 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={showMrp}
-                    onChange={(e) => {
-                      setShowMrp(e.target.checked);
-                      handleInputChange('show_col_mrp', e.target.checked);
-                    }}
-                    className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer"
-                  />
-                  <span className="text-slate-800">MRP (Rate)</span>
-                </label>
-                <label className="inline-flex items-center gap-1 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={editForm.show_col_offer !== false}
-                    onChange={(e) => handleInputChange('show_col_offer', e.target.checked)}
-                    className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer"
-                  />
-                  <span className="text-slate-800">Offer Rate</span>
-                </label>
-                <label className="inline-flex items-center gap-1 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={editForm.show_col_req !== false}
-                    onChange={(e) => handleInputChange('show_col_req', e.target.checked)}
-                    className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer"
-                  />
-                  <span className="text-slate-800">REQ</span>
-                </label>
-                <label className="inline-flex items-center gap-1 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={editForm.show_bank_details !== false}
-                    onChange={(e) => handleInputChange('show_bank_details', e.target.checked)}
-                    className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer"
-                  />
-                  <span className="text-slate-800">Bank</span>
-                </label>
-                <label className="inline-flex items-center gap-1 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={editForm.show_upi_qr !== false}
-                    onChange={(e) => handleInputChange('show_upi_qr', e.target.checked)}
-                    className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
-                  />
-                  <span className="text-slate-800">UPI QR</span>
-                </label>
-                <label className="inline-flex items-center gap-1 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={editForm.show_discount_badge !== false}
-                    onChange={(e) => handleInputChange('show_discount_badge', e.target.checked)}
-                    className="rounded text-rose-600 focus:ring-rose-500 w-3.5 h-3.5 cursor-pointer"
-                  />
-                  <span className="text-slate-800">Discount Box</span>
-                </label>
-              </div>
-            </div>
-
-            {/* 6. Canva-Style Element Scaling Controls */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2.5">
-              <label className="block text-slate-800 font-extrabold text-xs flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-sky-700"><i className="fa-solid fa-expand text-sky-500"></i> Canva Header Element Resizing</span>
-                <span className="text-[10px] text-slate-400 font-normal">Drag handles or use sliders</span>
-              </label>
-
-              {/* Logo Scale Slider */}
-              <div>
-                <div className="flex justify-between text-[11px] font-bold text-slate-700 mb-0.5">
-                  <span>🖼️ Logo / Brand Size</span>
-                  <span className="font-mono text-sky-600">{editForm.logo_scale || 100}%</span>
+                  {/* God / Deity Image Scale Slider */}
+                  <div className="col-span-2">
+                    <div className="flex justify-between text-[10px] font-bold text-slate-700 mb-0.5">
+                      <span>🕉️ God / Deity Image Size</span>
+                      <span className="font-mono text-sky-600">{editForm.deity_scale || 100}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="40"
+                      max="200"
+                      value={editForm.deity_scale || 100}
+                      onChange={(e) => handleInputChange('deity_scale', parseInt(e.target.value, 10))}
+                      className="w-full accent-sky-600 cursor-pointer h-1.5 bg-slate-100 rounded-lg"
+                    />
+                  </div>
                 </div>
-                <input
-                  type="range"
-                  min="40"
-                  max="200"
-                  value={editForm.logo_scale || 100}
-                  onChange={(e) => handleInputChange('logo_scale', parseInt(e.target.value, 10))}
-                  className="w-full accent-sky-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
-                />
-              </div>
-
-              {/* Contact Scale Slider */}
-              <div>
-                <div className="flex justify-between text-[11px] font-bold text-slate-700 mb-0.5">
-                  <span>📞 Contact Details Size</span>
-                  <span className="font-mono text-sky-600">{editForm.contact_scale || 100}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="40"
-                  max="200"
-                  value={editForm.contact_scale || 100}
-                  onChange={(e) => handleInputChange('contact_scale', parseInt(e.target.value, 10))}
-                  className="w-full accent-sky-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
-                />
-              </div>
-
-              {/* Discount Box Scale Slider */}
-              <div>
-                <div className="flex justify-between text-[11px] font-bold text-slate-700 mb-0.5">
-                  <span>🏷️ Discount Box Size</span>
-                  <span className="font-mono text-sky-600">{editForm.discount_scale || 100}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="40"
-                  max="200"
-                  value={editForm.discount_scale || 100}
-                  onChange={(e) => handleInputChange('discount_scale', parseInt(e.target.value, 10))}
-                  className="w-full accent-sky-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
-                />
-              </div>
-
-              {/* Address Scale Slider */}
-              <div>
-                <div className="flex justify-between text-[11px] font-bold text-slate-700 mb-0.5">
-                  <span>📍 Address Row Size</span>
-                  <span className="font-mono text-sky-600">{editForm.address_scale || 100}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="40"
-                  max="200"
-                  value={editForm.address_scale || 100}
-                  onChange={(e) => handleInputChange('address_scale', parseInt(e.target.value, 10))}
-                  className="w-full accent-sky-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
-                />
-              </div>
-
-              {/* God / Deity Image Scale Slider */}
-              <div>
-                <div className="flex justify-between text-[11px] font-bold text-slate-700 mb-0.5">
-                  <span>🕉️ God / Deity Image Size</span>
-                  <span className="font-mono text-sky-600">{editForm.deity_scale || 100}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="40"
-                  max="200"
-                  value={editForm.deity_scale || 100}
-                  onChange={(e) => handleInputChange('deity_scale', parseInt(e.target.value, 10))}
-                  className="w-full accent-sky-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
-                />
               </div>
             </div>
-
-            {/* 6. Footer Position Option (Input Style) */}
-            <div>
-              <label className="block text-slate-700 mb-1 font-extrabold flex items-center justify-between">
-                <span>Footer Position</span>
-              </label>
-              <select
-                value={editForm.footer_position || 'below_table'}
-                onChange={(e) => handleInputChange('footer_position', e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 text-xs font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer h-[42px] transition-all shadow-2xs"
-              >
-                <option value="below_table">📍 Below Table</option>
-                <option value="new_page">📄 New Page</option>
-              </select>
-            </div>
-
           </div>
         </div>
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Models\Product;
 use App\Models\Setting;
 use App\Models\Order;
 use Illuminate\Http\Request;
@@ -16,11 +17,15 @@ class StorefrontApiController extends Controller
     {
         $categories = Category::active()
             ->with(['products' => function ($query) {
-                $query->active()->orderBy('sort_order', 'asc')->orderBy('id', 'asc');
+                $query->active();
             }])
             ->orderBy('sort_order', 'asc')
             ->orderBy('id', 'asc')
             ->get();
+
+        foreach ($categories as $cat) {
+            $cat->setRelation('products', Product::sortCollection($cat->products));
+        }
 
         $company = view()->shared('currentCompany');
 
@@ -310,11 +315,15 @@ class StorefrontApiController extends Controller
     {
         $categories = Category::active()
             ->with(['products' => function ($query) {
-                $query->active()->orderBy('sort_order', 'asc')->orderBy('id', 'asc');
+                $query->active();
             }])
             ->orderBy('sort_order', 'asc')
             ->orderBy('id', 'asc')
             ->get();
+
+        foreach ($categories as $cat) {
+            $cat->setRelation('products', Product::sortCollection($cat->products));
+        }
 
         $allFilteredProducts = [];
         foreach ($categories as $cat) {

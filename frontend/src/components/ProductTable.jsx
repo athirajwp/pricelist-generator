@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { getImageUrl } from '../utils/imageUrl';
+import { sortProductsByCode } from '../utils/productSorter';
 
 export default function ProductTable() {
   const {
@@ -282,7 +283,7 @@ export default function ProductTable() {
                         </tr>
 
                         {/* Products list within Category */}
-                        {!isCollapsed && cat.products.map((prod) => {
+                        {!isCollapsed && sortProductsByCode(cat.products).map((prod) => {
                           if (!shouldShowProduct(cat.slug, prod)) return null;
 
                           const cartItem = cart[prod.id];
@@ -419,7 +420,7 @@ export default function ProductTable() {
                 if (!shouldShowCategory(cat.slug)) return null;
 
                 const isCollapsed = collapsedCategories.has(cat.slug);
-                const filteredProducts = cat.products.filter((prod) => shouldShowProduct(cat.slug, prod));
+                const filteredProducts = sortProductsByCode(cat.products.filter((prod) => shouldShowProduct(cat.slug, prod)));
                 if (filteredProducts.length === 0) return null;
 
                 return (
@@ -563,7 +564,7 @@ export default function ProductTable() {
               const isCollapsed = collapsedCategories.has(cat.slug);
 
               // Find products that match active filter / search query
-              const filteredProducts = cat.products.filter((prod) => shouldShowProduct(cat.slug, prod));
+              const filteredProducts = sortProductsByCode(cat.products.filter((prod) => shouldShowProduct(cat.slug, prod)));
               if (filteredProducts.length === 0) return null;
 
               return (

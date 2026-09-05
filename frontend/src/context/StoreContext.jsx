@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { getImageUrl } from '../utils/imageUrl';
+import { sortCategoriesAndProducts } from '../utils/productSorter';
 
 const StoreContext = createContext();
 
@@ -43,7 +44,7 @@ export const StoreProvider = ({ children }) => {
     fetch('/api/storefront')
       .then((res) => res.json())
       .then((data) => {
-        if (data.categories) setCategories(data.categories);
+        if (data.categories) setCategories(sortCategoriesAndProducts(data.categories));
         if (data.settings) {
           // Parse numerical settings
           const parsedSettings = {

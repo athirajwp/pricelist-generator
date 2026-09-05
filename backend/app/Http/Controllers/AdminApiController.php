@@ -157,10 +157,9 @@ class AdminApiController extends Controller
             ->join('categories', 'products.category_id', '=', 'categories.id')
             ->orderBy('categories.sort_order', 'asc')
             ->orderBy('categories.id', 'asc')
-            ->orderBy('products.sort_order', 'asc')
-            ->orderBy('products.id', 'asc')
             ->select('products.*')
             ->get();
+        $products = Product::sortCollection($products);
         $categories = Category::orderBy('sort_order', 'asc')->orderBy('id', 'asc')->get();
 
         return response()->json([
@@ -993,10 +992,14 @@ class AdminApiController extends Controller
         
         $categories = Category::active()
             ->with(['products' => function ($query) {
-                $query->active()->orderBy('sort_order', 'asc');
+                $query->active();
             }])
             ->orderBy('sort_order', 'asc')
             ->get();
+
+        foreach ($categories as $cat) {
+            $cat->setRelation('products', Product::sortCollection($cat->products));
+        }
 
         $settings = [
             'store_name' => Setting::get('store_name', 'Cracker Demo'),

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import AdminLayout from './AdminLayout';
+import { sortProductsByCode } from '../../utils/productSorter';
 
 const Swal = window.Swal;
 
@@ -438,6 +439,8 @@ export default function AdminProducts({ noLayout = false }) {
     return true;
   });
 
+  const sortedFilteredProducts = sortProductsByCode(filteredProducts);
+
   const mainContent = (
     <div className="space-y-8 select-none text-slate-800 animate-fade-in">
       {/* Header */}
@@ -581,7 +584,7 @@ export default function AdminProducts({ noLayout = false }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                  {filteredProducts.map((product) => (
+                  {sortedFilteredProducts.map((product) => (
                     <tr key={product.id} className="hover:bg-slate-50/50">
                       <td className="py-3 px-4">
                         <div className="w-10 h-10 rounded-lg bg-slate-100 overflow-hidden flex items-center justify-center border border-slate-200">
