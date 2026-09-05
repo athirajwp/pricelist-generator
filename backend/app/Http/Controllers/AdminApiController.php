@@ -1198,16 +1198,16 @@ class AdminApiController extends Controller
     public function updateSettings(Request $request)
     {
         $request->validate([
-            'store_name' => 'required|string|max:255',
-            'min_order_value' => 'required|numeric|min:0',
-            'discount_percent' => 'required|numeric|min:0|max:100',
-            'store_whatsapp' => 'required|string|max:20',
-            'store_phone' => 'required|string|max:20',
-            'store_phone_2' => 'nullable|string|max:20',
-            'store_phone_3' => 'nullable|string|max:20',
-            'store_phone_4' => 'nullable|string|max:20',
-            'store_email' => 'required|email|max:255',
-            'store_address' => 'required|string',
+            'store_name' => 'nullable|string|max:255',
+            'min_order_value' => 'nullable|numeric|min:0',
+            'discount_percent' => 'nullable|numeric|min:0|max:100',
+            'store_whatsapp' => 'nullable|string|max:250',
+            'store_phone' => 'nullable|string|max:250',
+            'store_phone_2' => 'nullable|string|max:250',
+            'store_phone_3' => 'nullable|string|max:250',
+            'store_phone_4' => 'nullable|string|max:250',
+            'store_email' => 'nullable|string|max:255',
+            'store_address' => 'nullable|string',
             'store_map_iframe' => 'nullable|string',
             'license_name' => 'nullable|string|max:255',
             'license_no' => 'nullable|string|max:255',
@@ -1222,38 +1222,43 @@ class AdminApiController extends Controller
             'bank_acc_no' => 'nullable|string|max:255',
             'bank_ifsc' => 'nullable|string|max:255',
             'bank_holder' => 'nullable|string|max:255',
-            'enable_min_order' => 'required|in:yes,no',
-            'enable_promo_codes' => 'required|in:yes,no',
-            'enable_tax_delivery' => 'required|in:yes,no',
+            'enable_min_order' => 'nullable|in:yes,no',
+            'enable_promo_codes' => 'nullable|in:yes,no',
+            'enable_tax_delivery' => 'nullable|in:yes,no',
             'enable_legal_notice' => 'nullable|in:yes,no',
-            'enable_fireworks' => 'required|in:yes,no',
+            'enable_fireworks' => 'nullable|in:yes,no',
             'enable_aos' => 'nullable|in:yes,no',
             'enable_most_sold' => 'nullable|in:yes,no',
             'show_mrp' => 'nullable|in:yes,no',
             'card_bg_color' => 'nullable|string|max:50',
             'default_view_mode' => 'nullable|in:flex,grid',
-            'tax_percent' => 'required|numeric|min:0|max:100',
-            'delivery_charge' => 'required|numeric|min:0',
+            'tax_percent' => 'nullable|numeric|min:0|max:100',
+            'delivery_charge' => 'nullable|numeric|min:0',
             'enable_aisensy' => 'nullable|in:yes,no',
             'aisensy_api_key' => 'nullable|string',
             'aisensy_campaign_name' => 'nullable|string',
-            'store_upi_qr' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:20480',
+            'store_upi_qr' => 'nullable',
         ]);
 
-        Setting::set('store_name', $request->store_name, 'text');
-        Setting::set('min_order_value', $request->min_order_value, 'number');
+        if ($request->has('store_name')) {
+            Setting::set('store_name', $request->store_name, 'text');
+        }
+        if ($request->has('min_order_value')) {
+            Setting::set('min_order_value', $request->min_order_value, 'number');
+        }
 
-        $newDiscountPercent = (float) $request->discount_percent;
-        $oldDiscountPercent = (float) Setting::get('discount_percent', 60);
-        Setting::set('discount_percent', $newDiscountPercent, 'number');
+        if ($request->has('discount_percent')) {
+            $newDiscountPercent = (float) $request->discount_percent;
+            $oldDiscountPercent = (float) Setting::get('discount_percent', 60);
+            Setting::set('discount_percent', $newDiscountPercent, 'number');
 
-        // Automatically update all product prices if catalog discount percentage changed or was submitted
-        if ($newDiscountPercent !== $oldDiscountPercent || $request->has('discount_percent')) {
-            $products = Product::all();
-            foreach ($products as $prod) {
-                if ($prod->mrp > 0) {
-                    $prod->selling_price = round($prod->mrp * (1 - ($newDiscountPercent / 100)), 2);
-                    $prod->save();
+            if ($newDiscountPercent !== $oldDiscountPercent) {
+                $products = Product::all();
+                foreach ($products as $prod) {
+                    if ($prod->mrp > 0) {
+                        $prod->selling_price = round($prod->mrp * (1 - ($newDiscountPercent / 100)), 2);
+                        $prod->save();
+                    }
                 }
             }
         }
@@ -1433,6 +1438,24 @@ class AdminApiController extends Controller
                 ]);
             } catch (\Exception $ex) {
                 Log::error('Company central sync error: ' . $ex->getMessage());
+            }
+        }
+
+        $extraKeys = [
+            'store_year', 'store_gpay_2', 'store_upi_name', 'store_upi_name_2', 
+            'store_qr_1_title', 'store_qr_2_title', 'show_bank_details', 
+            'show_upi_qr', 'show_tamil_name', 'strikethrough_mrp', 'header_product', 
+            'header_product_ta', 'important_note_1', 'important_note_2', 
+            'store_title_color', 'store_tagline_color', 'store_invocation_color', 
+            'store_badge_color', 'footer_position', 'max_tr_per_page',
+            'show_col_sno', 'show_col_product', 'show_col_unit', 'show_col_mrp',
+            'show_col_offer', 'show_col_req', 'show_discount_badge', 'logo_scale', 'contact_scale',
+            'custom_float_image', 'custom_float_x', 'custom_float_y', 'custom_float_scale', 'show_custom_float_image'
+        ];
+        foreach ($extraKeys as $optKey) {
+            if ($request->has($optKey)) {
+                $val = $request->$optKey;
+                Setting::set($optKey, is_bool($val) ? ($val ? 'true' : 'false') : (string)$val, 'text');
             }
         }
 

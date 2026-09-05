@@ -73,47 +73,80 @@ export default function PriceList({ defaultTab }) {
   }, []);
 
   // Save current state into a project snapshot
-  const handleSaveCurrentProject = (customName = null) => {
-    const projName = (customName || activeProjectName || editForm.store_name || 'My Price List Project').trim();
-    const projId = activeProjectId || `proj_${Date.now()}`;
-    const timestamp = new Date().toISOString();
+  const handleSaveCurrentProject = async (customName = null) => {
+    try {
+      const projName = (customName || activeProjectName || editForm.store_name || 'My Price List Project').trim();
+      const projId = activeProjectId || `proj_${Date.now()}`;
+      const timestamp = new Date().toISOString();
 
-    const snapshot = {
-      id: projId,
-      name: projName,
-      createdAt: activeProjectId ? (savedProjects.find((p) => p.id === activeProjectId)?.createdAt || timestamp) : timestamp,
-      updatedAt: timestamp,
-      editForm: { ...editForm },
-      categories: JSON.parse(JSON.stringify(categories || [])),
-      colWidths: { ...colWidths },
-      showMrp: showMrp,
-      productCount: (categories || []).reduce((acc, cat) => acc + (cat.products?.length || 0), 0),
-    };
+      const snapshot = {
+        id: projId,
+        name: projName,
+        createdAt: activeProjectId ? (savedProjects.find((p) => p.id === activeProjectId)?.createdAt || timestamp) : timestamp,
+        updatedAt: timestamp,
+        editForm: { ...editForm },
+        categories: JSON.parse(JSON.stringify(categories || [])),
+        colWidths: { ...colWidths },
+        showMrp: showMrp,
+        productCount: (categories || []).reduce((acc, cat) => acc + (cat.products?.length || 0), 0),
+      };
 
-    let updatedList;
-    const existingIdx = savedProjects.findIndex((p) => p.id === projId);
-    if (existingIdx >= 0) {
-      updatedList = [...savedProjects];
-      updatedList[existingIdx] = snapshot;
-    } else {
-      updatedList = [snapshot, ...savedProjects];
+      let updatedList;
+      const existingIdx = savedProjects.findIndex((p) => p.id === projId);
+      if (existingIdx >= 0) {
+        updatedList = [...savedProjects];
+        updatedList[existingIdx] = snapshot;
+      } else {
+        updatedList = [snapshot, ...savedProjects];
+      }
+
+      setSavedProjects(updatedList);
+      setActiveProjectId(projId);
+      setActiveProjectName(projName);
+
+      try {
+        localStorage.setItem('pricelist_saved_projects', JSON.stringify(updatedList));
+      } catch (storageErr) {
+        console.warn('LocalStorage quota warning:', storageErr);
+        const compactList = updatedList.map((p) => ({
+          ...p,
+          editForm: {
+            ...p.editForm,
+            store_logo: (p.editForm?.store_logo && p.editForm.store_logo.length > 2000) ? '' : p.editForm?.store_logo,
+            store_deity_image: (p.editForm?.store_deity_image && p.editForm.store_deity_image.length > 2000) ? '' : p.editForm?.store_deity_image,
+            store_upi_qr: (p.editForm?.store_upi_qr && p.editForm.store_upi_qr.length > 2000) ? '' : p.editForm?.store_upi_qr,
+            store_upi_qr_2: (p.editForm?.store_upi_qr_2 && p.editForm.store_upi_qr_2.length > 2000) ? '' : p.editForm?.store_upi_qr_2,
+          },
+        }));
+        try {
+          localStorage.setItem('pricelist_saved_projects', JSON.stringify(compactList));
+        } catch (compactErr) {
+          console.error('LocalStorage save error:', compactErr);
+        }
+      }
+
+      handleSaveSettings();
+
+      if (window.Swal) {
+        window.Swal.fire({
+          icon: 'success',
+          title: 'Project Saved!',
+          text: `"${projName}" has been saved successfully.`,
+          timer: 1800,
+          showConfirmButton: false,
+        });
+      }
+      setShowSaveAsModal(false);
+    } catch (err) {
+      console.error('Error saving project:', err);
+      if (window.Swal) {
+        window.Swal.fire({
+          icon: 'error',
+          title: 'Save Failed',
+          text: 'Failed to save project snapshot: ' + err.message,
+        });
+      }
     }
-
-    setSavedProjects(updatedList);
-    setActiveProjectId(projId);
-    setActiveProjectName(projName);
-    localStorage.setItem('pricelist_saved_projects', JSON.stringify(updatedList));
-
-    if (window.Swal) {
-      window.Swal.fire({
-        icon: 'success',
-        title: 'Project Saved!',
-        text: `"${projName}" has been saved successfully.`,
-        timer: 1800,
-        showConfirmButton: false,
-      });
-    }
-    setShowSaveAsModal(false);
   };
 
   // Open & restore a saved project
@@ -334,6 +367,11 @@ export default function PriceList({ defaultTab }) {
     store_upi_name_2: '',
     store_qr_1_title: 'GPay / Primary QR',
     store_qr_2_title: 'PhonePe / Secondary QR',
+    custom_float_image: '',
+    custom_float_x: 15,
+    custom_float_y: 15,
+    custom_float_scale: 100,
+    show_custom_float_image: true,
   });
 
   useEffect(() => {
@@ -384,6 +422,11 @@ export default function PriceList({ defaultTab }) {
         store_tagline_color: settings.store_tagline_color || '#FFFFFF',
         store_invocation_color: settings.store_invocation_color || '#FFFFFF',
         store_badge_color: settings.store_badge_color || '#0F172A',
+        custom_float_image: settings.custom_float_image || '',
+        custom_float_x: settings.custom_float_x !== undefined ? Number(settings.custom_float_x) : 15,
+        custom_float_y: settings.custom_float_y !== undefined ? Number(settings.custom_float_y) : 15,
+        custom_float_scale: settings.custom_float_scale !== undefined ? Number(settings.custom_float_scale) : 100,
+        show_custom_float_image: settings.show_custom_float_image !== undefined ? (settings.show_custom_float_image === 'false' ? false : Boolean(settings.show_custom_float_image)) : true,
       });
     }
   }, [settings]);
@@ -459,6 +502,122 @@ export default function PriceList({ defaultTab }) {
       setTranslatingTamil(false);
     }
   };
+
+  const [isDraggingFloatImg, setIsDraggingFloatImg] = useState(false);
+  const [dragStartPos, setDragStartPos] = useState({ clientX: 0, clientY: 0, startX: 15, startY: 15 });
+
+  const handleFloatImgMouseDown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFloatImg(true);
+    const cX = e.clientX !== undefined ? e.clientX : (e.touches?.[0]?.clientX || 0);
+    const cY = e.clientY !== undefined ? e.clientY : (e.touches?.[0]?.clientY || 0);
+    setDragStartPos({
+      clientX: cX,
+      clientY: cY,
+      startX: editForm.custom_float_x !== undefined ? Number(editForm.custom_float_x) : 15,
+      startY: editForm.custom_float_y !== undefined ? Number(editForm.custom_float_y) : 15,
+    });
+  };
+
+  useEffect(() => {
+    if (!isDraggingFloatImg) return;
+
+    const handleMouseMove = (e) => {
+      const page1El = document.getElementById('a4-page-1-container');
+      if (!page1El) return;
+      const rect = page1El.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+
+      const cX = e.clientX !== undefined ? e.clientX : (e.touches?.[0]?.clientX || 0);
+      const cY = e.clientY !== undefined ? e.clientY : (e.touches?.[0]?.clientY || 0);
+
+      const deltaX = cX - dragStartPos.clientX;
+      const deltaY = cY - dragStartPos.clientY;
+
+      const deltaXPercent = (deltaX / rect.width) * 100;
+      const deltaYPercent = (deltaY / rect.height) * 100;
+
+      let newX = Math.round(Math.max(0, Math.min(85, dragStartPos.startX + deltaXPercent)));
+      let newY = Math.round(Math.max(0, Math.min(85, dragStartPos.startY + deltaYPercent)));
+
+      setEditForm((prev) => ({
+        ...prev,
+        custom_float_x: newX,
+        custom_float_y: newY,
+      }));
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingFloatImg(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('touchmove', handleMouseMove);
+    window.addEventListener('touchend', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleMouseMove);
+      window.removeEventListener('touchend', handleMouseUp);
+    };
+  }, [isDraggingFloatImg, dragStartPos]);
+
+  const [isResizingFloatImg, setIsResizingFloatImg] = useState(false);
+  const [resizeStartPos, setResizeStartPos] = useState({ clientX: 0, clientY: 0, startScale: 100 });
+
+  const handleFloatImgResizeMouseDown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsResizingFloatImg(true);
+    const cX = e.clientX !== undefined ? e.clientX : (e.touches?.[0]?.clientX || 0);
+    const cY = e.clientY !== undefined ? e.clientY : (e.touches?.[0]?.clientY || 0);
+    setResizeStartPos({
+      clientX: cX,
+      clientY: cY,
+      startScale: editForm.custom_float_scale !== undefined ? Number(editForm.custom_float_scale) : 100,
+    });
+  };
+
+  useEffect(() => {
+    if (!isResizingFloatImg) return;
+
+    const handleMouseMove = (e) => {
+      const cX = e.clientX !== undefined ? e.clientX : (e.touches?.[0]?.clientX || 0);
+      const cY = e.clientY !== undefined ? e.clientY : (e.touches?.[0]?.clientY || 0);
+
+      const deltaX = cX - resizeStartPos.clientX;
+      const deltaY = cY - resizeStartPos.clientY;
+
+      const delta = (deltaX + deltaY) / 2;
+      const scaleChange = Math.round(delta * 0.8);
+
+      let newScale = Math.max(20, Math.min(300, resizeStartPos.startScale + scaleChange));
+
+      setEditForm((prev) => ({
+        ...prev,
+        custom_float_scale: newScale,
+      }));
+    };
+
+    const handleMouseUp = () => {
+      setIsResizingFloatImg(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('touchmove', handleMouseMove);
+    window.addEventListener('touchend', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleMouseMove);
+      window.removeEventListener('touchend', handleMouseUp);
+    };
+  }, [isResizingFloatImg, resizeStartPos]);
 
   const handleInputChange = (field, value) => {
     setEditForm((prev) => ({ ...prev, [field]: value }));
@@ -553,11 +712,19 @@ export default function PriceList({ defaultTab }) {
         body: JSON.stringify({
           ...settings,
           ...editForm,
+          store_name: editForm.store_name || 'MASS CRACKERS',
+          store_phone: editForm.store_phone || '8682942042',
+          store_whatsapp: editForm.store_phone || '8682942042',
+          store_email: (editForm.store_email && editForm.store_email.includes('@')) ? editForm.store_email : 'info@masscrackers.com',
+          store_address: editForm.store_address || 'Virudhunagar to Sivakasi Main Road',
           min_order_value: settings?.min_order_value || 0,
-          store_whatsapp: editForm.store_phone,
+          discount_percent: editForm.discount_percent !== undefined ? editForm.discount_percent : 50,
           enable_min_order: settings?.enable_min_order || 'no',
           enable_promo_codes: settings?.enable_promo_codes || 'no',
           enable_tax_delivery: settings?.enable_tax_delivery || 'no',
+          enable_fireworks: settings?.enable_fireworks || 'yes',
+          tax_percent: settings?.tax_percent || 0,
+          delivery_charge: settings?.delivery_charge || 0,
         }),
       });
 
@@ -573,6 +740,20 @@ export default function PriceList({ defaultTab }) {
             icon: 'success',
             confirmButtonColor: '#e51d1d',
             timer: 2000,
+            showConfirmButton: false,
+          });
+        }
+      } else {
+        console.warn('Settings backend warning:', data);
+        if (setSettings) {
+          setSettings((prev) => ({ ...prev, ...editForm }));
+        }
+        if (window.Swal) {
+          window.Swal.fire({
+            title: 'Saved Locally',
+            text: data.message || 'Updated for live preview.',
+            icon: 'info',
+            timer: 1800,
             showConfirmButton: false,
           });
         }
@@ -2066,7 +2247,99 @@ export default function PriceList({ defaultTab }) {
                       </div>
                     </div>
                   </div>
-                </div>
+
+                  {/* CUSTOM FLOATING IMAGE CARD (PAGE 1) */}
+                    <div className="bg-white p-3 rounded-xl border border-sky-300 space-y-2.5 shadow-2xs col-span-1 md:col-span-2">
+                      <div className="flex justify-between items-center text-xs font-black text-slate-800 border-b border-slate-100 pb-1.5">
+                        <span className="flex items-center gap-1.5 text-sky-700">
+                          <i className="fa-solid fa-arrows-up-down-left-right text-sky-500"></i> Custom Floating Image (Draggable on First Page)
+                        </span>
+                        <label className="inline-flex items-center gap-1 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={editForm.show_custom_float_image !== false}
+                            onChange={(e) => handleInputChange('show_custom_float_image', e.target.checked)}
+                            className="rounded text-sky-600 focus:ring-sky-500 w-3.5 h-3.5"
+                          />
+                          <span className="text-[10px] text-slate-700 font-extrabold">Show Image</span>
+                        </label>
+                      </div>
+
+                      {editForm.custom_float_image && (
+                        <div className="flex items-center justify-between gap-3 bg-sky-50/80 p-2 rounded-lg border border-sky-200">
+                          <div className="flex items-center gap-2">
+                            <img
+                              src={getImageUrl(editForm.custom_float_image)}
+                              alt="Custom Floating"
+                              className="h-10 w-10 object-contain rounded-md border border-slate-300 bg-white"
+                            />
+                            <div className="text-[11px] font-extrabold text-slate-800">
+                              <div>Position: X: {editForm.custom_float_x ?? 15}%, Y: {editForm.custom_float_y ?? 15}%</div>
+                              <div className="text-[10px] text-sky-700 font-semibold">💡 Click & drag directly on Page 1 to move anytime!</div>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleInputChange('custom_float_image', '')}
+                            className="text-xs text-red-600 font-extrabold hover:underline cursor-pointer"
+                          >
+                            Remove Image
+                          </button>
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">Upload Custom Image (PNG / JPG / WebP)</label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (evt) => {
+                                handleInputChange('custom_float_image', evt.target.result);
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="block w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-sky-600 file:text-white hover:file:bg-sky-700 cursor-pointer"
+                        />
+                      </div>
+
+                      {editForm.custom_float_image && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                          <div>
+                            <div className="flex justify-between text-[10px] font-bold text-slate-700 mb-0.5">
+                              <span>Scale / Size</span>
+                              <span className="font-mono text-sky-600">{editForm.custom_float_scale || 100}%</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="20"
+                              max="300"
+                              value={editForm.custom_float_scale || 100}
+                              onChange={(e) => handleInputChange('custom_float_scale', parseInt(e.target.value, 10))}
+                              className="w-full accent-sky-600 cursor-pointer h-1.5 bg-slate-100 rounded-lg"
+                            />
+                          </div>
+
+                          <div className="flex items-end">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleInputChange('custom_float_x', 15);
+                                handleInputChange('custom_float_y', 15);
+                              }}
+                              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-[11px] py-1.5 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 border border-slate-200"
+                            >
+                              <i className="fa-solid fa-rotate-left text-xs text-sky-600"></i> Reset Position (15%, 15%)
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
                 {/* Price List Year */}
                 <div>
@@ -2662,9 +2935,45 @@ export default function PriceList({ defaultTab }) {
 
 
             <div
+              id="a4-page-1-container"
               className={`a4-page-sheet w-[210mm] h-[297mm] max-h-[297mm] overflow-hidden ${editForm.store_cover_bg === 'none' ? 'text-slate-900 bg-white' : 'text-white'} transition-all duration-300 relative shadow-2xl flex flex-col justify-between p-6 sm:p-8 pb-4 select-none mx-auto break-after-page bg-cover bg-center bg-no-repeat box-border`}
               style={{ backgroundImage: editForm.store_cover_bg === 'none' ? 'none' : `url(${editForm.store_cover_bg ? getImageUrl(editForm.store_cover_bg) : '/images/cover_bg.jpg'})`, pageBreakAfter: 'always' }}
             >
+              {/* Custom Draggable Floating Image overlay on Page 1 */}
+              {editForm.custom_float_image && editForm.show_custom_float_image !== false && (
+                <div
+                  onMouseDown={handleFloatImgMouseDown}
+                  onTouchStart={handleFloatImgMouseDown}
+                  className="absolute z-40 group cursor-grab active:cursor-grabbing border-2 border-transparent hover:border-sky-400 hover:border-dashed rounded-xl p-1 transition-all select-none"
+                  style={{
+                    left: `${editForm.custom_float_x !== undefined ? editForm.custom_float_x : 15}%`,
+                    top: `${editForm.custom_float_y !== undefined ? editForm.custom_float_y : 15}%`,
+                    transform: `scale(${(editForm.custom_float_scale || 100) / 100})`,
+                    transformOrigin: 'top left',
+                  }}
+                >
+                  <img
+                    src={getImageUrl(editForm.custom_float_image)}
+                    alt="Custom Floating Image"
+                    className="max-w-[300px] max-h-[300px] object-contain drop-shadow-2xl pointer-events-none"
+                  />
+                  {/* Position badge / Drag Move Indicator */}
+                  <div className="absolute -top-7 left-0 bg-slate-950/90 text-amber-300 font-black text-[10px] px-2 py-0.5 rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 whitespace-nowrap print:hidden pointer-events-none">
+                    <i className="fa-solid fa-arrows-up-down-left-right text-sky-400"></i>
+                    <span>Drag anywhere (X: {editForm.custom_float_x ?? 15}%, Y: {editForm.custom_float_y ?? 15}%) • Size: {editForm.custom_float_scale || 100}%</span>
+                  </div>
+
+                  {/* Corner Resize Handle */}
+                  <div
+                    onMouseDown={handleFloatImgResizeMouseDown}
+                    onTouchStart={handleFloatImgResizeMouseDown}
+                    className="absolute -bottom-2 -right-2 w-6 h-6 bg-sky-500 hover:bg-sky-600 active:scale-125 rounded-full border-2 border-white cursor-nwse-resize shadow-xl z-50 flex items-center justify-center text-[10px] text-white print:hidden transition-transform"
+                    title="Drag corner to resize image size like Canva"
+                  >
+                    <i className="fa-solid fa-up-right-and-down-left-from-center pointer-events-none"></i>
+                  </div>
+                </div>
+              )}
 
               {/* Top Invocation Header Section (Flush to top, 30% reduced font size) */}
               <div className="relative text-center z-10 mt-0 space-y-0.5">

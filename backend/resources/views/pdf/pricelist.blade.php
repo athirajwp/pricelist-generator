@@ -206,6 +206,29 @@
 
     <!-- PAGE 1: COVER PAGE -->
     <div class="page-sheet cover-sheet">
+        @php
+            $customFloatImg = !empty($editForm['custom_float_image']) ? $editForm['custom_float_image'] : (!empty($settings['custom_float_image']) ? $settings['custom_float_image'] : null);
+            $customFloatShow = isset($editForm['show_custom_float_image']) ? $editForm['show_custom_float_image'] : (isset($settings['show_custom_float_image']) ? $settings['show_custom_float_image'] : true);
+            $customFloatX = isset($editForm['custom_float_x']) ? $editForm['custom_float_x'] : (isset($settings['custom_float_x']) ? $settings['custom_float_x'] : 15);
+            $customFloatY = isset($editForm['custom_float_y']) ? $editForm['custom_float_y'] : (isset($settings['custom_float_y']) ? $settings['custom_float_y'] : 15);
+            $customFloatScale = isset($editForm['custom_float_scale']) ? $editForm['custom_float_scale'] : (isset($settings['custom_float_scale']) ? $settings['custom_float_scale'] : 100);
+            
+            $customFloatPath = null;
+            if ($customFloatImg) {
+                if (str_starts_with($customFloatImg, 'data:')) {
+                    $customFloatPath = $customFloatImg;
+                } elseif (file_exists(public_path($customFloatImg))) {
+                    $customFloatPath = public_path($customFloatImg);
+                }
+            }
+        @endphp
+
+        @if($customFloatPath && $customFloatShow !== false && $customFloatShow !== 'false')
+        <div style="position: absolute; left: {{ $customFloatX }}%; top: {{ $customFloatY }}%; z-index: 35; transform: scale({{ $customFloatScale / 100 }}); transform-origin: top left;">
+            <img src="{{ $customFloatPath }}" style="max-width: 250px; max-height: 250px; object-fit: contain;" alt="Custom Float"/>
+        </div>
+        @endif
+
         <div class="cover-invocation" style="text-align: center; margin-top: 0px; margin-bottom: 5px;">
             @if(!empty($editForm['store_invocation_symbol']))
             <div style="font-size: 11px; font-weight: 900; color: {{ !empty($editForm['store_invocation_color']) ? $editForm['store_invocation_color'] : '#ffffff' }}; margin-bottom: 1px;">{{ $editForm['store_invocation_symbol'] }}</div>

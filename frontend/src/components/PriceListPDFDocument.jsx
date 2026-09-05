@@ -330,6 +330,7 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
   const logoUrl = resolveUrl(editForm.store_logo);
   const upiQrUrl = resolveUrl(editForm.store_upi_qr);
   const upiQrUrl2 = resolveUrl(editForm.store_upi_qr_2);
+  const customFloatUrl = resolveUrl(editForm.custom_float_image);
 
   const showSnoPdf = editForm.show_col_sno !== false;
   const showProductPdf = editForm.show_col_product !== false;
@@ -356,6 +357,19 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
       {/* Cover Page */}
       <Page size="A4" style={[styles.coverPage, editForm.store_cover_bg === 'none' ? { backgroundColor: '#ffffff' } : null]}>
         {coverBgUrl && <Image src={coverBgUrl} style={styles.coverBg} />}
+        {customFloatUrl && editForm.show_custom_float_image !== false && (
+          <Image
+            src={customFloatUrl}
+            style={{
+              position: 'absolute',
+              left: `${editForm.custom_float_x !== undefined ? editForm.custom_float_x : 15}%`,
+              top: `${editForm.custom_float_y !== undefined ? editForm.custom_float_y : 15}%`,
+              width: `${Math.round(200 * ((editForm.custom_float_scale || 100) / 100))}px`,
+              height: 'auto',
+              zIndex: 35,
+            }}
+          />
+        )}
         <View style={styles.coverOverlay}>
           {/* Top Invocation */}
           <View style={styles.coverTop}>
