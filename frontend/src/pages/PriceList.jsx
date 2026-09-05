@@ -641,27 +641,25 @@ export default function PriceList({ defaultTab }) {
   };
 
   const getThemeAccentColor = (bgPath) => {
-    const bg = bgPath || '/images/cover_bg_1.jpg';
+    const bg = bgPath || '/images/cover_bg_orange_burst.jpg';
     if (bg === 'none') {
       return { textClass: 'text-slate-800', bgClass: 'bg-slate-800', hex: '#1e293b' };
-    } else if (bg.includes('cover_bg_2.jpg')) {
-      return { textClass: 'text-blue-600', bgClass: 'bg-blue-600', hex: '#2563eb' };
-    } else if (bg.includes('cover_bg_3.jpg')) {
-      return { textClass: 'text-emerald-600', bgClass: 'bg-emerald-600', hex: '#059669' };
-    } else if (bg.includes('cover_bg_4.jpg')) {
-      return { textClass: 'text-purple-600', bgClass: 'bg-purple-600', hex: '#9333ea' };
-    } else if (bg.includes('cover_bg_5.jpg')) {
+    } else if (bg.includes('cover_bg_blue_burst')) {
       return { textClass: 'text-sky-600', bgClass: 'bg-sky-500', hex: '#0284c7' };
-    } else if (bg.includes('cover_bg_6.jpg')) {
+    } else if (bg.includes('cover_bg_red_burst') || bg.includes('cover_bg_1')) {
+      return { textClass: 'text-red-600', bgClass: 'bg-red-600', hex: '#dc2626' };
+    } else if (bg.includes('cover_bg_orange_burst')) {
       return { textClass: 'text-amber-600', bgClass: 'bg-amber-500', hex: '#d97706' };
-    } else if (bg.includes('cover_bg_7.jpg')) {
-      return { textClass: 'text-indigo-600', bgClass: 'bg-indigo-700', hex: '#4338ca' };
-    } else if (bg.includes('cover_bg_8.jpg')) {
-      return { textClass: 'text-rose-600', bgClass: 'bg-rose-600', hex: '#e11d48' };
-    } else if (bg.includes('cover_bg_blue.jpg')) {
-      return { textClass: 'text-slate-900', bgClass: 'bg-slate-800', hex: '#0f172a' };
-    } else if (bg.includes('cover_bg_green.jpg')) {
-      return { textClass: 'text-teal-600', bgClass: 'bg-teal-600', hex: '#0d9488' };
+    } else if (bg.includes('cover_bg_red_sparkle')) {
+      return { textClass: 'text-red-600', bgClass: 'bg-red-600', hex: '#dc2626' };
+    } else if (bg.includes('cover_bg_maroon_festive')) {
+      return { textClass: 'text-amber-600', bgClass: 'bg-amber-700', hex: '#b45309' };
+    } else if (bg.includes('cover_bg_blue_gradient')) {
+      return { textClass: 'text-indigo-600', bgClass: 'bg-indigo-600', hex: '#4f46e5' };
+    } else if (bg.includes('cover_bg_purple') || bg.includes('cover_bg_4')) {
+      return { textClass: 'text-purple-600', bgClass: 'bg-purple-600', hex: '#9333ea' };
+    } else if (bg.includes('cover_bg_5')) {
+      return { textClass: 'text-sky-600', bgClass: 'bg-sky-500', hex: '#0284c7' };
     }
     return { textClass: 'text-red-600', bgClass: 'bg-red-600', hex: '#dc2626' };
   };
@@ -1905,27 +1903,21 @@ export default function PriceList({ defaultTab }) {
                     <i className="fa-solid fa-image text-amber-600"></i>
                     A4 Cover Background Color Options
                   </label>
-                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5 mb-2">
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 mb-2">
                     {[
                       { id: 'none', label: 'None', bg: 'bg-slate-100 border border-slate-300 text-slate-700 font-bold' },
-                      { id: '/images/cover_bg_1.jpg', label: '#1 Red', bg: 'bg-red-600' },
-                      { id: '/images/cover_bg_2.jpg', label: '#2 Blue', bg: 'bg-blue-600' },
-                      { id: '/images/cover_bg_3.jpg', label: '#3 Emerald', bg: 'bg-emerald-600' },
-                      { id: '/images/cover_bg_4.jpg', label: '#4 Purple', bg: 'bg-purple-600' },
-                      { id: '/images/cover_bg_5.jpg', label: '#5 Sky', bg: 'bg-sky-400' },
-                      { id: '/images/cover_bg_6.jpg', label: '#6 Gold', bg: 'bg-amber-500' },
-                      { id: '/images/cover_bg_7.jpg', label: '#7 Indigo', bg: 'bg-indigo-700' },
-                      { id: '/images/cover_bg_8.jpg', label: '#8 Rose', bg: 'bg-rose-500' },
-                      { id: '/images/cover_bg_blue.jpg', label: '#9 Navy', bg: 'bg-slate-800' },
-                      { id: '/images/cover_bg_green.jpg', label: '#10 Teal', bg: 'bg-teal-600' },
+                      { id: '/images/cover_bg_orange_burst.jpg', label: '#1 Orange Burst', bg: 'bg-amber-500' },
+                      { id: '/images/cover_bg_red_sparkle.jpg', label: '#2 Red Sparkle', bg: 'bg-red-600' },
+                      { id: '/images/cover_bg_maroon_festive.jpg', label: '#3 Maroon Festive', bg: 'bg-amber-900' },
+                      { id: '/images/cover_bg_blue_gradient.jpg', label: '#4 Festive Border', bg: 'bg-indigo-600' },
                     ].map((item) => (
                       <button
                         key={item.id}
                         type="button"
                         onClick={() => handleInputChange('store_cover_bg', item.id)}
                         className={`p-1 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 ${
-                          (editForm.store_cover_bg || '/images/cover_bg_1.jpg') === item.id ||
-                          (['/images/cover_bg.jpg', '/images/cover_bg_red.jpg'].includes(editForm.store_cover_bg) && item.id === '/images/cover_bg_1.jpg')
+                          (editForm.store_cover_bg || '/images/cover_bg_orange_burst.jpg') === item.id ||
+                          (['/images/cover_bg.jpg', '/images/cover_bg_1.jpg'].includes(editForm.store_cover_bg) && item.id === '/images/cover_bg_orange_burst.jpg')
                             ? 'border-amber-600 bg-amber-200 shadow-sm scale-105'
                             : 'border-slate-200 bg-white hover:bg-amber-100'
                         }`}
@@ -1941,7 +1933,7 @@ export default function PriceList({ defaultTab }) {
                       </button>
                     ))}
                   </div>
-                  {editForm.store_cover_bg && editForm.store_cover_bg !== 'none' && !['/images/cover_bg_1.jpg', '/images/cover_bg_2.jpg', '/images/cover_bg_3.jpg', '/images/cover_bg_4.jpg', '/images/cover_bg_5.jpg', '/images/cover_bg_6.jpg', '/images/cover_bg_7.jpg', '/images/cover_bg_8.jpg', '/images/cover_bg_blue.jpg', '/images/cover_bg_green.jpg', '/images/cover_bg_red.jpg', '/images/cover_bg.jpg'].includes(editForm.store_cover_bg) && (
+                  {editForm.store_cover_bg && editForm.store_cover_bg !== 'none' && !['/images/cover_bg_orange_burst.jpg', '/images/cover_bg_red_sparkle.jpg', '/images/cover_bg_maroon_festive.jpg', '/images/cover_bg_blue_gradient.jpg', '/images/cover_bg_blue_burst.jpg', '/images/cover_bg_red_burst.jpg', '/images/cover_bg_purple.jpg', '/images/cover_bg_1.jpg', '/images/cover_bg_5.jpg', '/images/cover_bg_red.jpg', '/images/cover_bg.jpg'].includes(editForm.store_cover_bg) && (
                     <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-amber-200 mb-2">
                       <img
                         src={getImageUrl(editForm.store_cover_bg)}
@@ -1950,7 +1942,7 @@ export default function PriceList({ defaultTab }) {
                       />
                       <button
                         type="button"
-                        onClick={() => handleInputChange('store_cover_bg', '/images/cover_bg_1.jpg')}
+                        onClick={() => handleInputChange('store_cover_bg', '/images/cover_bg_orange_burst.jpg')}
                         className="text-xs text-red-600 font-extrabold hover:underline"
                       >
                         Reset Background
