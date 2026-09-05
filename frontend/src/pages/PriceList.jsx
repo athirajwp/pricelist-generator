@@ -4,7 +4,8 @@ import { useStore } from '../context/StoreContext';
 import { getImageUrl } from '../utils/imageUrl';
 import AdminProducts from './admin/AdminProducts';
 import { generateReactPDFBlob } from '../components/PriceListPDFDocument';
-import { sortProductsByCode } from '../utils/productSorter';
+import { sortProductsByCode, sortCategoriesByProductCode } from '../utils/productSorter';
+import { batchTranslateCategoriesToTamil, translateEnglishToTamil } from '../utils/translator';
 
 export default function PriceList({ defaultTab }) {
   const location = useLocation();
@@ -231,7 +232,8 @@ export default function PriceList({ defaultTab }) {
   // Excel-style draggable column widths state (in px)
   const [colWidths, setColWidths] = useState({
     sno: 45,
-    product: 260,
+    product: 220,
+    product_ta: 220,
     unit: 95,
     mrp: 80,
     offer: 105,
@@ -247,7 +249,8 @@ export default function PriceList({ defaultTab }) {
 
     const minWidths = {
       sno: 25,
-      product: 100,
+      product: 80,
+      product_ta: 80,
       unit: 40,
       mrp: 40,
       offer: 50,
@@ -257,7 +260,8 @@ export default function PriceList({ defaultTab }) {
     let leftCol = dividerKey;
     let rightCol = null;
     if (dividerKey === 'sno') rightCol = 'product';
-    else if (dividerKey === 'product') rightCol = 'unit';
+    else if (dividerKey === 'product') rightCol = editForm.show_tamil_name ? 'product_ta' : 'unit';
+    else if (dividerKey === 'product_ta') rightCol = 'unit';
     else if (dividerKey === 'unit') rightCol = showMrp ? 'mrp' : 'offer';
     else if (dividerKey === 'mrp') rightCol = 'offer';
     else if (dividerKey === 'offer') rightCol = 'req';
@@ -312,8 +316,23 @@ export default function PriceList({ defaultTab }) {
     footer_position: 'below_table',
     show_bank_details: true,
     show_upi_qr: true,
+    show_tamil_name: false,
+    header_product: 'PRODUCT NAME (ENG)',
+    header_product_ta: 'பொருள் பெயர் (TAMIL)',
     important_note_1: 'தொடர்ந்து பல ஆண்டுகளாக எங்கள் நிறுவன பட்டாசுகளை வாங்கி தீபாவளியை குடும்பத்தினருடன் கொண்டாடி மகிழும் உங்கள் அனைவருக்கும் இனிய தீபாவளி நல்வாழ்த்துக்கள்!',
     important_note_2: 'வரவிருக்கும் தீபாவளி பண்டிகைக்கான பட்டாசுகளை அக்டோபர் 15 - ஆம் தேதிக்குள் ஆர்டர் செய்து பெற்றுக்கொள்ளுமாறு வேண்டுகிறோம்.',
+    store_title_color: '#FFFFFF',
+    store_tagline_color: '#FFFFFF',
+    store_invocation_color: '#FFFFFF',
+    store_badge_color: '#0F172A',
+    store_upi_qr: '',
+    store_upi_qr_2: '',
+    store_gpay: '9787772038',
+    store_gpay_2: '',
+    store_upi_name: 'Muthusamy Ganesan',
+    store_upi_name_2: '',
+    store_qr_1_title: 'GPay / Primary QR',
+    store_qr_2_title: 'PhonePe / Secondary QR',
   });
 
   useEffect(() => {
@@ -329,6 +348,7 @@ export default function PriceList({ defaultTab }) {
         store_cover_bg: settings.store_cover_bg || '',
         store_logo: settings.store_logo || '',
         store_upi_qr: settings.store_upi_qr || '',
+        store_upi_qr_2: settings.store_upi_qr_2 || '',
         store_year: settings.store_year || String(new Date().getFullYear()),
         store_email: settings.store_email || 'www.masscrackers.com',
         store_phone: settings.store_phone || '8682942042',
@@ -336,12 +356,20 @@ export default function PriceList({ defaultTab }) {
         store_phone_3: settings.store_phone_3 || '',
         store_phone_4: settings.store_phone_4 || '',
         store_gpay: settings.store_gpay || '9787772038',
+        store_gpay_2: settings.store_gpay_2 || '',
+        store_upi_name: settings.store_upi_name !== undefined ? settings.store_upi_name : 'Muthusamy Ganesan',
+        store_upi_name_2: settings.store_upi_name_2 || '',
+        store_qr_1_title: settings.store_qr_1_title || 'GPay / Primary QR',
+        store_qr_2_title: settings.store_qr_2_title || 'PhonePe / Secondary QR',
         table_row_height: settings.table_row_height || 22,
         table_col_padding: settings.table_col_padding || 4,
         store_address: settings.store_address || 'Virudhunagar to Sivakasi Main Road, Opposite to Nayagara Petrol Bulk, Amathur - 626005.',
         discount_percent: settings.discount_percent !== undefined ? settings.discount_percent : 50,
         show_bank_details: settings.show_bank_details !== undefined ? settings.show_bank_details : true,
         show_upi_qr: settings.show_upi_qr !== undefined ? settings.show_upi_qr : true,
+        show_tamil_name: settings.show_tamil_name !== undefined ? settings.show_tamil_name : false,
+        header_product: settings.header_product || 'PRODUCT NAME (ENG)',
+        header_product_ta: settings.header_product_ta || 'பொருள் பெயர் (TAMIL)',
         bank_name: settings.bank_name || settings.bank_holder || 'Muthusamy Ganesan',
         bank_branch: settings.bank_branch || settings.bank_acc_name || 'IDBI Bank',
         bank_account_no: settings.bank_account_no || settings.bank_acc_no || '1118104000136815',
@@ -350,9 +378,85 @@ export default function PriceList({ defaultTab }) {
         max_tr_per_page: settings.max_tr_per_page || 30,
         important_note_1: settings.important_note_1 || 'தொடர்ந்து பல ஆண்டுகளாக எங்கள் நிறுவன பட்டாசுகளை வாங்கி தீபாவளியை குடும்பத்தினருடன் கொண்டாடி மகிழும் உங்கள் அனைவருக்கும் இனிய தீபாவளி நல்வாழ்த்துக்கள்!',
         important_note_2: settings.important_note_2 || 'வரவிருக்கும் தீபாவளி பண்டிகைக்கான பட்டாசுகளை அக்டோபர் 15 - ஆம் தேதிக்குள் ஆர்டர் செய்து பெற்றுக்கொள்ளுமாறு வேண்டுகிறோம்.',
+        store_title_color: settings.store_title_color || '#FFFFFF',
+        store_tagline_color: settings.store_tagline_color || '#FFFFFF',
+        store_invocation_color: settings.store_invocation_color || '#FFFFFF',
+        store_badge_color: settings.store_badge_color || '#0F172A',
       });
     }
   }, [settings]);
+
+  const [translatingTamil, setTranslatingTamil] = useState(false);
+
+  const handleAutoTranslateTamil = async (overwrite = false, currentCats = categories) => {
+    const targetCats = currentCats || categories;
+    if (!targetCats || !targetCats.length) return;
+    setTranslatingTamil(true);
+
+    if (window.Swal) {
+      window.Swal.fire({
+        title: 'Translating Product Names...',
+        text: 'Generating Tamil translations for English product names',
+        allowOutsideClick: false,
+        didOpen: () => {
+          window.Swal.showLoading();
+        },
+      });
+    }
+
+    try {
+      const { categories: updatedCategories, modifiedCount } = await batchTranslateCategoriesToTamil(targetCats, overwrite);
+      if (setCategories) {
+        setCategories(updatedCategories);
+      }
+
+      // Collect updated products payload to persist to backend
+      const bulkPayload = [];
+      updatedCategories.forEach((cat) => {
+        cat.products?.forEach((prod) => {
+          if (prod.id && prod.name_ta) {
+            bulkPayload.push({
+              id: prod.id,
+              name_ta: prod.name_ta,
+            });
+          }
+        });
+      });
+
+      if (bulkPayload.length > 0) {
+        try {
+          await fetch('/api/admin/products/bulk-update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ products: bulkPayload }),
+          });
+        } catch (apiErr) {
+          console.warn('Backend persistence error:', apiErr);
+        }
+      }
+
+      if (window.Swal) {
+        window.Swal.fire({
+          icon: 'success',
+          title: 'Tamil Names Generated!',
+          text: `Auto-generated Tamil names for ${modifiedCount > 0 ? modifiedCount + ' products' : 'all products'}.`,
+          timer: 2000,
+          showConfirmButton: false,
+        });
+      }
+    } catch (err) {
+      console.error('Auto translation error:', err);
+      if (window.Swal) {
+        window.Swal.fire({
+          icon: 'error',
+          title: 'Translation Failed',
+          text: 'Unable to auto-translate names right now.',
+        });
+      }
+    } finally {
+      setTranslatingTamil(false);
+    }
+  };
 
   const handleInputChange = (field, value) => {
     setEditForm((prev) => ({ ...prev, [field]: value }));
@@ -373,7 +477,9 @@ export default function PriceList({ defaultTab }) {
 
   const getThemeAccentColor = (bgPath) => {
     const bg = bgPath || '/images/cover_bg_1.jpg';
-    if (bg.includes('cover_bg_2.jpg')) {
+    if (bg === 'none') {
+      return { textClass: 'text-slate-800', bgClass: 'bg-slate-800', hex: '#1e293b' };
+    } else if (bg.includes('cover_bg_2.jpg')) {
       return { textClass: 'text-blue-600', bgClass: 'bg-blue-600', hex: '#2563eb' };
     } else if (bg.includes('cover_bg_3.jpg')) {
       return { textClass: 'text-emerald-600', bgClass: 'bg-emerald-600', hex: '#059669' };
@@ -381,8 +487,16 @@ export default function PriceList({ defaultTab }) {
       return { textClass: 'text-purple-600', bgClass: 'bg-purple-600', hex: '#9333ea' };
     } else if (bg.includes('cover_bg_5.jpg')) {
       return { textClass: 'text-sky-600', bgClass: 'bg-sky-500', hex: '#0284c7' };
+    } else if (bg.includes('cover_bg_6.jpg')) {
+      return { textClass: 'text-amber-600', bgClass: 'bg-amber-500', hex: '#d97706' };
+    } else if (bg.includes('cover_bg_7.jpg')) {
+      return { textClass: 'text-indigo-600', bgClass: 'bg-indigo-700', hex: '#4338ca' };
     } else if (bg.includes('cover_bg_8.jpg')) {
       return { textClass: 'text-rose-600', bgClass: 'bg-rose-600', hex: '#e11d48' };
+    } else if (bg.includes('cover_bg_blue.jpg')) {
+      return { textClass: 'text-slate-900', bgClass: 'bg-slate-800', hex: '#0f172a' };
+    } else if (bg.includes('cover_bg_green.jpg')) {
+      return { textClass: 'text-teal-600', bgClass: 'bg-teal-600', hex: '#0d9488' };
     }
     return { textClass: 'text-red-600', bgClass: 'bg-red-600', hex: '#dc2626' };
   };
@@ -674,10 +788,26 @@ export default function PriceList({ defaultTab }) {
 
   const handleInlineProductSave = async (productId, field, value) => {
     try {
+      const payload = { [field]: value };
+      if (field === 'name' && editForm.show_tamil_name && value && value.trim()) {
+        let targetProd = null;
+        categories?.forEach((c) => {
+          const found = c.products?.find((p) => p.id === productId);
+          if (found) targetProd = found;
+        });
+        if (targetProd && (!targetProd.name_ta || !targetProd.name_ta.trim())) {
+          const autoTa = await translateEnglishToTamil(value);
+          if (autoTa) {
+            payload.name_ta = autoTa;
+            handleInlineProductChange(productId, 'name_ta', autoTa);
+          }
+        }
+      }
+
       await fetch(`/api/admin/products/${productId}/quick-update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ [field]: value }),
+        body: JSON.stringify(payload),
       });
     } catch (err) {
       console.error('Inline save error:', err);
@@ -713,7 +843,7 @@ export default function PriceList({ defaultTab }) {
 
   // Excel Grid Keyboard Navigation Handler (Enter, Tab, Arrow keys)
   const handleExcelGridKeyDown = (e, rowIdx, colIdx) => {
-    const maxCol = showMrp ? 5 : 4;
+    const maxCol = (showMrp ? 5 : 4) + (editForm.show_tamil_name ? 1 : 0);
 
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -792,9 +922,13 @@ export default function PriceList({ defaultTab }) {
 
     if (matrix.length === 0 || !allFilteredProducts.length) return;
 
-    const fields = showMrp
-      ? ['product_code', 'name', 'pack_size', 'mrp', 'selling_price', 'req']
-      : ['product_code', 'name', 'pack_size', 'selling_price', 'req'];
+    const fields = editForm.show_tamil_name
+      ? (showMrp
+        ? ['product_code', 'name', 'name_ta', 'pack_size', 'mrp', 'selling_price', 'req']
+        : ['product_code', 'name', 'name_ta', 'pack_size', 'selling_price', 'req'])
+      : (showMrp
+        ? ['product_code', 'name', 'pack_size', 'mrp', 'selling_price', 'req']
+        : ['product_code', 'name', 'pack_size', 'selling_price', 'req']);
 
     const currentDisc = editForm.discount_percent !== undefined ? editForm.discount_percent : 50;
 
@@ -1059,9 +1193,11 @@ export default function PriceList({ defaultTab }) {
     return { ...cat, products: sortProductsByCode(filteredProducts) };
   }).filter(Boolean);
 
-  // 2. Flatten all filtered products into a single ordered array (preserving exact Excel row order)
+  const sortedFilteredCategories = sortCategoriesByProductCode(filteredCategories);
+
+  // 2. Flatten all filtered products into a single ordered array (preserving exact S.No order)
   const allFilteredProducts = [];
-  filteredCategories.forEach((cat) => {
+  sortedFilteredCategories.forEach((cat) => {
     cat.products.forEach((p) => {
       allFilteredProducts.push({
         ...p,
@@ -1112,11 +1248,12 @@ export default function PriceList({ defaultTab }) {
 
   const showSno = editForm.show_col_sno !== false;
   const showProduct = editForm.show_col_product !== false;
+  const showTamilName = editForm.show_tamil_name === true;
   const showUnit = editForm.show_col_unit !== false;
   const showMrpCol = showMrp && editForm.show_col_mrp !== false;
   const showOffer = editForm.show_col_offer !== false;
   const showReq = editForm.show_col_req !== false;
-  const activeColCount = (showSno ? 1 : 0) + (showProduct ? 1 : 0) + (showUnit ? 1 : 0) + (showMrpCol ? 1 : 0) + (showOffer ? 1 : 0) + (showReq ? 1 : 0);
+  const activeColCount = (showSno ? 1 : 0) + (showProduct ? 1 : 0) + (showTamilName ? 1 : 0) + (showUnit ? 1 : 0) + (showMrpCol ? 1 : 0) + (showOffer ? 1 : 0) + (showReq ? 1 : 0);
 
   return (
     <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 py-6 select-none print:p-0 print:m-0 print:max-w-none">
@@ -1581,32 +1718,43 @@ export default function PriceList({ defaultTab }) {
                     <i className="fa-solid fa-image text-amber-600"></i>
                     A4 Cover Background Color Options
                   </label>
-                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 mb-2">
+                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5 mb-2">
                     {[
-                      { id: '/images/cover_bg_1.jpg', label: '#1', bg: 'bg-red-600' },
-                      { id: '/images/cover_bg_2.jpg', label: '#2', bg: 'bg-blue-600' },
-                      { id: '/images/cover_bg_3.jpg', label: '#3', bg: 'bg-emerald-600' },
-                      { id: '/images/cover_bg_4.jpg', label: '#4', bg: 'bg-purple-600' },
-                      { id: '/images/cover_bg_5.jpg', label: '#5', bg: 'bg-sky-400' },
-                      { id: '/images/cover_bg_8.jpg', label: '#6', bg: 'bg-rose-400' },
+                      { id: 'none', label: 'None', bg: 'bg-slate-100 border border-slate-300 text-slate-700 font-bold' },
+                      { id: '/images/cover_bg_1.jpg', label: '#1 Red', bg: 'bg-red-600' },
+                      { id: '/images/cover_bg_2.jpg', label: '#2 Blue', bg: 'bg-blue-600' },
+                      { id: '/images/cover_bg_3.jpg', label: '#3 Emerald', bg: 'bg-emerald-600' },
+                      { id: '/images/cover_bg_4.jpg', label: '#4 Purple', bg: 'bg-purple-600' },
+                      { id: '/images/cover_bg_5.jpg', label: '#5 Sky', bg: 'bg-sky-400' },
+                      { id: '/images/cover_bg_6.jpg', label: '#6 Gold', bg: 'bg-amber-500' },
+                      { id: '/images/cover_bg_7.jpg', label: '#7 Indigo', bg: 'bg-indigo-700' },
+                      { id: '/images/cover_bg_8.jpg', label: '#8 Rose', bg: 'bg-rose-500' },
+                      { id: '/images/cover_bg_blue.jpg', label: '#9 Navy', bg: 'bg-slate-800' },
+                      { id: '/images/cover_bg_green.jpg', label: '#10 Teal', bg: 'bg-teal-600' },
                     ].map((item) => (
                       <button
                         key={item.id}
                         type="button"
                         onClick={() => handleInputChange('store_cover_bg', item.id)}
-                        className={`p-1 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 ${(editForm.store_cover_bg || '/images/cover_bg_1.jpg') === item.id || (['/images/cover_bg.jpg', '/images/cover_bg_red.jpg'].includes(editForm.store_cover_bg) && item.label === '#1')
-                          ? 'border-amber-600 bg-amber-200 shadow-sm scale-105'
-                          : 'border-slate-200 bg-white hover:bg-amber-100'
-                          }`}
+                        className={`p-1 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 ${
+                          (editForm.store_cover_bg || '/images/cover_bg_1.jpg') === item.id ||
+                          (['/images/cover_bg.jpg', '/images/cover_bg_red.jpg'].includes(editForm.store_cover_bg) && item.id === '/images/cover_bg_1.jpg')
+                            ? 'border-amber-600 bg-amber-200 shadow-sm scale-105'
+                            : 'border-slate-200 bg-white hover:bg-amber-100'
+                        }`}
                       >
-                        <div className={`w-full h-8 rounded-lg ${item.bg} overflow-hidden shadow-xs relative`}>
-                          <img src={item.id} alt={item.label} className="w-full h-full object-cover" />
+                        <div className={`w-full h-8 rounded-lg ${item.bg} overflow-hidden shadow-xs relative flex items-center justify-center`}>
+                          {item.id === 'none' ? (
+                            <i className="fa-solid fa-ban text-slate-500 text-sm"></i>
+                          ) : (
+                            <img src={item.id} alt={item.label} className="w-full h-full object-cover" />
+                          )}
                         </div>
-                        <span className="text-[10px] font-black">{item.label}</span>
+                        <span className="text-[9px] font-black">{item.label}</span>
                       </button>
                     ))}
                   </div>
-                  {editForm.store_cover_bg && !['/images/cover_bg_1.jpg', '/images/cover_bg_2.jpg', '/images/cover_bg_3.jpg', '/images/cover_bg_4.jpg', '/images/cover_bg_5.jpg', '/images/cover_bg_8.jpg', '/images/cover_bg_red.jpg', '/images/cover_bg.jpg'].includes(editForm.store_cover_bg) && (
+                  {editForm.store_cover_bg && editForm.store_cover_bg !== 'none' && !['/images/cover_bg_1.jpg', '/images/cover_bg_2.jpg', '/images/cover_bg_3.jpg', '/images/cover_bg_4.jpg', '/images/cover_bg_5.jpg', '/images/cover_bg_6.jpg', '/images/cover_bg_7.jpg', '/images/cover_bg_8.jpg', '/images/cover_bg_blue.jpg', '/images/cover_bg_green.jpg', '/images/cover_bg_red.jpg', '/images/cover_bg.jpg'].includes(editForm.store_cover_bg) && (
                     <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-amber-200 mb-2">
                       <img
                         src={getImageUrl(editForm.store_cover_bg)}
@@ -1639,43 +1787,283 @@ export default function PriceList({ defaultTab }) {
                   />
                 </div>
 
-                {/* Upload Payment QR Code */}
-                <div className="bg-amber-50/90 p-3.5 rounded-2xl border-2 border-amber-300 space-y-2">
-                  <label className="block text-slate-800 font-extrabold text-xs flex items-center gap-2">
-                    <i className="fa-solid fa-qrcode text-amber-600"></i>
-                    Upload Payment QR Code Image (GPay / PhonePe QR)
+                {/* Cover Text Font Colors */}
+                <div className="bg-amber-50/90 p-3.5 rounded-2xl border-2 border-amber-300 space-y-3">
+                  <label className="block text-slate-800 font-extrabold text-xs flex items-center justify-between">
+                    <span className="flex items-center gap-2 text-slate-900 font-black">
+                      <i className="fa-solid fa-palette text-amber-600"></i>
+                      Cover Text Font Colors
+                    </span>
+                    <span className="text-[10px] text-amber-700 font-bold">Pick custom text colors</span>
                   </label>
-                  {editForm.store_upi_qr && (
-                    <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-amber-200">
-                      <img
-                        src={getImageUrl(editForm.store_upi_qr)}
-                        alt="Payment QR Code"
-                        className="h-12 w-12 object-contain rounded-lg border border-amber-300 bg-white"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleInputChange('store_upi_qr', '')}
-                        className="text-xs text-red-600 font-extrabold hover:underline"
-                      >
-                        Reset Auto-Generated QR
-                      </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Store Title Font Color */}
+                    <div className="bg-white p-2.5 rounded-xl border border-amber-200 space-y-1.5">
+                      <div className="flex justify-between items-center text-xs font-bold text-slate-800">
+                        <span>Store Title Color</span>
+                        <span className="text-[10px] font-mono text-slate-500">{editForm.store_title_color || '#FFFFFF'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={editForm.store_title_color || '#FFFFFF'}
+                          onChange={(e) => handleInputChange('store_title_color', e.target.value)}
+                          className="w-9 h-8 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
+                        />
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {['#FFFFFF', '#FBBF24', '#FEF08A', '#38BDF8', '#DC2626', '#0F172A'].map((c) => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => handleInputChange('store_title_color', c)}
+                              className="w-5 h-5 rounded-full border border-slate-300 shadow-2xs hover:scale-110 transition-transform cursor-pointer"
+                              style={{ backgroundColor: c }}
+                              title={c}
+                            />
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (event) => {
-                          handleInputChange('store_upi_qr', event.target.result);
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                    className="block w-full text-xs text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-amber-500 file:text-white hover:file:bg-amber-600 cursor-pointer"
-                  />
+
+                    {/* Tagline Font Color */}
+                    <div className="bg-white p-2.5 rounded-xl border border-amber-200 space-y-1.5">
+                      <div className="flex justify-between items-center text-xs font-bold text-slate-800">
+                        <span>Tagline Color</span>
+                        <span className="text-[10px] font-mono text-slate-500">{editForm.store_tagline_color || '#FFFFFF'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={editForm.store_tagline_color || '#FFFFFF'}
+                          onChange={(e) => handleInputChange('store_tagline_color', e.target.value)}
+                          className="w-9 h-8 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
+                        />
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {['#FFFFFF', '#FBBF24', '#FEF08A', '#38BDF8', '#DC2626', '#0F172A'].map((c) => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => handleInputChange('store_tagline_color', c)}
+                              className="w-5 h-5 rounded-full border border-slate-300 shadow-2xs hover:scale-110 transition-transform cursor-pointer"
+                              style={{ backgroundColor: c }}
+                              title={c}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Invocation Font Color */}
+                    <div className="bg-white p-2.5 rounded-xl border border-amber-200 space-y-1.5">
+                      <div className="flex justify-between items-center text-xs font-bold text-slate-800">
+                        <span>Deity / Invocation Color</span>
+                        <span className="text-[10px] font-mono text-slate-500">{editForm.store_invocation_color || '#FFFFFF'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={editForm.store_invocation_color || '#FFFFFF'}
+                          onChange={(e) => handleInputChange('store_invocation_color', e.target.value)}
+                          className="w-9 h-8 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
+                        />
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {['#FFFFFF', '#FBBF24', '#FEF08A', '#38BDF8', '#DC2626', '#0F172A'].map((c) => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => handleInputChange('store_invocation_color', c)}
+                              className="w-5 h-5 rounded-full border border-slate-300 shadow-2xs hover:scale-110 transition-transform cursor-pointer"
+                              style={{ backgroundColor: c }}
+                              title={c}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Price List Badge Font Color */}
+                    <div className="bg-white p-2.5 rounded-xl border border-amber-200 space-y-1.5">
+                      <div className="flex justify-between items-center text-xs font-bold text-slate-800">
+                        <span>Price List Badge Text Color</span>
+                        <span className="text-[10px] font-mono text-slate-500">{editForm.store_badge_color || '#0F172A'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={editForm.store_badge_color || '#0F172A'}
+                          onChange={(e) => handleInputChange('store_badge_color', e.target.value)}
+                          className="w-9 h-8 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
+                        />
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {['#0F172A', '#FFFFFF', '#FBBF24', '#FEF08A', '#38BDF8', '#DC2626'].map((c) => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => handleInputChange('store_badge_color', c)}
+                              className="w-5 h-5 rounded-full border border-slate-300 shadow-2xs hover:scale-110 transition-transform cursor-pointer"
+                              style={{ backgroundColor: c }}
+                              title={c}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dual Payment QR Codes Section (2 QR Code Options) */}
+                <div className="bg-amber-50/90 p-3.5 rounded-2xl border-2 border-amber-300 space-y-3 col-span-full">
+                  <label className="block text-slate-800 font-black text-xs uppercase tracking-wide flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <i className="fa-solid fa-qrcode text-amber-600 text-sm"></i>
+                      Payment QR Codes (2 Options Available)
+                    </span>
+                    <span className="text-[10px] text-amber-700 font-bold bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
+                      Upload 1 or 2 QR Codes
+                    </span>
+                  </label>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    {/* QR CODE 1 CARD */}
+                    <div className="bg-white p-3 rounded-xl border border-amber-200 space-y-2">
+                      <div className="flex justify-between items-center text-xs font-black text-slate-800 border-b border-slate-100 pb-1.5">
+                        <span className="flex items-center gap-1.5 text-sky-600">
+                          <i className="fa-solid fa-1"></i> QR Code 1 (Primary / GPay)
+                        </span>
+                        {editForm.store_upi_qr && (
+                          <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">Custom Image</span>
+                        )}
+                      </div>
+
+                      {editForm.store_upi_qr && (
+                        <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                          <img
+                            src={getImageUrl(editForm.store_upi_qr)}
+                            alt="Payment QR 1"
+                            className="h-12 w-12 object-contain rounded-md border border-slate-300 bg-white"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleInputChange('store_upi_qr', '')}
+                            className="text-xs text-red-600 font-extrabold hover:underline"
+                          >
+                            Reset QR 1 Image
+                          </button>
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">Upload QR 1 Image</label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (event) => {
+                                handleInputChange('store_upi_qr', event.target.result);
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="block w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-sky-500 file:text-white hover:file:bg-sky-600 cursor-pointer"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">QR 1 Account Name</label>
+                        <input
+                          type="text"
+                          value={editForm.store_upi_name || ''}
+                          onChange={(e) => handleInputChange('store_upi_name', e.target.value)}
+                          placeholder="e.g. Muthusamy Ganesan"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 mb-2"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">QR 1 Mobile / UPI Number</label>
+                        <input
+                          type="text"
+                          value={editForm.store_gpay || ''}
+                          onChange={(e) => handleInputChange('store_gpay', e.target.value)}
+                          placeholder="e.g. 97877 72038"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* QR CODE 2 CARD */}
+                    <div className="bg-white p-3 rounded-xl border border-amber-200 space-y-2">
+                      <div className="flex justify-between items-center text-xs font-black text-slate-800 border-b border-slate-100 pb-1.5">
+                        <span className="flex items-center gap-1.5 text-indigo-600">
+                          <i className="fa-solid fa-2"></i> QR Code 2 (Secondary / PhonePe)
+                        </span>
+                        {editForm.store_upi_qr_2 && (
+                          <span className="text-[10px] bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded font-bold">Custom Image</span>
+                        )}
+                      </div>
+
+                      {editForm.store_upi_qr_2 && (
+                        <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                          <img
+                            src={getImageUrl(editForm.store_upi_qr_2)}
+                            alt="Payment QR 2"
+                            className="h-12 w-12 object-contain rounded-md border border-slate-300 bg-white"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleInputChange('store_upi_qr_2', '')}
+                            className="text-xs text-red-600 font-extrabold hover:underline"
+                          >
+                            Remove QR 2 Image
+                          </button>
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">Upload QR 2 Image</label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (event) => {
+                                handleInputChange('store_upi_qr_2', event.target.result);
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="block w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">QR 2 Account Name</label>
+                        <input
+                          type="text"
+                          value={editForm.store_upi_name_2 || ''}
+                          onChange={(e) => handleInputChange('store_upi_name_2', e.target.value)}
+                          placeholder="e.g. Muthusamy Ganesan"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 mb-2"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">QR 2 Mobile / UPI Number</label>
+                        <input
+                          type="text"
+                          value={editForm.store_gpay_2 || ''}
+                          onChange={(e) => handleInputChange('store_gpay_2', e.target.value)}
+                          placeholder="e.g. 86829 42042"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Price List Year */}
@@ -2078,6 +2466,60 @@ export default function PriceList({ defaultTab }) {
                   <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
                     <input
                       type="checkbox"
+                      checked={editForm.show_discount_badge !== false}
+                      onChange={(e) => handleInputChange('show_discount_badge', e.target.checked)}
+                      className="rounded text-rose-600 focus:ring-rose-500 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span className="text-slate-800">Discount Badge</span>
+                  </label>
+                  <label className="inline-flex items-center gap-1.5 cursor-pointer select-none col-span-3 mt-1 p-2 bg-amber-50/80 border border-amber-300 rounded-lg text-amber-950 font-extrabold shadow-2xs hover:bg-amber-100/80 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={editForm.show_tamil_name === true}
+                      onChange={(e) => {
+                        const isChecked = e.target.checked;
+                        handleInputChange('show_tamil_name', isChecked);
+                        setColWidths((prev) => ({
+                          ...prev,
+                          sno: isChecked ? 35 : 40,
+                          product: isChecked ? 165 : 240,
+                          product_ta: 165,
+                          unit: isChecked ? 75 : 90,
+                          mrp: isChecked ? 65 : 75,
+                          offer: isChecked ? 90 : 105,
+                          req: isChecked ? 35 : 40,
+                        }));
+                        if (isChecked) {
+                          handleAutoTranslateTamil(false);
+                        }
+                      }}
+                      className="rounded text-amber-600 focus:ring-amber-500 w-4 h-4 cursor-pointer"
+                    />
+                    <span className="flex items-center gap-1.5 text-xs">
+                      <i className="fa-solid fa-language text-amber-600 text-sm"></i>
+                      <span>Split Product Name Column (Enable 2 Columns: English & Tamil)</span>
+                    </span>
+                  </label>
+                  {editForm.show_tamil_name && (
+                    <div className="col-span-3 -mt-1 mb-1 p-2 bg-amber-100/70 border border-amber-300 rounded-lg flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-bold text-amber-950 flex items-center gap-1">
+                        <i className="fa-solid fa-wand-magic-sparkles text-amber-600"></i>
+                        <span>Auto-translate English to Tamil</span>
+                      </span>
+                      <button
+                        type="button"
+                        disabled={translatingTamil}
+                        onClick={() => handleAutoTranslateTamil(true)}
+                        className="px-2.5 py-1 text-xs font-black text-white bg-amber-600 hover:bg-amber-700 active:scale-95 transition-all rounded-md flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
+                      >
+                        <i className={`fa-solid ${translatingTamil ? 'fa-spinner fa-spin' : 'fa-language'}`}></i>
+                        <span>{translatingTamil ? 'Translating...' : 'Auto-Generate Tamil Names'}</span>
+                      </button>
+                    </div>
+                  )}
+                  <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
                       checked={editForm.show_bank_details !== false}
                       onChange={(e) => handleInputChange('show_bank_details', e.target.checked)}
                       className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer"
@@ -2209,19 +2651,19 @@ export default function PriceList({ defaultTab }) {
 
 
             <div
-              className="a4-page-sheet w-[210mm] h-[297mm] max-h-[297mm] overflow-hidden text-white transition-all duration-300 relative shadow-2xl flex flex-col justify-between p-6 sm:p-8 pb-4 select-none mx-auto break-after-page bg-cover bg-center bg-no-repeat box-border"
-              style={{ backgroundImage: `url(${editForm.store_cover_bg ? getImageUrl(editForm.store_cover_bg) : '/images/cover_bg.jpg'})`, pageBreakAfter: 'always' }}
+              className={`a4-page-sheet w-[210mm] h-[297mm] max-h-[297mm] overflow-hidden ${editForm.store_cover_bg === 'none' ? 'text-slate-900 bg-white' : 'text-white'} transition-all duration-300 relative shadow-2xl flex flex-col justify-between p-6 sm:p-8 pb-4 select-none mx-auto break-after-page bg-cover bg-center bg-no-repeat box-border`}
+              style={{ backgroundImage: editForm.store_cover_bg === 'none' ? 'none' : `url(${editForm.store_cover_bg ? getImageUrl(editForm.store_cover_bg) : '/images/cover_bg.jpg'})`, pageBreakAfter: 'always' }}
             >
 
               {/* Top Invocation Header Section (Flush to top, 30% reduced font size) */}
               <div className="relative text-center z-10 mt-0 space-y-0.5">
                 {editForm.store_invocation_symbol && (
-                  <div className="text-white font-extrabold text-xs sm:text-sm tracking-wider">
+                  <div className="text-white font-extrabold text-xs sm:text-sm tracking-wider" style={{ color: editForm.store_invocation_color || undefined }}>
                     {editForm.store_invocation_symbol}
                   </div>
                 )}
                 {editForm.store_invocation && (
-                  <div className="text-white font-extrabold text-[10px] sm:text-xs tracking-wide drop-shadow-md">
+                  <div className="text-white font-extrabold text-[10px] sm:text-xs tracking-wide drop-shadow-md" style={{ color: editForm.store_invocation_color || undefined }}>
                     {editForm.store_invocation}
                   </div>
                 )}
@@ -2239,16 +2681,17 @@ export default function PriceList({ defaultTab }) {
                       lineHeight: '1.35',
                       fontFamily: getStoreNameFontFamily(),
                       textShadow: '-3px -3px 0 #000000, 3px -3px 0 #000000, -3px 3px 0 #000000, 3px 3px 0 #000000, -4px 0 0 #000000, 4px 0 0 #000000, 0 4px 0 #000000, 0 8px 20px rgba(0,0,0,0.95)',
+                      color: editForm.store_title_color || undefined,
                     }}
                   >
                     {editForm.store_name}
                   </h1>
-                  <p className="text-xl sm:text-2xl font-bold text-white tracking-wide drop-shadow-md pt-1 pb-1">
+                  <p className="text-xl sm:text-2xl font-bold text-white tracking-wide drop-shadow-md pt-1 pb-1" style={{ color: editForm.store_tagline_color || undefined }}>
                     "{editForm.store_tagline}"
                   </p>
                   <div
                     className="inline-block text-slate-950 font-black text-2xl sm:text-3xl uppercase tracking-wider pt-2"
-                    style={{ textShadow: '-2px -2px 0 #ffffff, 2px -2px 0 #ffffff, -2px 2px 0 #ffffff, 2px 2px 0 #ffffff, 0 4px 8px rgba(0,0,0,0.6)' }}
+                    style={{ textShadow: '-2px -2px 0 #ffffff, 2px -2px 0 #ffffff, -2px 2px 0 #ffffff, 2px 2px 0 #ffffff, 0 4px 8px rgba(0,0,0,0.6)', color: editForm.store_badge_color || undefined }}
                   >
                     PRICE LIST - {editForm.store_year}
                   </div>
@@ -2468,8 +2911,8 @@ export default function PriceList({ defaultTab }) {
             return (
               <div key={chunkIdx} className="w-full max-w-[210mm] print:w-[210mm]">
                 <div
-                  className="a4-page-sheet w-[210mm] h-[297mm] max-h-[297mm] overflow-hidden text-slate-900 transition-all duration-300 relative shadow-2xl flex flex-col justify-between p-4 sm:p-5 select-none mx-auto break-after-page bg-cover bg-center bg-no-repeat box-border"
-                  style={{ backgroundImage: `url(${editForm.store_cover_bg ? getImageUrl(editForm.store_cover_bg) : '/images/cover_bg.jpg'})`, pageBreakAfter: 'always' }}
+                  className={`a4-page-sheet w-[210mm] h-[297mm] max-h-[297mm] overflow-hidden text-slate-900 transition-all duration-300 relative shadow-2xl flex flex-col justify-between p-4 sm:p-5 select-none mx-auto break-after-page bg-cover bg-center bg-no-repeat box-border`}
+                  style={{ backgroundImage: editForm.store_cover_bg === 'none' ? 'none' : `url(${editForm.store_cover_bg ? getImageUrl(editForm.store_cover_bg) : '/images/cover_bg.jpg'})`, pageBreakAfter: 'always' }}
                 >
                   {/* Product Table Container */}
                   <div className="w-full flex-1">
@@ -2484,6 +2927,7 @@ export default function PriceList({ defaultTab }) {
                           <colgroup>
                             {showSno && <col style={{ width: `${colWidths.sno}px` }} />}
                             {showProduct && <col style={{ width: `${colWidths.product}px` }} />}
+                            {showTamilName && <col style={{ width: `${colWidths.product_ta || 160}px` }} />}
                             {showUnit && <col style={{ width: `${colWidths.unit}px` }} />}
                             {showMrpCol && <col style={{ width: `${colWidths.mrp}px` }} />}
                             {showOffer && <col style={{ width: `${colWidths.offer}px` }} />}
@@ -2497,7 +2941,6 @@ export default function PriceList({ defaultTab }) {
                                   className="py-0.5 text-center border border-slate-400 relative select-none group p-0 align-middle"
                                   style={{
                                     width: `${colWidths.sno}px`,
-                                    minWidth: `${colWidths.sno}px`,
                                     paddingLeft: `${editForm.table_col_padding || 4}px`,
                                     paddingRight: `${editForm.table_col_padding || 4}px`,
                                   }}
@@ -2522,23 +2965,22 @@ export default function PriceList({ defaultTab }) {
                                 </th>
                               )}
 
-                              {/* Product Header */}
+                              {/* Product Header (English) */}
                               {showProduct && (
                                 <th
                                   className="py-0.5 border border-slate-400 relative select-none group p-0 align-middle"
                                   style={{
                                     width: `${colWidths.product}px`,
-                                    minWidth: `${colWidths.product}px`,
                                     paddingLeft: `${editForm.table_col_padding || 4}px`,
                                     paddingRight: `${editForm.table_col_padding || 4}px`,
                                   }}
                                 >
                                   <span className="hidden print:block w-full text-left font-black uppercase text-[10px] leading-tight py-0.5 break-words px-1">
-                                    {editForm.header_product || 'PRODUCT'}
+                                    {editForm.header_product || (showTamilName ? 'PRODUCT NAME (ENG)' : 'PRODUCT')}
                                   </span>
                                   <textarea
                                     rows={2}
-                                    value={editForm.header_product || 'PRODUCT'}
+                                    value={editForm.header_product || (showTamilName ? 'PRODUCT NAME (ENG)' : 'PRODUCT')}
                                     onChange={(e) => handleInputChange('header_product', e.target.value)}
                                     onFocus={(e) => e.target.select()}
                                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
@@ -2553,13 +2995,42 @@ export default function PriceList({ defaultTab }) {
                                 </th>
                               )}
 
+                              {/* Tamil Product Header */}
+                              {showTamilName && (
+                                <th
+                                  className="py-0.5 border border-slate-400 relative select-none group p-0 align-middle"
+                                  style={{
+                                    width: `${colWidths.product_ta || 160}px`,
+                                    paddingLeft: `${editForm.table_col_padding || 4}px`,
+                                    paddingRight: `${editForm.table_col_padding || 4}px`,
+                                  }}
+                                >
+                                  <span className="hidden print:block w-full text-left font-black uppercase text-[10px] leading-tight py-0.5 break-words px-1">
+                                    {editForm.header_product_ta || 'பொருள் பெயர் (TAMIL)'}
+                                  </span>
+                                  <textarea
+                                    rows={2}
+                                    value={editForm.header_product_ta || 'பொருள் பெயர் (TAMIL)'}
+                                    onChange={(e) => handleInputChange('header_product_ta', e.target.value)}
+                                    onFocus={(e) => e.target.select()}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
+                                    title="Click to edit Tamil header"
+                                    className="print:hidden w-full h-full bg-transparent border-0 text-left font-black uppercase text-[10px] leading-tight resize-none whitespace-pre-wrap break-words overflow-hidden focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none py-1"
+                                  />
+                                  <div
+                                    className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-amber-600/70 active:bg-amber-700 z-20 transition-colors print:hidden"
+                                    onMouseDown={(e) => handleColumnResizeStart('product_ta', e)}
+                                    title="Drag to resize Tamil Product column"
+                                  />
+                                </th>
+                              )}
+
                               {/* Unit Header */}
                               {showUnit && (
                                 <th
                                   className="py-0.5 text-center border border-slate-400 relative select-none group p-0 align-middle"
                                   style={{
                                     width: `${colWidths.unit}px`,
-                                    minWidth: `${colWidths.unit}px`,
                                     paddingLeft: `${editForm.table_col_padding || 4}px`,
                                     paddingRight: `${editForm.table_col_padding || 4}px`,
                                   }}
@@ -2590,7 +3061,6 @@ export default function PriceList({ defaultTab }) {
                                   className="py-0.5 text-right border border-slate-400 relative select-none group p-0 align-middle"
                                   style={{
                                     width: `${colWidths.mrp}px`,
-                                    minWidth: `${colWidths.mrp}px`,
                                     paddingLeft: `${editForm.table_col_padding || 4}px`,
                                     paddingRight: `${editForm.table_col_padding || 4}px`,
                                   }}
@@ -2621,7 +3091,6 @@ export default function PriceList({ defaultTab }) {
                                   className="py-0.5 text-right border border-slate-400 relative select-none group p-0 align-middle"
                                   style={{
                                     width: `${colWidths.offer}px`,
-                                    minWidth: `${colWidths.offer}px`,
                                     paddingLeft: `${editForm.table_col_padding || 4}px`,
                                     paddingRight: `${editForm.table_col_padding || 4}px`,
                                   }}
@@ -2652,7 +3121,6 @@ export default function PriceList({ defaultTab }) {
                                   className="py-0.5 text-center border border-slate-400 relative select-none group p-0 align-middle"
                                   style={{
                                     width: `${colWidths.req}px`,
-                                    minWidth: `${colWidths.req}px`,
                                     paddingLeft: `${editForm.table_col_padding || 4}px`,
                                     paddingRight: `${editForm.table_col_padding || 4}px`,
                                   }}
@@ -2714,7 +3182,7 @@ export default function PriceList({ defaultTab }) {
                                         </td>
                                       )}
 
-                                      {/* Product Name Cell */}
+                                      {/* Product Name Cell (English) */}
                                       {showProduct && (
                                         <td className="py-0 font-extrabold text-black border border-slate-400 leading-tight text-[11px] p-0" style={{ width: `${colWidths.product}px`, paddingLeft: `${editForm.table_col_padding || 4}px`, paddingRight: `${editForm.table_col_padding || 4}px` }}>
                                           <input
@@ -2732,19 +3200,38 @@ export default function PriceList({ defaultTab }) {
                                         </td>
                                       )}
 
+                                      {/* Tamil Product Name Cell */}
+                                      {showTamilName && (
+                                        <td className="py-0 font-extrabold text-black border border-slate-400 leading-tight text-[11px] p-0" style={{ width: `${colWidths.product_ta || 160}px`, paddingLeft: `${editForm.table_col_padding || 4}px`, paddingRight: `${editForm.table_col_padding || 4}px` }}>
+                                          <input
+                                            type="text"
+                                            data-excel-row={absoluteIndex}
+                                            data-excel-col={2}
+                                            value={product.name_ta || ''}
+                                            onChange={(e) => handleInlineProductChange(product.id, 'name_ta', e.target.value)}
+                                            onBlur={(e) => handleInlineProductSave(product.id, 'name_ta', e.target.value)}
+                                            onFocus={(e) => e.target.select()}
+                                            onKeyDown={(e) => handleExcelGridKeyDown(e, absoluteIndex, 2)}
+                                            onPaste={(e) => handleExcelGridPaste(e, absoluteIndex, 2)}
+                                            placeholder="பொருள் பெயர்"
+                                            className="w-full bg-transparent border-0 font-extrabold text-black text-[11px] leading-tight focus:bg-emerald-50 focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 focus:z-20 rounded-xs px-1 cursor-text hover:bg-amber-50/50 transition-all focus:outline-none focus:shadow-md"
+                                          />
+                                        </td>
+                                      )}
+
                                       {/* Unit / Pack Size Cell */}
                                       {showUnit && (
                                         <td className="py-0 text-center text-black border border-slate-400 font-extrabold text-[10.5px] leading-tight p-0" style={{ width: `${colWidths.unit}px`, paddingLeft: `${editForm.table_col_padding || 4}px`, paddingRight: `${editForm.table_col_padding || 4}px` }}>
                                           <input
                                             type="text"
                                             data-excel-row={absoluteIndex}
-                                            data-excel-col={2}
+                                            data-excel-col={showTamilName ? 3 : 2}
                                             value={product.pack_size}
                                             onChange={(e) => handleInlineProductChange(product.id, 'pack_size', e.target.value)}
                                             onBlur={(e) => handleInlineProductSave(product.id, 'pack_size', e.target.value)}
                                             onFocus={(e) => e.target.select()}
-                                            onKeyDown={(e) => handleExcelGridKeyDown(e, absoluteIndex, 2)}
-                                            onPaste={(e) => handleExcelGridPaste(e, absoluteIndex, 2)}
+                                            onKeyDown={(e) => handleExcelGridKeyDown(e, absoluteIndex, showTamilName ? 3 : 2)}
+                                            onPaste={(e) => handleExcelGridPaste(e, absoluteIndex, showTamilName ? 3 : 2)}
                                             className="w-full bg-transparent border-0 text-center font-extrabold text-black text-[10.5px] leading-tight focus:bg-emerald-50 focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 focus:z-20 rounded-xs px-0.5 cursor-text hover:bg-amber-50/50 transition-all focus:outline-none focus:shadow-md"
                                           />
                                         </td>
@@ -2756,13 +3243,13 @@ export default function PriceList({ defaultTab }) {
                                           <input
                                             type="text"
                                             data-excel-row={absoluteIndex}
-                                            data-excel-col={3}
+                                            data-excel-col={showTamilName ? 4 : 3}
                                             value={product.mrp}
                                             onChange={(e) => handleInlineMrpChange(product.id, e.target.value)}
                                             onBlur={(e) => handleInlineMrpSave(product.id, e.target.value)}
                                             onFocus={(e) => e.target.select()}
-                                            onKeyDown={(e) => handleExcelGridKeyDown(e, absoluteIndex, 3)}
-                                            onPaste={(e) => handleExcelGridPaste(e, absoluteIndex, 3)}
+                                            onKeyDown={(e) => handleExcelGridKeyDown(e, absoluteIndex, showTamilName ? 4 : 3)}
+                                            onPaste={(e) => handleExcelGridPaste(e, absoluteIndex, showTamilName ? 4 : 3)}
                                             className="w-full bg-transparent border-0 text-right font-extrabold text-black text-[11px] focus:bg-emerald-50 focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 focus:z-20 rounded-xs px-1 cursor-text hover:bg-amber-50/50 transition-all focus:outline-none focus:shadow-md"
                                           />
                                         </td>
@@ -2774,13 +3261,13 @@ export default function PriceList({ defaultTab }) {
                                           <input
                                             type="text"
                                             data-excel-row={absoluteIndex}
-                                            data-excel-col={4}
+                                            data-excel-col={showTamilName ? 5 : 4}
                                             value={product.selling_price}
                                             onChange={(e) => handleInlineOfferChange(product.id, e.target.value)}
                                             onBlur={(e) => handleInlineProductSave(product.id, 'selling_price', e.target.value)}
                                             onFocus={(e) => e.target.select()}
-                                            onKeyDown={(e) => handleExcelGridKeyDown(e, absoluteIndex, 4)}
-                                            onPaste={(e) => handleExcelGridPaste(e, absoluteIndex, 4)}
+                                            onKeyDown={(e) => handleExcelGridKeyDown(e, absoluteIndex, showTamilName ? 5 : 4)}
+                                            onPaste={(e) => handleExcelGridPaste(e, absoluteIndex, showTamilName ? 5 : 4)}
                                             className="w-full bg-transparent border-0 text-right font-extrabold text-black text-[11px] focus:bg-emerald-50 focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 focus:z-20 rounded-xs px-1 cursor-text hover:bg-amber-50/50 transition-all focus:outline-none focus:shadow-md"
                                           />
                                         </td>
@@ -2792,13 +3279,13 @@ export default function PriceList({ defaultTab }) {
                                           <input
                                             type="text"
                                             data-excel-row={absoluteIndex}
-                                            data-excel-col={5}
+                                            data-excel-col={showTamilName ? 6 : 5}
                                             value={product.req || ''}
                                             onChange={(e) => handleInlineProductChange(product.id, 'req', e.target.value)}
                                             onBlur={(e) => handleInlineProductSave(product.id, 'req', e.target.value)}
                                             onFocus={(e) => e.target.select()}
-                                            onKeyDown={(e) => handleExcelGridKeyDown(e, absoluteIndex, 5)}
-                                            onPaste={(e) => handleExcelGridPaste(e, absoluteIndex, 5)}
+                                            onKeyDown={(e) => handleExcelGridKeyDown(e, absoluteIndex, showTamilName ? 6 : 5)}
+                                            onPaste={(e) => handleExcelGridPaste(e, absoluteIndex, showTamilName ? 6 : 5)}
                                             className="w-full bg-transparent border-0 text-center font-extrabold text-black text-[11px] focus:bg-emerald-50 focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 focus:z-20 rounded-xs px-0.5 cursor-text hover:bg-amber-50/50 transition-all focus:outline-none focus:shadow-md"
                                           />
                                         </td>
@@ -2814,49 +3301,144 @@ export default function PriceList({ defaultTab }) {
                     )}
 
                     {/* RIGHT AFTER TABLE ENDS: CLEAN TABLE-MATCHING PAYMENT BLOCK */}
-                    {(editForm.footer_position || 'below_table') === 'below_table' && chunkIdx === productPageChunks.length - 1 && (
-                      <div className="mt-2 bg-white border-2 border-slate-700 rounded-xl overflow-hidden shadow-sm p-2 font-sans">
-                        <div className={`grid ${editForm.show_upi_qr !== false && editForm.show_bank_details !== false ? 'grid-cols-2' : 'grid-cols-1'} gap-3 text-slate-900 items-center`}>
+                    {(editForm.footer_position || 'below_table') === 'below_table' && chunkIdx === productPageChunks.length - 1 && (() => {
+                      const hasQr2 = !!(editForm.store_upi_qr_2 || editForm.store_gpay_2);
+                      const showQr = editForm.show_upi_qr !== false;
+                      const showBank = editForm.show_bank_details !== false;
 
-                          {/* Left: Clean UPI Scan & Pay Card */}
-                          {editForm.show_upi_qr !== false && (
-                            <div className="flex flex-col items-center justify-center text-center space-y-1 p-1.5 border border-slate-200 rounded-lg bg-slate-50/50">
-                              <div className={`${theme.tableHeader} text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded w-full flex items-center justify-center gap-1.5`}>
-                                <i className="fa-solid fa-qrcode"></i> SCAN & PAY VIA UPI
-                              </div>
-
-                              <div className="p-1 bg-white border border-slate-300 rounded-lg shadow-xs my-0.5">
-                                <img
-                                  src={
-                                    editForm.store_upi_qr || settings?.store_upi_qr
-                                      ? getImageUrl(editForm.store_upi_qr || settings.store_upi_qr)
-                                      : `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=${encodeURIComponent(editForm.store_gpay || '9787772038')}%40okicici&pn=${encodeURIComponent(editForm.store_name)}`
-                                  }
-                                  alt="UPI QR Code"
-                                  className="w-22 h-22 sm:w-26 sm:h-26 object-contain"
-                                />
-                              </div>
-
-                              <div className="space-y-0.5">
-                                <div className="flex items-center justify-center gap-1 text-[8.5px] font-extrabold">
-                                  <span className="bg-sky-500 text-white font-black px-1.5 py-0.2 rounded">GPay</span>
-                                  <span className="bg-indigo-600 text-white font-black px-1.5 py-0.2 rounded">PhonePe</span>
-                                  <span className="bg-blue-600 text-white font-black px-1.5 py-0.2 rounded">Paytm</span>
+                      return (
+                        <div className="mt-2 bg-white border-2 border-slate-700 rounded-xl overflow-hidden shadow-sm p-2 font-sans space-y-2">
+                          {/* Top Row: QR Codes */}
+                          {showQr && (
+                            <div className={`grid ${hasQr2 ? 'grid-cols-2' : (showBank ? 'grid-cols-2' : 'grid-cols-1')} gap-3 text-slate-900 items-stretch`}>
+                              {/* QR Code Card 1 */}
+                              <div className="flex flex-col items-center justify-center text-center space-y-1 p-1.5 border border-slate-200 rounded-lg bg-slate-50/50">
+                                <div className={`${theme.tableHeader} text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded w-full flex items-center justify-center gap-1.5`}>
+                                  <i className="fa-solid fa-qrcode"></i> SCAN & PAY VIA UPI
                                 </div>
-                                <p className="text-[10px] font-black font-mono text-slate-900 pt-0.5">
-                                  UPI: {editForm.store_gpay || editForm.store_phone_3 || '9787772038'}
-                                </p>
+                                <div className="flex flex-col items-center justify-center w-full my-0.5">
+                                  <div className="p-1 bg-white border border-slate-300 rounded-lg shadow-xs">
+                                    <img
+                                      src={
+                                        editForm.store_upi_qr || settings?.store_upi_qr
+                                          ? getImageUrl(editForm.store_upi_qr || settings.store_upi_qr)
+                                          : `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=${encodeURIComponent(editForm.store_gpay || '9787772038')}%40okicici&pn=${encodeURIComponent(editForm.store_name)}`
+                                      }
+                                      alt="UPI QR Code 1"
+                                      className="w-22 h-22 sm:w-26 sm:h-26 object-contain"
+                                    />
+                                  </div>
+                                  {editForm.store_upi_name && (
+                                    <p className="text-[9px] font-black text-slate-900 mt-1">
+                                      {editForm.store_upi_name}
+                                    </p>
+                                  )}
+                                  <p className="text-[9px] font-black font-mono text-slate-900 mt-0.5">
+                                    UPI: {editForm.store_gpay || editForm.store_phone_3 || '9787772038'}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* QR Code Card 2 (If uploaded / present) */}
+                              {hasQr2 && (
+                                <div className="flex flex-col items-center justify-center text-center space-y-1 p-1.5 border border-slate-200 rounded-lg bg-slate-50/50">
+                                  <div className={`${theme.tableHeader} text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded w-full flex items-center justify-center gap-1.5`}>
+                                    <i className="fa-solid fa-qrcode"></i> SCAN & PAY VIA UPI
+                                  </div>
+                                  <div className="flex flex-col items-center justify-center w-full my-0.5">
+                                    <div className="p-1 bg-white border border-slate-300 rounded-lg shadow-xs">
+                                      <img
+                                        src={
+                                          editForm.store_upi_qr_2
+                                            ? getImageUrl(editForm.store_upi_qr_2)
+                                            : `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=${encodeURIComponent(editForm.store_gpay_2)}%40okicici&pn=${encodeURIComponent(editForm.store_name)}`
+                                        }
+                                        alt="UPI QR Code 2"
+                                        className="w-22 h-22 sm:w-26 sm:h-26 object-contain"
+                                      />
+                                    </div>
+                                    {editForm.store_upi_name_2 && (
+                                      <p className="text-[9px] font-black text-slate-900 mt-1">
+                                        {editForm.store_upi_name_2}
+                                      </p>
+                                    )}
+                                    {editForm.store_gpay_2 && (
+                                      <p className="text-[9px] font-black font-mono text-slate-900 mt-0.5">
+                                        UPI: {editForm.store_gpay_2}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Bank Details on Right if ONLY 1 QR code */}
+                              {!hasQr2 && showBank && (
+                                <div className="flex flex-col justify-between space-y-1.5 p-1.5 border border-slate-200 rounded-lg bg-slate-50/50 h-full">
+                                  <div className={`${theme.tableHeader} text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded w-full flex items-center gap-1.5`}>
+                                    <i className="fa-solid fa-building-columns"></i> BANK ACCOUNT INFO
+                                  </div>
+                                  <div className="border border-slate-300 rounded-md overflow-hidden bg-white text-[10px]">
+                                    <div className="flex justify-between border-b border-slate-200 px-2 py-1">
+                                      <span className="text-slate-500 font-bold">Account Name</span>
+                                      <span className="font-black text-slate-900 text-right">{editForm.bank_name}</span>
+                                    </div>
+                                    <div className="flex justify-between border-b border-slate-200 px-2 py-1">
+                                      <span className="text-slate-500 font-bold">Bank / Branch</span>
+                                      <span className="font-black text-slate-900 text-right">{editForm.bank_branch}</span>
+                                    </div>
+                                    <div className="flex justify-between border-b border-slate-200 px-2 py-1">
+                                      <span className="text-slate-500 font-bold">Account No</span>
+                                      <span className="font-mono font-black text-slate-900 text-right">{editForm.bank_account_no}</span>
+                                    </div>
+                                    <div className="flex justify-between px-2 py-1">
+                                      <span className="text-slate-500 font-bold">IFSC Code</span>
+                                      <span className="font-mono font-black text-slate-900 text-right">{editForm.bank_ifsc}</span>
+                                    </div>
+                                  </div>
+                                  <div className="text-center text-slate-700 text-[9.5px] font-bold">
+                                    ⚡ Quick Bank Transfer / IMPS Available
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Bank Details BELOW QR cards if HAS QR 2 */}
+                          {hasQr2 && showBank && (
+                            <div className="flex flex-col justify-between space-y-1.5 p-1.5 border border-slate-200 rounded-lg bg-slate-50/50 w-full">
+                              <div className={`${theme.tableHeader} text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded w-full flex items-center gap-1.5`}>
+                                <i className="fa-solid fa-building-columns"></i> BANK ACCOUNT INFO
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 border border-slate-300 rounded-md overflow-hidden bg-white text-[10px] p-1.5">
+                                <div className="flex justify-between border-b border-slate-100 pb-1">
+                                  <span className="text-slate-500 font-bold">Account Name:</span>
+                                  <span className="font-black text-slate-900">{editForm.bank_name}</span>
+                                </div>
+                                <div className="flex justify-between border-b border-slate-100 pb-1">
+                                  <span className="text-slate-500 font-bold">Bank / Branch:</span>
+                                  <span className="font-black text-slate-900">{editForm.bank_branch}</span>
+                                </div>
+                                <div className="flex justify-between pt-1">
+                                  <span className="text-slate-500 font-bold">Account No:</span>
+                                  <span className="font-mono font-black text-slate-900">{editForm.bank_account_no}</span>
+                                </div>
+                                <div className="flex justify-between pt-1">
+                                  <span className="text-slate-500 font-bold">IFSC Code:</span>
+                                  <span className="font-mono font-black text-slate-900">{editForm.bank_ifsc}</span>
+                                </div>
+                              </div>
+                              <div className="text-center text-slate-700 text-[9.5px] font-bold">
+                                ⚡ Quick Bank Transfer / IMPS Available
                               </div>
                             </div>
                           )}
 
-                          {/* Right: Clean Bank Details Table (Conditionally Displayed) */}
-                          {editForm.show_bank_details !== false && (
-                            <div className="flex flex-col justify-between space-y-1.5 p-1.5 border border-slate-200 rounded-lg bg-slate-50/50 h-full">
+                          {/* Bank Details full width if NO QR code */}
+                          {!showQr && showBank && (
+                            <div className="flex flex-col justify-between space-y-1.5 p-1.5 border border-slate-200 rounded-lg bg-slate-50/50 w-full">
                               <div className={`${theme.tableHeader} text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded w-full flex items-center gap-1.5`}>
                                 <i className="fa-solid fa-building-columns"></i> BANK ACCOUNT INFO
                               </div>
-
                               <div className="border border-slate-300 rounded-md overflow-hidden bg-white text-[10px]">
                                 <div className="flex justify-between border-b border-slate-200 px-2 py-1">
                                   <span className="text-slate-500 font-bold">Account Name</span>
@@ -2875,41 +3457,39 @@ export default function PriceList({ defaultTab }) {
                                   <span className="font-mono font-black text-slate-900 text-right">{editForm.bank_ifsc}</span>
                                 </div>
                               </div>
-
                               <div className="text-center text-slate-700 text-[9.5px] font-bold">
                                 ⚡ Quick Bank Transfer / IMPS Available
                               </div>
                             </div>
                           )}
 
+                          {/* Tamil Festive Greeting Message Notice Banner */}
+                          {editForm.store_notice && (
+                            <div className="mt-1.5 p-2 rounded-lg border-2 border-amber-400 bg-amber-50/70 text-center font-bold text-[10px] leading-snug text-amber-950">
+                              {renderFormattedText(editForm.store_notice)}
+                            </div>
+                          )}
+
+                          {/* Bottom Tamil Important Notes Box matching reference screenshot */}
+                          {(editForm.important_note_1 || editForm.important_note_2) && (
+                            <div className="mt-3 bg-amber-50/90 border-2 border-amber-300 rounded-xl p-3.5 text-center shadow-xs space-y-1.5">
+                              {editForm.important_note_1 && (
+                                renderFormattedText(
+                                  editForm.important_note_1,
+                                  "text-slate-900 font-black text-xs sm:text-[12px] leading-relaxed"
+                                )
+                              )}
+                              {editForm.important_note_2 && (
+                                renderFormattedText(
+                                  editForm.important_note_2,
+                                  "text-red-700 font-black text-xs sm:text-[12px] leading-relaxed"
+                                )
+                              )}
+                            </div>
+                          )}
                         </div>
-
-                        {/* Tamil Festive Greeting Message Notice Banner */}
-                        {editForm.store_notice && (
-                          <div className="mt-1.5 p-2 rounded-lg border-2 border-amber-400 bg-amber-50/70 text-center font-bold text-[10px] leading-snug text-amber-950">
-                            {renderFormattedText(editForm.store_notice)}
-                          </div>
-                        )}
-
-                        {/* Bottom Tamil Important Notes Box matching reference screenshot */}
-                        {(editForm.important_note_1 || editForm.important_note_2) && (
-                          <div className="mt-3 bg-amber-50/90 border-2 border-amber-300 rounded-xl p-3.5 text-center shadow-xs space-y-1.5">
-                            {editForm.important_note_1 && (
-                              renderFormattedText(
-                                editForm.important_note_1,
-                                "text-slate-900 font-black text-xs sm:text-[12px] leading-relaxed"
-                              )
-                            )}
-                            {editForm.important_note_2 && (
-                              renderFormattedText(
-                                editForm.important_note_2,
-                                "text-red-700 font-black text-xs sm:text-[12px] leading-relaxed"
-                              )
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -2925,67 +3505,170 @@ export default function PriceList({ defaultTab }) {
               >
                 {/* Content Starts Right at Top (Same Level as Product Tables) */}
                 <div className="w-full space-y-4 mt-0">
-                  <div className={`grid ${editForm.show_upi_qr !== false && editForm.show_bank_details !== false ? 'grid-cols-2' : 'grid-cols-1'} gap-4 items-stretch`}>
-                    {/* UPI Card */}
-                    {editForm.show_upi_qr !== false && (
-                      <div className="flex flex-col items-center justify-center text-center space-y-3 p-5 border-2 border-amber-400 rounded-2xl bg-white/95 shadow-md backdrop-blur-xs">
-                        <div className={`${theme.tableHeader} text-slate-950 text-xs font-black uppercase px-4 py-1.5 rounded-full flex items-center justify-center gap-2 border border-amber-400`}>
-                          <i className="fa-solid fa-qrcode"></i> SCAN & PAY VIA UPI
-                        </div>
-                        <div className="p-2 bg-white border-2 border-amber-300 rounded-xl shadow-sm">
-                          <img
-                            src={
-                              editForm.store_upi_qr || settings?.store_upi_qr
-                                ? getImageUrl(editForm.store_upi_qr || settings.store_upi_qr)
-                                : `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=${encodeURIComponent(editForm.store_gpay || '9787772038')}%40okicici&pn=${encodeURIComponent(editForm.store_name)}`
-                            }
-                            alt="UPI QR Code"
-                            className="w-36 h-36 object-contain"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-center gap-1.5 text-xs font-extrabold">
-                            <span className="bg-sky-500 text-white font-black px-2 py-0.5 rounded">GPay</span>
-                            <span className="bg-indigo-600 text-white font-black px-2 py-0.5 rounded">PhonePe</span>
-                            <span className="bg-blue-600 text-white font-black px-2 py-0.5 rounded">Paytm</span>
-                          </div>
-                          <p className="text-sm font-black font-mono text-slate-900 pt-1">
-                            UPI: {editForm.store_gpay || editForm.store_phone_3 || '9787772038'}
-                          </p>
-                        </div>
-                      </div>
-                    )}
+                  {(() => {
+                    const hasQr2 = !!(editForm.store_upi_qr_2 || editForm.store_gpay_2);
+                    const showQr = editForm.show_upi_qr !== false;
+                    const showBank = editForm.show_bank_details !== false;
 
-                    {/* Bank Details Card */}
-                    {editForm.show_bank_details !== false && (
-                      <div className="flex flex-col justify-between space-y-3 p-5 border-2 border-amber-400 rounded-2xl bg-white/95 shadow-md backdrop-blur-xs h-full">
-                        <div className={`${theme.tableHeader} text-slate-950 text-xs font-black uppercase px-4 py-1.5 rounded-full flex items-center gap-2 border border-amber-400`}>
-                          <i className="fa-solid fa-building-columns"></i> BANK ACCOUNT INFO
-                        </div>
-                        <div className="border border-slate-300 rounded-xl overflow-hidden bg-white text-xs">
-                          <div className="flex justify-between border-b border-slate-200 p-2.5">
-                            <span className="text-slate-500 font-bold">Account Name</span>
-                            <span className="font-black text-slate-900 text-right">{editForm.bank_name}</span>
+                    return (
+                      <div className="space-y-4 w-full">
+                        {/* Top Row: QR Codes */}
+                        {showQr && (
+                          <div className={`grid ${hasQr2 ? 'grid-cols-2' : (showBank ? 'grid-cols-2' : 'grid-cols-1')} gap-4 items-stretch`}>
+                            {/* QR Code Card 1 */}
+                            <div className="flex flex-col items-center justify-center text-center space-y-3 p-5 border-2 border-amber-400 rounded-2xl bg-white/95 shadow-md backdrop-blur-xs">
+                              <div className={`${theme.tableHeader} text-slate-950 text-xs font-black uppercase px-4 py-1.5 rounded-full flex items-center justify-center gap-2 border border-amber-400`}>
+                                <i className="fa-solid fa-qrcode"></i> SCAN & PAY VIA UPI
+                              </div>
+                              <div className="flex flex-col items-center justify-center space-y-1 w-full my-1">
+                                <div className="p-2 bg-white border-2 border-amber-300 rounded-xl shadow-sm">
+                                  <img
+                                    src={
+                                      editForm.store_upi_qr || settings?.store_upi_qr
+                                        ? getImageUrl(editForm.store_upi_qr || settings.store_upi_qr)
+                                        : `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=${encodeURIComponent(editForm.store_gpay || '9787772038')}%40okicici&pn=${encodeURIComponent(editForm.store_name)}`
+                                    }
+                                    alt="UPI QR Code 1"
+                                    className="w-32 h-32 object-contain"
+                                  />
+                                </div>
+                                {editForm.store_upi_name && (
+                                  <p className="text-xs font-black text-slate-900 mt-1">
+                                    {editForm.store_upi_name}
+                                  </p>
+                                )}
+                                <p className="text-xs font-black font-mono text-slate-900 mt-0.5">
+                                  UPI: {editForm.store_gpay || editForm.store_phone_3 || '9787772038'}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* QR Code Card 2 (If uploaded / present) */}
+                            {hasQr2 && (
+                              <div className="flex flex-col items-center justify-center text-center space-y-3 p-5 border-2 border-amber-400 rounded-2xl bg-white/95 shadow-md backdrop-blur-xs">
+                                <div className={`${theme.tableHeader} text-slate-950 text-xs font-black uppercase px-4 py-1.5 rounded-full flex items-center justify-center gap-2 border border-amber-400`}>
+                                  <i className="fa-solid fa-qrcode"></i> SCAN & PAY VIA UPI
+                                </div>
+                                <div className="flex flex-col items-center justify-center space-y-1 w-full my-1">
+                                  <div className="p-2 bg-white border-2 border-amber-300 rounded-xl shadow-sm">
+                                    <img
+                                      src={
+                                        editForm.store_upi_qr_2
+                                          ? getImageUrl(editForm.store_upi_qr_2)
+                                          : `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=${encodeURIComponent(editForm.store_gpay_2)}%40okicici&pn=${encodeURIComponent(editForm.store_name)}`
+                                      }
+                                      alt="UPI QR Code 2"
+                                      className="w-32 h-32 object-contain"
+                                    />
+                                  </div>
+                                  {editForm.store_upi_name_2 && (
+                                    <p className="text-xs font-black text-slate-900 mt-1">
+                                      {editForm.store_upi_name_2}
+                                    </p>
+                                  )}
+                                  {editForm.store_gpay_2 && (
+                                    <p className="text-xs font-black font-mono text-slate-900 mt-0.5">
+                                      UPI: {editForm.store_gpay_2}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Bank Details on Right if ONLY 1 QR code */}
+                            {!hasQr2 && showBank && (
+                              <div className="flex flex-col justify-between space-y-3 p-5 border-2 border-amber-400 rounded-2xl bg-white/95 shadow-md backdrop-blur-xs h-full">
+                                <div className={`${theme.tableHeader} text-slate-950 text-xs font-black uppercase px-4 py-1.5 rounded-full flex items-center gap-2 border border-amber-400`}>
+                                  <i className="fa-solid fa-building-columns"></i> BANK ACCOUNT INFO
+                                </div>
+                                <div className="border border-slate-300 rounded-xl overflow-hidden bg-white text-xs">
+                                  <div className="flex justify-between border-b border-slate-200 p-2.5">
+                                    <span className="text-slate-500 font-bold">Account Name</span>
+                                    <span className="font-black text-slate-900 text-right">{editForm.bank_name}</span>
+                                  </div>
+                                  <div className="flex justify-between border-b border-slate-200 p-2.5">
+                                    <span className="text-slate-500 font-bold">Bank / Branch</span>
+                                    <span className="font-black text-slate-900 text-right">{editForm.bank_branch}</span>
+                                  </div>
+                                  <div className="flex justify-between border-b border-slate-200 p-2.5">
+                                    <span className="text-slate-500 font-bold">Account No</span>
+                                    <span className="font-mono font-black text-slate-900 text-right">{editForm.bank_account_no}</span>
+                                  </div>
+                                  <div className="flex justify-between p-2.5">
+                                    <span className="text-slate-500 font-bold">IFSC Code</span>
+                                    <span className="font-mono font-black text-slate-900 text-right">{editForm.bank_ifsc}</span>
+                                  </div>
+                                </div>
+                                <div className="text-center text-slate-700 text-xs font-bold bg-amber-100/80 p-2 rounded-lg border border-amber-300">
+                                  ⚡ Quick Bank Transfer / IMPS Available
+                                </div>
+                              </div>
+                            )}
                           </div>
-                          <div className="flex justify-between border-b border-slate-200 p-2.5">
-                            <span className="text-slate-500 font-bold">Bank / Branch</span>
-                            <span className="font-black text-slate-900 text-right">{editForm.bank_branch}</span>
+                        )}
+
+                        {/* Bank Details BELOW QR cards if HAS QR 2 */}
+                        {hasQr2 && showBank && (
+                          <div className="flex flex-col justify-between space-y-3 p-5 border-2 border-amber-400 rounded-2xl bg-white/95 shadow-md backdrop-blur-xs w-full">
+                            <div className={`${theme.tableHeader} text-slate-950 text-xs font-black uppercase px-4 py-1.5 rounded-full flex items-center gap-2 border border-amber-400`}>
+                              <i className="fa-solid fa-building-columns"></i> BANK ACCOUNT INFO
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 border border-slate-300 rounded-xl overflow-hidden bg-white text-xs p-3">
+                              <div className="flex justify-between border-b border-slate-200 pb-2">
+                                <span className="text-slate-500 font-bold">Account Name:</span>
+                                <span className="font-black text-slate-900">{editForm.bank_name}</span>
+                              </div>
+                              <div className="flex justify-between border-b border-slate-200 pb-2">
+                                <span className="text-slate-500 font-bold">Bank / Branch:</span>
+                                <span className="font-black text-slate-900">{editForm.bank_branch}</span>
+                              </div>
+                              <div className="flex justify-between pt-2">
+                                <span className="text-slate-500 font-bold">Account No:</span>
+                                <span className="font-mono font-black text-slate-900">{editForm.bank_account_no}</span>
+                              </div>
+                              <div className="flex justify-between pt-2">
+                                <span className="text-slate-500 font-bold">IFSC Code:</span>
+                                <span className="font-mono font-black text-slate-900">{editForm.bank_ifsc}</span>
+                              </div>
+                            </div>
+                            <div className="text-center text-slate-700 text-xs font-bold bg-amber-100/80 p-2 rounded-lg border border-amber-300">
+                              ⚡ Quick Bank Transfer / IMPS Available
+                            </div>
                           </div>
-                          <div className="flex justify-between border-b border-slate-200 p-2.5">
-                            <span className="text-slate-500 font-bold">Account No</span>
-                            <span className="font-mono font-black text-slate-900 text-right">{editForm.bank_account_no}</span>
+                        )}
+
+                        {/* Bank Details full width if NO QR code */}
+                        {!showQr && showBank && (
+                          <div className="flex flex-col justify-between space-y-3 p-5 border-2 border-amber-400 rounded-2xl bg-white/95 shadow-md backdrop-blur-xs w-full">
+                            <div className={`${theme.tableHeader} text-slate-950 text-xs font-black uppercase px-4 py-1.5 rounded-full flex items-center gap-2 border border-amber-400`}>
+                              <i className="fa-solid fa-building-columns"></i> BANK ACCOUNT INFO
+                            </div>
+                            <div className="border border-slate-300 rounded-xl overflow-hidden bg-white text-xs">
+                              <div className="flex justify-between border-b border-slate-200 p-2.5">
+                                <span className="text-slate-500 font-bold">Account Name</span>
+                                <span className="font-black text-slate-900 text-right">{editForm.bank_name}</span>
+                              </div>
+                              <div className="flex justify-between border-b border-slate-200 p-2.5">
+                                <span className="text-slate-500 font-bold">Bank / Branch</span>
+                                <span className="font-black text-slate-900 text-right">{editForm.bank_branch}</span>
+                              </div>
+                              <div className="flex justify-between border-b border-slate-200 p-2.5">
+                                <span className="text-slate-500 font-bold">Account No</span>
+                                <span className="font-mono font-black text-slate-900 text-right">{editForm.bank_account_no}</span>
+                              </div>
+                              <div className="flex justify-between p-2.5">
+                                <span className="text-slate-500 font-bold">IFSC Code</span>
+                                <span className="font-mono font-black text-slate-900 text-right">{editForm.bank_ifsc}</span>
+                              </div>
+                            </div>
+                            <div className="text-center text-slate-700 text-xs font-bold bg-amber-100/80 p-2 rounded-lg border border-amber-300">
+                              ⚡ Quick Bank Transfer / IMPS Available
+                            </div>
                           </div>
-                          <div className="flex justify-between p-2.5">
-                            <span className="text-slate-500 font-bold">IFSC Code</span>
-                            <span className="font-mono font-black text-slate-900 text-right">{editForm.bank_ifsc}</span>
-                          </div>
-                        </div>
-                        <div className="text-center text-slate-700 text-xs font-bold bg-amber-100/80 p-2 rounded-lg border border-amber-300">
-                          ⚡ Quick Bank Transfer / IMPS Available
-                        </div>
+                        )}
                       </div>
-                    )}
-                  </div>
+                    );
+                  })()}
 
                   {/* Important Notes */}
                   {(editForm.important_note_1 || editForm.important_note_2) && (

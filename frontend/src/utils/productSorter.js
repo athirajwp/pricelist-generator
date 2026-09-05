@@ -34,9 +34,38 @@ export function sortProductsByCode(products) {
   });
 }
 
+export function getMinProductCode(products) {
+  if (!Array.isArray(products) || products.length === 0) return 999999;
+  let min = 999999;
+  for (const p of products) {
+    const code = (p && p.product_code !== null && p.product_code !== undefined) ? String(p.product_code).trim() : '';
+    if (code !== '' && !isNaN(Number(code))) {
+      const val = Number(code);
+      if (val < min) min = val;
+    }
+  }
+  return min;
+}
+
+export function sortCategoriesByProductCode(categories) {
+  if (!Array.isArray(categories)) return [];
+  return [...categories].sort((catA, catB) => {
+    const minA = getMinProductCode(catA?.products);
+    const minB = getMinProductCode(catB?.products);
+    if (minA !== minB) return minA - minB;
+
+    const sortA = Number(catA?.sort_order ?? 0);
+    const sortB = Number(catB?.sort_order ?? 0);
+    if (sortA !== sortB) return sortA - sortB;
+
+    return Number(catA?.id ?? 0) - Number(catB?.id ?? 0);
+  });
+}
+
 export function sortCategoriesAndProducts(categories) {
   if (!Array.isArray(categories)) return [];
-  return categories.map((cat) => ({
+  const sortedCategories = sortCategoriesByProductCode(categories);
+  return sortedCategories.map((cat) => ({
     ...cat,
     products: sortProductsByCode(cat?.products || []),
   }));

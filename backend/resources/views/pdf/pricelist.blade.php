@@ -208,17 +208,17 @@
     <div class="page-sheet cover-sheet">
         <div class="cover-invocation" style="text-align: center; margin-top: 0px; margin-bottom: 5px;">
             @if(!empty($editForm['store_invocation_symbol']))
-            <div style="font-size: 11px; font-weight: 900; color: #ffffff; margin-bottom: 1px;">{{ $editForm['store_invocation_symbol'] }}</div>
+            <div style="font-size: 11px; font-weight: 900; color: {{ !empty($editForm['store_invocation_color']) ? $editForm['store_invocation_color'] : '#ffffff' }}; margin-bottom: 1px;">{{ $editForm['store_invocation_symbol'] }}</div>
             @endif
             @if(!empty($editForm['store_invocation']))
-            <div style="font-size: 9px; font-weight: 900; color: #ffffff; letter-spacing: 0.5px;">{{ $editForm['store_invocation'] }}</div>
+            <div style="font-size: 9px; font-weight: 900; color: {{ !empty($editForm['store_invocation_color']) ? $editForm['store_invocation_color'] : '#ffffff' }}; letter-spacing: 0.5px;">{{ $editForm['store_invocation'] }}</div>
             @endif
         </div>
 
         <div style="margin-top: 25px; margin-bottom: 10px;">
-            <div class="cover-title">{{ $editForm['store_name'] ?? 'MASS CRACKERS' }}</div>
-            <div class="cover-tagline">"{{ $editForm['store_tagline'] ?? 'Ready for the Sparkle' }}"</div>
-            <div class="cover-year-pill">PRICE LIST - {{ $editForm['store_year'] ?? date('Y') }}</div>
+            <div class="cover-title" style="{{ !empty($editForm['store_title_color']) ? 'color: ' . $editForm['store_title_color'] . ';' : '' }}">{{ $editForm['store_name'] ?? 'MASS CRACKERS' }}</div>
+            <div class="cover-tagline" style="{{ !empty($editForm['store_tagline_color']) ? 'color: ' . $editForm['store_tagline_color'] . ';' : '' }}">"{{ $editForm['store_tagline'] ?? 'Ready for the Sparkle' }}"</div>
+            <div class="cover-year-pill" style="{{ !empty($editForm['store_badge_color']) ? 'color: ' . $editForm['store_badge_color'] . ';' : '' }}">PRICE LIST - {{ $editForm['store_year'] ?? date('Y') }}</div>
         </div>
 
         @php
@@ -285,11 +285,12 @@
         $globalSnoCounter = 1; 
         $showSno = isset($editForm['show_col_sno']) ? (bool)$editForm['show_col_sno'] : true;
         $showProduct = isset($editForm['show_col_product']) ? (bool)$editForm['show_col_product'] : true;
+        $showTamilName = !empty($editForm['show_tamil_name']);
         $showUnit = isset($editForm['show_col_unit']) ? (bool)$editForm['show_col_unit'] : true;
         $showMrp = isset($showMrp) ? (bool)$showMrp : (isset($editForm['show_col_mrp']) ? (bool)$editForm['show_col_mrp'] : true);
         $showOffer = isset($editForm['show_col_offer']) ? (bool)$editForm['show_col_offer'] : true;
         $showReq = isset($editForm['show_col_req']) ? (bool)$editForm['show_col_req'] : true;
-        $activeColCount = ($showSno ? 1 : 0) + ($showProduct ? 1 : 0) + ($showUnit ? 1 : 0) + ($showMrp ? 1 : 0) + ($showOffer ? 1 : 0) + ($showReq ? 1 : 0);
+        $activeColCount = ($showSno ? 1 : 0) + ($showProduct ? 1 : 0) + ($showTamilName ? 1 : 0) + ($showUnit ? 1 : 0) + ($showMrp ? 1 : 0) + ($showOffer ? 1 : 0) + ($showReq ? 1 : 0);
     @endphp
 
     @foreach($productPageChunks as $chunkIdx => $chunkProducts)
@@ -298,22 +299,25 @@
                 <thead>
                     <tr>
                         @if($showSno)
-                        <th style="width: 38px;">{{ $editForm['header_sno'] ?? 'S.NO' }}</th>
+                        <th style="width: {{ $showTamilName ? '32px' : '38px' }};">{{ $editForm['header_sno'] ?? 'S.NO' }}</th>
                         @endif
                         @if($showProduct)
-                        <th>{{ $editForm['header_product'] ?? 'PRODUCT' }}</th>
+                        <th style="{{ $showTamilName ? 'width: 170px;' : '' }}">{{ $editForm['header_product'] ?? ($showTamilName ? 'PRODUCT NAME (ENG)' : 'PRODUCT') }}</th>
+                        @endif
+                        @if($showTamilName)
+                        <th style="width: 170px;">{{ $editForm['header_product_ta'] ?? 'பொருள் பெயர் (TAMIL)' }}</th>
                         @endif
                         @if($showUnit)
-                        <th style="width: 85px;">{{ $editForm['header_unit'] ?? 'UNIT' }}</th>
+                        <th style="width: {{ $showTamilName ? '70px' : '85px' }};">{{ $editForm['header_unit'] ?? 'UNIT' }}</th>
                         @endif
                         @if($showMrp)
-                        <th style="width: 70px;">{{ $editForm['header_mrp'] ?? 'RATE (₹)' }}</th>
+                        <th style="width: {{ $showTamilName ? '65px' : '70px' }};">{{ $editForm['header_mrp'] ?? 'RATE (₹)' }}</th>
                         @endif
                         @if($showOffer)
-                        <th style="width: 100px;">{{ $editForm['header_offer'] ?? ($discountPercent . '% OFFER RATE (₹)') }}</th>
+                        <th style="width: {{ $showTamilName ? '90px' : '100px' }};">{{ $editForm['header_offer'] ?? ($discountPercent . '% OFFER RATE (₹)') }}</th>
                         @endif
                         @if($showReq)
-                        <th style="width: 35px;">{{ $editForm['header_req'] ?? 'REQ' }}</th>
+                        <th style="width: {{ $showTamilName ? '32px' : '35px' }};">{{ $editForm['header_req'] ?? 'REQ' }}</th>
                         @endif
                     </tr>
                 </thead>
@@ -351,6 +355,9 @@
                                 @if($showProduct)
                                 <td class="font-bold" style="color: #000000;">{{ $product['name'] }}</td>
                                 @endif
+                                @if($showTamilName)
+                                <td class="font-bold" style="color: #000000;">{{ $product['name_ta'] ?? '' }}</td>
+                                @endif
                                 @if($showUnit)
                                 <td class="text-center font-bold" style="color: #000000; font-size: 10px;">{{ $product['pack_size'] }}</td>
                                 @endif
@@ -377,50 +384,122 @@
                 $showUpiQr = isset($settings['show_upi_qr']) ? (bool)$settings['show_upi_qr'] : true;
                 $showBankDetails = isset($settings['show_bank_details']) ? (bool)$settings['show_bank_details'] : true;
             @endphp
-            @if($showUpiQr || $showBankDetails)
-            <!-- UPI SCAN & PAY QR CODE + BANK ACCOUNT INFO CARDS -->
-            <table style="width: 100%; border-collapse: separate; border-spacing: 12px; margin-top: 15px;">
-                <tr>
-                    @if($showUpiQr)
-                    <!-- Left: UPI QR Code Card -->
-                    <td style="width: {{ $showBankDetails ? '50%' : '100%' }}; vertical-align: top; background: #ffffff; color: #0f172a; border-radius: 16px; border: 3.5px solid #f59e0b; padding: 15px; text-align: center;">
-                        <div style="background: #f59e0b; color: #ffffff; font-size: 11px; font-weight: 900; padding: 3px 10px; border-radius: 20px; display: inline-block; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">
-                            📱 SCAN & PAY VIA UPI
-                        </div>
-                        <div>
-                            @php
-                                $qrSrc = !empty($settings['store_upi_qr']) && file_exists(public_path($settings['store_upi_qr']))
-                                    ? public_path($settings['store_upi_qr'])
-                                    : 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=' . urlencode($settings['store_gpay'] ?? '9787772038') . '%40okicici';
-                            @endphp
-                            <img src="{{ $qrSrc }}" style="max-height: 140px; width: auto; border: 2px solid #fde047; border-radius: 10px; padding: 4px; background: #ffffff;" alt="UPI QR Code"/>
-                        </div>
-                        <div style="font-size: 11px; font-weight: 900; color: #0f172a; margin-top: 6px;">
-                            GPay / PhonePe / Paytm / BHIM<br/>
-                            <span style="font-family: monospace; font-size: 12px; color: #0f172a;">UPI / Mobile: {{ $settings['store_gpay'] ?? $editForm['store_phone_3'] ?? '9787772038' }}</span>
-                        </div>
-                    </td>
-                    @endif
+             @if($showUpiQr || $showBankDetails)
+            @php
+                $qrSrc1 = !empty($editForm['store_upi_qr']) && file_exists(public_path($editForm['store_upi_qr']))
+                    ? public_path($editForm['store_upi_qr'])
+                    : (!empty($settings['store_upi_qr']) && file_exists(public_path($settings['store_upi_qr']))
+                        ? public_path($settings['store_upi_qr'])
+                        : 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=' . urlencode($editForm['store_gpay'] ?? $settings['store_gpay'] ?? '9787772038') . '%40okicici');
 
-                    @if($showBankDetails)
-                    <!-- Right: Bank Account Info Card -->
-                    <td style="width: {{ $showUpiQr ? '50%' : '100%' }}; vertical-align: top; background: #ffffff; color: #0f172a; border-radius: 16px; border: 3.5px solid #f59e0b; padding: 15px; text-align: left;">
-                        <div style="background: #f59e0b; color: #ffffff; font-size: 11px; font-weight: 900; padding: 3px 10px; border-radius: 20px; display: inline-block; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">
-                            🏦 BANK ACCOUNT INFO
-                        </div>
-                        <div style="font-size: 11px; font-weight: 900; line-height: 1.8; color: #0f172a;">
-                            <strong>Account Name:</strong> {{ $editForm['bank_name'] ?? 'Muthusamy Ganesan' }}<br/>
-                            <strong>Bank / Branch:</strong> {{ $editForm['bank_branch'] ?? 'IDBI Bank' }}<br/>
-                            <strong>Account No:</strong> <span style="font-family: monospace;">{{ $editForm['bank_account_no'] ?? '1118104000136815' }}</span><br/>
-                            <strong>IFSC Code:</strong> <span style="font-family: monospace;">{{ $editForm['bank_ifsc'] ?? 'IBKL0001118' }}</span>
-                        </div>
-                        <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 5px; text-align: center; font-size: 9.5px; font-weight: 900; margin-top: 10px; color: #78350f;">
-                            ⚡ Quick Bank Transfer / IMPS Available
-                        </div>
-                    </td>
-                    @endif
-                </tr>
-            </table>
+                $hasQr2 = !empty($editForm['store_upi_qr_2']) || !empty($editForm['store_gpay_2']);
+                $qrSrc2 = !empty($editForm['store_upi_qr_2']) && file_exists(public_path($editForm['store_upi_qr_2']))
+                    ? public_path($editForm['store_upi_qr_2'])
+                    : (!empty($editForm['store_gpay_2'])
+                        ? 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=' . urlencode($editForm['store_gpay_2']) . '%40okicici'
+                        : '');
+            @endphp
+
+            <!-- UPI SCAN & PAY QR CODES + BANK ACCOUNT INFO CARDS -->
+            <div style="margin-top: 15px;">
+                @if($showUpiQr)
+                <!-- QR Cards Row -->
+                <table style="width: 100%; border-collapse: separate; border-spacing: 12px 0px; margin-bottom: {{ ($hasQr2 && $showBankDetails) ? '12px' : '0px' }};">
+                    <tr>
+                        <!-- QR 1 Card -->
+                        <td style="width: {{ ($hasQr2 || $showBankDetails) ? '50%' : '100%' }}; vertical-align: top; background: #ffffff; color: #0f172a; border-radius: 16px; border: 3.5px solid #f59e0b; padding: 12px; text-align: center;">
+                            <div style="background: #f59e0b; color: #ffffff; font-size: 11px; font-weight: 900; padding: 3px 10px; border-radius: 20px; display: inline-block; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">
+                                📱 SCAN & PAY VIA UPI
+                            </div>
+                            <div>
+                                <img src="{{ $qrSrc1 }}" style="max-height: 110px; width: auto; border: 2px solid #fde047; border-radius: 10px; padding: 4px; background: #ffffff;" alt="UPI QR 1"/>
+                            </div>
+                            <div style="font-size: 10px; font-weight: 900; color: #0f172a; margin-top: 6px;">
+                                @if(!empty($editForm['store_upi_name']))
+                                <div style="font-[10px]; font-weight: 900; color: #0f172a; margin-bottom: 2px;">{{ $editForm['store_upi_name'] }}</div>
+                                @endif
+                                <span style="font-family: monospace; font-size: 11px; color: #0f172a;">UPI / Mobile: {{ $editForm['store_gpay'] ?? $settings['store_gpay'] ?? '9787772038' }}</span>
+                            </div>
+                        </td>
+
+                        @if($hasQr2)
+                        <!-- QR 2 Card (NEW div created next to 1st one) -->
+                        <td style="width: 50%; vertical-align: top; background: #ffffff; color: #0f172a; border-radius: 16px; border: 3.5px solid #818cf8; padding: 12px; text-align: center;">
+                            <div style="background: #4338ca; color: #ffffff; font-size: 11px; font-weight: 900; padding: 3px 10px; border-radius: 20px; display: inline-block; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">
+                                📱 SCAN & PAY VIA UPI
+                            </div>
+                            <div>
+                                <img src="{{ $qrSrc2 }}" style="max-height: 110px; width: auto; border: 2px solid #818cf8; border-radius: 10px; padding: 4px; background: #ffffff;" alt="UPI QR 2"/>
+                            </div>
+                            <div style="font-size: 10px; font-weight: 900; color: #4338ca; margin-top: 6px;">
+                                @if(!empty($editForm['store_upi_name_2']))
+                                <div style="font-[10px]; font-weight: 900; color: #0f172a; margin-bottom: 2px;">{{ $editForm['store_upi_name_2'] }}</div>
+                                @endif
+                                @if(!empty($editForm['store_gpay_2']))
+                                <span style="font-family: monospace; font-size: 11px; color: #0f172a;">UPI / Mobile: {{ $editForm['store_gpay_2'] }}</span>
+                                @endif
+                            </div>
+                        </td>
+                        @elseif($showBankDetails)
+                        <!-- Right: Bank Account Info Card (When only 1 QR code) -->
+                        <td style="width: 50%; vertical-align: top; background: #ffffff; color: #0f172a; border-radius: 16px; border: 3.5px solid #f59e0b; padding: 15px; text-align: left;">
+                            <div style="background: #f59e0b; color: #ffffff; font-size: 11px; font-weight: 900; padding: 3px 10px; border-radius: 20px; display: inline-block; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">
+                                🏦 BANK ACCOUNT INFO
+                            </div>
+                            <div style="font-size: 11px; font-weight: 900; line-height: 1.8; color: #0f172a;">
+                                <strong>Account Name:</strong> {{ $editForm['bank_name'] ?? 'Muthusamy Ganesan' }}<br/>
+                                <strong>Bank / Branch:</strong> {{ $editForm['bank_branch'] ?? 'IDBI Bank' }}<br/>
+                                <strong>Account No:</strong> <span style="font-family: monospace;">{{ $editForm['bank_account_no'] ?? '1118104000136815' }}</span><br/>
+                                <strong>IFSC Code:</strong> <span style="font-family: monospace;">{{ $editForm['bank_ifsc'] ?? 'IBKL0001118' }}</span>
+                            </div>
+                            <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 5px; text-align: center; font-size: 9.5px; font-weight: 900; margin-top: 10px; color: #78350f;">
+                                ⚡ Quick Bank Transfer / IMPS Available
+                            </div>
+                        </td>
+                        @endif
+                    </tr>
+                </table>
+                @endif
+
+                @if($hasQr2 && $showBankDetails)
+                <!-- Bank Account Info Card BELOW QR cards when 2nd QR image exists -->
+                <div style="background: #ffffff; color: #0f172a; border-radius: 16px; border: 3.5px solid #f59e0b; padding: 12px 18px; text-align: left; margin-left: 12px; margin-right: 12px;">
+                    <div style="background: #f59e0b; color: #ffffff; font-size: 11px; font-weight: 900; padding: 3px 10px; border-radius: 20px; display: inline-block; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">
+                        🏦 BANK ACCOUNT INFO
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 11px; font-weight: 900;">
+                        <tr>
+                            <td style="width: 50%; padding: 3px 0;"><strong>Account Name:</strong> {{ $editForm['bank_name'] ?? 'Muthusamy Ganesan' }}</td>
+                            <td style="width: 50%; padding: 3px 0;"><strong>Bank / Branch:</strong> {{ $editForm['bank_branch'] ?? 'IDBI Bank' }}</td>
+                        </tr>
+                        <tr>
+                            <td style="width: 50%; padding: 3px 0;"><strong>Account No:</strong> <span style="font-family: monospace;">{{ $editForm['bank_account_no'] ?? '1118104000136815' }}</span></td>
+                            <td style="width: 50%; padding: 3px 0;"><strong>IFSC Code:</strong> <span style="font-family: monospace;">{{ $editForm['bank_ifsc'] ?? 'IBKL0001118' }}</span></td>
+                        </tr>
+                    </table>
+                    <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 4px; text-align: center; font-size: 9.5px; font-weight: 900; margin-top: 6px; color: #78350f;">
+                        ⚡ Quick Bank Transfer / IMPS Available
+                    </div>
+                </div>
+                @elseif(!$showUpiQr && $showBankDetails)
+                <!-- Full width Bank Account Info Card if No QR code -->
+                <div style="background: #ffffff; color: #0f172a; border-radius: 16px; border: 3.5px solid #f59e0b; padding: 15px; text-align: left; margin-left: 12px; margin-right: 12px;">
+                    <div style="background: #f59e0b; color: #ffffff; font-size: 11px; font-weight: 900; padding: 3px 10px; border-radius: 20px; display: inline-block; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">
+                        🏦 BANK ACCOUNT INFO
+                    </div>
+                    <div style="font-size: 11px; font-weight: 900; line-height: 1.8; color: #0f172a;">
+                        <strong>Account Name:</strong> {{ $editForm['bank_name'] ?? 'Muthusamy Ganesan' }}<br/>
+                        <strong>Bank / Branch:</strong> {{ $editForm['bank_branch'] ?? 'IDBI Bank' }}<br/>
+                        <strong>Account No:</strong> <span style="font-family: monospace;">{{ $editForm['bank_account_no'] ?? '1118104000136815' }}</span><br/>
+                        <strong>IFSC Code:</strong> <span style="font-family: monospace;">{{ $editForm['bank_ifsc'] ?? 'IBKL0001118' }}</span>
+                    </div>
+                    <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 5px; text-align: center; font-size: 9.5px; font-weight: 900; margin-top: 10px; color: #78350f;">
+                        ⚡ Quick Bank Transfer / IMPS Available
+                    </div>
+                </div>
+                @endif
+            </div>
+            @endif
             @endif
 
             @if(!empty($editForm['important_note_1']) || !empty($editForm['important_note_2']))

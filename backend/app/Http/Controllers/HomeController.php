@@ -25,6 +25,7 @@ class HomeController extends Controller
         foreach ($categories as $cat) {
             $cat->setRelation('products', Product::sortCollection($cat->products));
         }
+        $categories = Product::sortCategoriesByProductCode($categories);
 
         // Load specific configuration settings
         $settings = [
@@ -73,6 +74,7 @@ class HomeController extends Controller
         foreach ($categories as $cat) {
             $cat->setRelation('products', Product::sortCollection($cat->products));
         }
+        $categories = Product::sortCategoriesByProductCode($categories);
 
         $settings = [
             'discount_percent' => Setting::get('discount_percent', 60),

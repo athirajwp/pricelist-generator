@@ -26,6 +26,7 @@ class StorefrontApiController extends Controller
         foreach ($categories as $cat) {
             $cat->setRelation('products', Product::sortCollection($cat->products));
         }
+        $categories = Product::sortCategoriesByProductCode($categories);
 
         $company = view()->shared('currentCompany');
 
@@ -324,6 +325,7 @@ class StorefrontApiController extends Controller
         foreach ($categories as $cat) {
             $cat->setRelation('products', Product::sortCollection($cat->products));
         }
+        $categories = Product::sortCategoriesByProductCode($categories);
 
         $allFilteredProducts = [];
         foreach ($categories as $cat) {
@@ -402,6 +404,19 @@ class StorefrontApiController extends Controller
             'bank_ifsc' => $request->query('bank_ifsc', Setting::get('bank_ifsc', 'IBKL0001118')),
             'important_note_1' => $request->query('important_note_1', Setting::get('important_note_1', 'தொடர்ந்து பல ஆண்டுகளாக எங்கள் நிறுவன பட்டாசுகளை வாங்கி தீபாவளியை குடும்பத்தினருடன் கொண்டாடி மகிழும் உங்கள் அனைவருக்கும் இனிய தீபாவளி நல்வாழ்த்துக்கள்!')),
             'important_note_2' => $request->query('important_note_2', Setting::get('important_note_2', 'வரவிருக்கும் தீபாவளி பண்டிகைக்கான பட்டாசுகளை அக்டோபர் 15 - ஆம் தேதிக்குள் ஆர்டர் செய்து பெற்றுக்கொள்ளுமாறு வேண்டுகிறோம்.')),
+            'store_title_color' => $request->query('store_title_color', Setting::get('store_title_color', '')),
+            'store_tagline_color' => $request->query('store_tagline_color', Setting::get('store_tagline_color', '')),
+            'store_invocation_color' => $request->query('store_invocation_color', Setting::get('store_invocation_color', '')),
+            'store_badge_color' => $request->query('store_badge_color', Setting::get('store_badge_color', '')),
+            'store_upi_qr' => $request->query('store_upi_qr', Setting::get('store_upi_qr', '')),
+            'store_upi_qr_2' => $request->query('store_upi_qr_2', Setting::get('store_upi_qr_2', '')),
+            'store_gpay' => $request->query('store_gpay', Setting::get('store_gpay', '9787772038')),
+            'store_gpay_2' => $request->query('store_gpay_2', Setting::get('store_gpay_2', '')),
+            'store_upi_name' => $request->query('store_upi_name', Setting::get('store_upi_name', 'Muthusamy Ganesan')),
+            'store_upi_name_2' => $request->query('store_upi_name_2', Setting::get('store_upi_name_2', '')),
+            'show_tamil_name' => filter_var($request->query('show_tamil_name', Setting::get('show_tamil_name', false)), FILTER_VALIDATE_BOOLEAN),
+            'header_product' => $request->query('header_product', Setting::get('header_product', 'PRODUCT NAME (ENG)')),
+            'header_product_ta' => $request->query('header_product_ta', Setting::get('header_product_ta', 'பொருள் பெயர் (TAMIL)')),
         ];
 
         $data = [

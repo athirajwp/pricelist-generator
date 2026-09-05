@@ -11,6 +11,7 @@ class Product extends Model
         'category_id',
         'product_code',
         'name',
+        'name_ta',
         'pack_size',
         'mrp',
         'selling_price',
@@ -123,5 +124,59 @@ class Product extends Model
             $idB = (int)(is_object($b) ? ($b->id ?? 0) : ($b['id'] ?? 0));
             return $idA <=> $idB;
         })->values();
+    }
+
+    /**
+     * Sort categories by the minimum product_code (S.No / Code) of their products.
+     */
+    public static function sortCategoriesByProductCode($categories)
+    {
+        if (is_null($categories)) {
+            return collect();
+        }
+
+        $collection = is_array($categories) ? collect($categories) : $categories;
+
+        return $collection->sort(function ($catA, $catB) {
+            $productsA = is_object($catA) ? ($catA->products ?? []) : ($catA['products'] ?? []);
+            $productsB = is_object($catB) ? ($catB->products ?? []) : ($catB['products'] ?? []);
+
+            $minA = self::getMinProductCode($productsA);
+            $minB = self::getMinProductCode($productsB);
+
+            if ($minA !== $minB) {
+                return $minA <=> $minB;
+            }
+
+            $sortA = (int)(is_object($catA) ? ($catA->sort_order ?? 0) : ($catA['sort_order'] ?? 0));
+            $sortB = (int)(is_object($catB) ? ($catB->sort_order ?? 0) : ($catB['sort_order'] ?? 0));
+            if ($sortA !== $sortB) {
+                return $sortA <=> $sortB;
+            }
+
+            $idA = (int)(is_object($catA) ? ($catA->id ?? 0) : ($catA['id'] ?? 0));
+            $idB = (int)(is_object($catB) ? ($catB->id ?? 0) : ($catB['id'] ?? 0));
+            return $idA <=> $idB;
+        })->values();
+    }
+
+    private static function getMinProductCode($products)
+    {
+        if (empty($products)) {
+            return 999999;
+        }
+
+        $min = 999999;
+        foreach ($products as $p) {
+            $code = is_object($p) ? ($p->product_code ?? '') : ($p['product_code'] ?? '');
+            $code = trim((string)$code);
+            if ($code !== '' && is_numeric($code)) {
+                $val = (float)$code;
+                if ($val < $min) {
+                    $min = $val;
+                }
+            }
+        }
+        return $min;
     }
 }

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Document, Page, Text, View, Image, StyleSheet, pdf } from '@react-pdf/renderer';
-import { sortProductsByCode } from '../utils/productSorter';
+import { sortProductsByCode, sortCategoriesByProductCode } from '../utils/productSorter';
 
 const styles = StyleSheet.create({
   page: {
@@ -325,13 +325,15 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
     return origin + (url.startsWith('/') ? url : '/' + url);
   };
 
-  const coverBgUrl = resolveUrl(editForm.store_cover_bg || '/images/cover_bg_1.jpg');
+  const coverBgUrl = editForm.store_cover_bg === 'none' ? null : resolveUrl(editForm.store_cover_bg || '/images/cover_bg_1.jpg');
   const deityUrl = resolveUrl(editForm.store_deity_image);
   const logoUrl = resolveUrl(editForm.store_logo);
   const upiQrUrl = resolveUrl(editForm.store_upi_qr);
+  const upiQrUrl2 = resolveUrl(editForm.store_upi_qr_2);
 
   const showSnoPdf = editForm.show_col_sno !== false;
   const showProductPdf = editForm.show_col_product !== false;
+  const showTamilPdf = editForm.show_tamil_name === true;
   const showUnitPdf = editForm.show_col_unit !== false;
   const showMrpPdf = showMrp && editForm.show_col_mrp !== false;
   const showOfferPdf = editForm.show_col_offer !== false;
@@ -339,36 +341,39 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
 
   const colSnoWidth = showSnoPdf ? '7%' : '0%';
   const colReqWidth = showReqPdf ? '7%' : '0%';
-  const colPackWidth = showUnitPdf ? '16%' : '0%';
-  const colMrpWidth = showMrpPdf ? '14%' : '0%';
-  const colOfferWidth = showOfferPdf ? '16%' : '0%';
+  const colPackWidth = showUnitPdf ? '14%' : '0%';
+  const colMrpWidth = showMrpPdf ? '13%' : '0%';
+  const colOfferWidth = showOfferPdf ? '15%' : '0%';
 
-  let fixedPct = (showSnoPdf ? 7 : 0) + (showReqPdf ? 7 : 0) + (showUnitPdf ? 16 : 0) + (showMrpPdf ? 14 : 0) + (showOfferPdf ? 16 : 0);
-  const colNameWidth = showProductPdf ? `${Math.max(20, 100 - fixedPct)}%` : '0%';
+  let fixedPct = (showSnoPdf ? 7 : 0) + (showReqPdf ? 7 : 0) + (showUnitPdf ? 14 : 0) + (showMrpPdf ? 13 : 0) + (showOfferPdf ? 15 : 0);
+  let remainPct = Math.max(20, 100 - fixedPct);
+  
+  const colNameWidth = showProductPdf ? (showTamilPdf ? `${Math.floor(remainPct / 2)}%` : `${remainPct}%`) : '0%';
+  const colTamilWidth = showTamilPdf ? `${Math.ceil(remainPct / 2)}%` : '0%';
 
   return (
     <Document title={`${editForm.store_name || 'PriceList'}_Catalogue`}>
       {/* Cover Page */}
-      <Page size="A4" style={styles.coverPage}>
+      <Page size="A4" style={[styles.coverPage, editForm.store_cover_bg === 'none' ? { backgroundColor: '#ffffff' } : null]}>
         {coverBgUrl && <Image src={coverBgUrl} style={styles.coverBg} />}
         <View style={styles.coverOverlay}>
           {/* Top Invocation */}
           <View style={styles.coverTop}>
             {editForm.store_invocation_symbol ? (
-              <Text style={styles.invocationSymbol}>{editForm.store_invocation_symbol}</Text>
+              <Text style={[styles.invocationSymbol, editForm.store_invocation_color ? { color: editForm.store_invocation_color } : null]}>{editForm.store_invocation_symbol}</Text>
             ) : null}
             {editForm.store_invocation ? (
-              <Text style={styles.invocationText}>{editForm.store_invocation}</Text>
+              <Text style={[styles.invocationText, editForm.store_invocation_color ? { color: editForm.store_invocation_color } : null]}>{editForm.store_invocation}</Text>
             ) : null}
           </View>
 
           {/* Center Brand */}
           <View style={styles.coverCenter}>
-            <Text style={styles.storeName}>{editForm.store_name || 'MASS CRACKERS'}</Text>
+            <Text style={[styles.storeName, editForm.store_title_color ? { color: editForm.store_title_color } : null]}>{editForm.store_name || 'MASS CRACKERS'}</Text>
             {editForm.store_tagline ? (
-              <Text style={styles.storeTagline}>"{editForm.store_tagline}"</Text>
+              <Text style={[styles.storeTagline, editForm.store_tagline_color ? { color: editForm.store_tagline_color } : null]}>"{editForm.store_tagline}"</Text>
             ) : null}
-            <Text style={styles.priceListBadge}>PRICE LIST - {editForm.store_year || '2026'}</Text>
+            <Text style={[styles.priceListBadge, editForm.store_badge_color ? { color: editForm.store_badge_color } : null]}>PRICE LIST - {editForm.store_year || '2026'}</Text>
           </View>
 
           {/* Center Deity Motif Image */}
@@ -445,6 +450,8 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
           }
         });
 
+        const sortedChunkCategories = sortCategoriesByProductCode(chunkCategories);
+
         let globalSno = 1;
         for (let c = 0; c < chunkIdx; c++) {
           const prevChunk = productPageChunks[c];
@@ -472,7 +479,8 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
               {/* Header Row */}
               <View style={[styles.tableRow, styles.tableHeaderRow]}>
                 {showSnoPdf && <Text style={[styles.colSno, styles.thText]}>{editForm.header_sno || 'S.No'}</Text>}
-                {showProductPdf && <Text style={[{ width: colNameWidth, textAlign: 'left', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, paddingLeft: 4 }, styles.thText]}>{editForm.header_product || 'Product Name'}</Text>}
+                {showProductPdf && <Text style={[{ width: colNameWidth, textAlign: 'left', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, paddingLeft: 4 }, styles.thText]}>{editForm.header_product || (showTamilPdf ? 'Product Name (ENG)' : 'Product Name')}</Text>}
+                {showTamilPdf && <Text style={[{ width: colTamilWidth, textAlign: 'left', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, paddingLeft: 4 }, styles.thText]}>{editForm.header_product_ta || 'பொருள் பெயர் (TAMIL)'}</Text>}
                 {showUnitPdf && <Text style={[{ width: colPackWidth, textAlign: 'center', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2 }, styles.thText]}>{editForm.header_unit || 'Unit'}</Text>}
                 {showMrpPdf && <Text style={[{ width: colMrpWidth, textAlign: 'right', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2 }, styles.thText]}>{editForm.header_mrp || 'Rate (₹)'}</Text>}
                 {showOfferPdf && <Text style={[{ width: colOfferWidth, textAlign: 'right', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2 }, styles.thText]}>{editForm.header_offer || `${editForm.discount_percent || 50}% Rate`}</Text>}
@@ -480,7 +488,7 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
               </View>
 
               {/* Category Rows & Products */}
-              {chunkCategories.map((category) => (
+              {sortedChunkCategories.map((category) => (
                 <React.Fragment key={category.id}>
                   <View style={styles.tableRow}>
                     <Text style={styles.catRow}>{category.name}</Text>
@@ -492,6 +500,7 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
                       <View key={product.id || pIdx} style={[styles.tableRow, { backgroundColor: pIdx % 2 === 1 ? '#f8fafc' : '#ffffff' }]}>
                         {showSnoPdf && <Text style={styles.colSno}>{currentCode}</Text>}
                         {showProductPdf && <Text style={{ width: colNameWidth, textAlign: 'left', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, paddingLeft: 4, fontSize: 8, fontWeight: 'bold' }}>{product.name}</Text>}
+                        {showTamilPdf && <Text style={{ width: colTamilWidth, textAlign: 'left', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, paddingLeft: 4, fontSize: 8, fontWeight: 'bold' }}>{product.name_ta || ''}</Text>}
                         {showUnitPdf && <Text style={{ width: colPackWidth, textAlign: 'center', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, fontSize: 8 }}>{product.pack_size}</Text>}
                         {showMrpPdf && <Text style={{ width: colMrpWidth, textAlign: 'right', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, fontSize: 8 }}>{product.mrp}</Text>}
                         {showOfferPdf && <Text style={{ width: colOfferWidth, textAlign: 'right', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, fontSize: 8, fontWeight: 'bold', color: '#b91c1c' }}>₹{product.selling_price}</Text>}
@@ -504,43 +513,128 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
             </View>
 
             {/* Payment Info Section on Last Page */}
-            {(editForm.footer_position || 'below_table') === 'below_table' && chunkIdx === productPageChunks.length - 1 && (
-              <View style={styles.paymentSection}>
-                {editForm.show_upi_qr !== false && (
-                  <View style={editForm.show_bank_details !== false ? styles.paymentLeft : styles.paymentFull}>
-                    <Text style={styles.payTitle}>SCAN & PAY VIA UPI</Text>
-                    {upiQrUrl ? (
-                      <Image src={upiQrUrl} style={styles.qrImg} />
-                    ) : null}
-                    <Text style={{ fontSize: 7, fontWeight: 'bold', color: '#0f172a' }}>
-                      GPay / PhonePe / Paytm: {editForm.store_gpay || editForm.store_phone || ''}
-                    </Text>
-                  </View>
-                )}
+            {(editForm.footer_position || 'below_table') === 'below_table' && chunkIdx === productPageChunks.length - 1 && (() => {
+              const hasQr2 = !!(upiQrUrl2 || editForm.store_gpay_2);
+              const showQr = editForm.show_upi_qr !== false;
+              const showBank = editForm.show_bank_details !== false;
 
-                {editForm.show_bank_details !== false && (
-                  <View style={editForm.show_upi_qr !== false ? styles.paymentRight : styles.paymentFull}>
-                    <Text style={styles.payTitle}>BANK ACCOUNT INFO</Text>
-                    <View style={styles.bankRow}>
-                      <Text style={styles.bankLabel}>A/C Name:</Text>
-                      <Text style={styles.bankValue}>{editForm.bank_name || ''}</Text>
+              return (
+                <View style={{ marginTop: 8, gap: 6 }}>
+                  {showQr && (
+                    <View style={styles.paymentSection}>
+                      {/* QR 1 Card */}
+                      <View style={hasQr2 || showBank ? styles.paymentLeft : styles.paymentFull}>
+                        <Text style={styles.payTitle}>SCAN & PAY VIA UPI</Text>
+                        <View style={{ alignItems: 'center', marginVertical: 3 }}>
+                          {upiQrUrl ? (
+                            <Image src={upiQrUrl} style={{ width: 60, height: 60, objectFit: 'contain' }} />
+                          ) : null}
+                          {editForm.store_upi_name && (
+                            <Text style={{ fontSize: 6.5, fontWeight: 'bold', color: '#0f172a', marginTop: 2 }}>
+                              {editForm.store_upi_name}
+                            </Text>
+                          )}
+                          {(editForm.store_gpay || editForm.store_phone) && (
+                            <Text style={{ fontSize: 6.5, fontWeight: 'bold', color: '#0f172a', marginTop: 1 }}>
+                              UPI: {editForm.store_gpay || editForm.store_phone || ''}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+
+                      {/* QR 2 Card (If present) */}
+                      {hasQr2 && (
+                        <View style={styles.paymentRight}>
+                          <Text style={styles.payTitle}>SCAN & PAY VIA UPI</Text>
+                          <View style={{ alignItems: 'center', marginVertical: 3 }}>
+                            {upiQrUrl2 ? (
+                              <Image src={upiQrUrl2} style={{ width: 60, height: 60, objectFit: 'contain' }} />
+                            ) : null}
+                            {editForm.store_upi_name_2 && (
+                              <Text style={{ fontSize: 6.5, fontWeight: 'bold', color: '#0f172a', marginTop: 2 }}>
+                                {editForm.store_upi_name_2}
+                              </Text>
+                            )}
+                            {editForm.store_gpay_2 && (
+                              <Text style={{ fontSize: 6.5, fontWeight: 'bold', color: '#0f172a', marginTop: 1 }}>
+                                UPI: {editForm.store_gpay_2}
+                              </Text>
+                            )}
+                          </View>
+                        </View>
+                      )}
+
+                      {/* Bank Details on Right if ONLY 1 QR code */}
+                      {!hasQr2 && showBank && (
+                        <View style={styles.paymentRight}>
+                          <Text style={styles.payTitle}>BANK ACCOUNT INFO</Text>
+                          <View style={styles.bankRow}>
+                            <Text style={styles.bankLabel}>A/C Name:</Text>
+                            <Text style={styles.bankValue}>{editForm.bank_name || ''}</Text>
+                          </View>
+                          <View style={styles.bankRow}>
+                            <Text style={styles.bankLabel}>Bank / Branch:</Text>
+                            <Text style={styles.bankValue}>{editForm.bank_branch || ''}</Text>
+                          </View>
+                          <View style={styles.bankRow}>
+                            <Text style={styles.bankLabel}>Account No:</Text>
+                            <Text style={styles.bankValue}>{editForm.bank_account_no || ''}</Text>
+                          </View>
+                          <View style={styles.bankRow}>
+                            <Text style={styles.bankLabel}>IFSC Code:</Text>
+                            <Text style={styles.bankValue}>{editForm.bank_ifsc || ''}</Text>
+                          </View>
+                        </View>
+                      )}
                     </View>
-                    <View style={styles.bankRow}>
-                      <Text style={styles.bankLabel}>Bank / Branch:</Text>
-                      <Text style={styles.bankValue}>{editForm.bank_branch || ''}</Text>
+                  )}
+
+                  {/* Bank Details BELOW QR cards if HAS QR 2 */}
+                  {hasQr2 && showBank && (
+                    <View style={styles.paymentFull}>
+                      <Text style={styles.payTitle}>BANK ACCOUNT INFO</Text>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                        <View style={{ width: '48%', marginBottom: 2 }}>
+                          <Text style={styles.bankLabel}>A/C Name: <Text style={styles.bankValue}>{editForm.bank_name || ''}</Text></Text>
+                        </View>
+                        <View style={{ width: '48%', marginBottom: 2 }}>
+                          <Text style={styles.bankLabel}>Bank / Branch: <Text style={styles.bankValue}>{editForm.bank_branch || ''}</Text></Text>
+                        </View>
+                        <View style={{ width: '48%' }}>
+                          <Text style={styles.bankLabel}>Account No: <Text style={styles.bankValue}>{editForm.bank_account_no || ''}</Text></Text>
+                        </View>
+                        <View style={{ width: '48%' }}>
+                          <Text style={styles.bankLabel}>IFSC Code: <Text style={styles.bankValue}>{editForm.bank_ifsc || ''}</Text></Text>
+                        </View>
+                      </View>
                     </View>
-                    <View style={styles.bankRow}>
-                      <Text style={styles.bankLabel}>Account No:</Text>
-                      <Text style={styles.bankValue}>{editForm.bank_account_no || ''}</Text>
+                  )}
+
+                  {/* Bank Details full width if NO QR code */}
+                  {!showQr && showBank && (
+                    <View style={styles.paymentFull}>
+                      <Text style={styles.payTitle}>BANK ACCOUNT INFO</Text>
+                      <View style={styles.bankRow}>
+                        <Text style={styles.bankLabel}>A/C Name:</Text>
+                        <Text style={styles.bankValue}>{editForm.bank_name || ''}</Text>
+                      </View>
+                      <View style={styles.bankRow}>
+                        <Text style={styles.bankLabel}>Bank / Branch:</Text>
+                        <Text style={styles.bankValue}>{editForm.bank_branch || ''}</Text>
+                      </View>
+                      <View style={styles.bankRow}>
+                        <Text style={styles.bankLabel}>Account No:</Text>
+                        <Text style={styles.bankValue}>{editForm.bank_account_no || ''}</Text>
+                      </View>
+                      <View style={styles.bankRow}>
+                        <Text style={styles.bankLabel}>IFSC Code:</Text>
+                        <Text style={styles.bankValue}>{editForm.bank_ifsc || ''}</Text>
+                      </View>
                     </View>
-                    <View style={styles.bankRow}>
-                      <Text style={styles.bankLabel}>IFSC Code:</Text>
-                      <Text style={styles.bankValue}>{editForm.bank_ifsc || ''}</Text>
-                    </View>
-                  </View>
-                )}
-              </View>
-            )}
+                  )}
+                </View>
+              );
+            })()}
 
             {/* Footer */}
             <View style={styles.footer}>
@@ -562,41 +656,128 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
               Payment Information & Terms & Conditions
             </Text>
 
-            <View style={styles.paymentSection}>
-              {editForm.show_upi_qr !== false && (
-                <View style={editForm.show_bank_details !== false ? styles.paymentLeft : styles.paymentFull}>
-                  <Text style={styles.payTitle}>SCAN & PAY VIA UPI</Text>
-                  {upiQrUrl ? (
-                    <Image src={upiQrUrl} style={styles.qrImg} />
-                  ) : null}
-                  <Text style={{ fontSize: 8, fontWeight: 'bold', color: '#0f172a', marginTop: 5 }}>
-                    GPay / PhonePe / Paytm: {editForm.store_gpay || editForm.store_phone || ''}
-                  </Text>
-                </View>
-              )}
+            {(() => {
+              const hasQr2 = !!(upiQrUrl2 || editForm.store_gpay_2);
+              const showQr = editForm.show_upi_qr !== false;
+              const showBank = editForm.show_bank_details !== false;
 
-              {editForm.show_bank_details !== false && (
-                <View style={editForm.show_upi_qr !== false ? styles.paymentRight : styles.paymentFull}>
-                  <Text style={styles.payTitle}>BANK ACCOUNT INFO</Text>
-                  <View style={styles.bankRow}>
-                    <Text style={styles.bankLabel}>A/C Name:</Text>
-                    <Text style={styles.bankValue}>{editForm.bank_name || ''}</Text>
-                  </View>
-                  <View style={styles.bankRow}>
-                    <Text style={styles.bankLabel}>Bank / Branch:</Text>
-                    <Text style={styles.bankValue}>{editForm.bank_branch || ''}</Text>
-                  </View>
-                  <View style={styles.bankRow}>
-                    <Text style={styles.bankLabel}>Account No:</Text>
-                    <Text style={styles.bankValue}>{editForm.bank_account_no || ''}</Text>
-                  </View>
-                  <View style={styles.bankRow}>
-                    <Text style={styles.bankLabel}>IFSC Code:</Text>
-                    <Text style={styles.bankValue}>{editForm.bank_ifsc || ''}</Text>
-                  </View>
+              return (
+                <View style={{ width: '100%', gap: 10 }}>
+                  {showQr && (
+                    <View style={styles.paymentSection}>
+                      {/* QR 1 Card */}
+                      <View style={hasQr2 || showBank ? styles.paymentLeft : styles.paymentFull}>
+                        <Text style={styles.payTitle}>SCAN & PAY VIA UPI</Text>
+                        <View style={{ alignItems: 'center', marginVertical: 5 }}>
+                          {upiQrUrl ? (
+                            <Image src={upiQrUrl} style={{ width: 80, height: 80, objectFit: 'contain' }} />
+                          ) : null}
+                          {editForm.store_upi_name && (
+                            <Text style={{ fontSize: 8, fontWeight: 'bold', color: '#0f172a', marginTop: 3 }}>
+                              {editForm.store_upi_name}
+                            </Text>
+                          )}
+                          {(editForm.store_gpay || editForm.store_phone) && (
+                            <Text style={{ fontSize: 8, fontWeight: 'bold', color: '#0f172a', marginTop: 1 }}>
+                              UPI: {editForm.store_gpay || editForm.store_phone || ''}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+
+                      {/* QR 2 Card (If present) */}
+                      {hasQr2 && (
+                        <View style={styles.paymentRight}>
+                          <Text style={styles.payTitle}>SCAN & PAY VIA UPI</Text>
+                          <View style={{ alignItems: 'center', marginVertical: 5 }}>
+                            {upiQrUrl2 ? (
+                              <Image src={upiQrUrl2} style={{ width: 80, height: 80, objectFit: 'contain' }} />
+                            ) : null}
+                            {editForm.store_upi_name_2 && (
+                              <Text style={{ fontSize: 8, fontWeight: 'bold', color: '#0f172a', marginTop: 3 }}>
+                                {editForm.store_upi_name_2}
+                              </Text>
+                            )}
+                            {editForm.store_gpay_2 && (
+                              <Text style={{ fontSize: 8, fontWeight: 'bold', color: '#0f172a', marginTop: 1 }}>
+                                UPI: {editForm.store_gpay_2}
+                              </Text>
+                            )}
+                          </View>
+                        </View>
+                      )}
+
+                      {/* Bank Details on Right if ONLY 1 QR code */}
+                      {!hasQr2 && showBank && (
+                        <View style={styles.paymentRight}>
+                          <Text style={styles.payTitle}>BANK ACCOUNT INFO</Text>
+                          <View style={styles.bankRow}>
+                            <Text style={styles.bankLabel}>A/C Name:</Text>
+                            <Text style={styles.bankValue}>{editForm.bank_name || ''}</Text>
+                          </View>
+                          <View style={styles.bankRow}>
+                            <Text style={styles.bankLabel}>Bank / Branch:</Text>
+                            <Text style={styles.bankValue}>{editForm.bank_branch || ''}</Text>
+                          </View>
+                          <View style={styles.bankRow}>
+                            <Text style={styles.bankLabel}>Account No:</Text>
+                            <Text style={styles.bankValue}>{editForm.bank_account_no || ''}</Text>
+                          </View>
+                          <View style={styles.bankRow}>
+                            <Text style={styles.bankLabel}>IFSC Code:</Text>
+                            <Text style={styles.bankValue}>{editForm.bank_ifsc || ''}</Text>
+                          </View>
+                        </View>
+                      )}
+                    </View>
+                  )}
+
+                  {/* Bank Details BELOW QR cards if HAS QR 2 */}
+                  {hasQr2 && showBank && (
+                    <View style={styles.paymentFull}>
+                      <Text style={styles.payTitle}>BANK ACCOUNT INFO</Text>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                        <View style={{ width: '48%', marginBottom: 3 }}>
+                          <Text style={styles.bankLabel}>A/C Name: <Text style={styles.bankValue}>{editForm.bank_name || ''}</Text></Text>
+                        </View>
+                        <View style={{ width: '48%', marginBottom: 3 }}>
+                          <Text style={styles.bankLabel}>Bank / Branch: <Text style={styles.bankValue}>{editForm.bank_branch || ''}</Text></Text>
+                        </View>
+                        <View style={{ width: '48%' }}>
+                          <Text style={styles.bankLabel}>Account No: <Text style={styles.bankValue}>{editForm.bank_account_no || ''}</Text></Text>
+                        </View>
+                        <View style={{ width: '48%' }}>
+                          <Text style={styles.bankLabel}>IFSC Code: <Text style={styles.bankValue}>{editForm.bank_ifsc || ''}</Text></Text>
+                        </View>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Bank Details full width if NO QR code */}
+                  {!showQr && showBank && (
+                    <View style={styles.paymentFull}>
+                      <Text style={styles.payTitle}>BANK ACCOUNT INFO</Text>
+                      <View style={styles.bankRow}>
+                        <Text style={styles.bankLabel}>A/C Name:</Text>
+                        <Text style={styles.bankValue}>{editForm.bank_name || ''}</Text>
+                      </View>
+                      <View style={styles.bankRow}>
+                        <Text style={styles.bankLabel}>Bank / Branch:</Text>
+                        <Text style={styles.bankValue}>{editForm.bank_branch || ''}</Text>
+                      </View>
+                      <View style={styles.bankRow}>
+                        <Text style={styles.bankLabel}>Account No:</Text>
+                        <Text style={styles.bankValue}>{editForm.bank_account_no || ''}</Text>
+                      </View>
+                      <View style={styles.bankRow}>
+                        <Text style={styles.bankLabel}>IFSC Code:</Text>
+                        <Text style={styles.bankValue}>{editForm.bank_ifsc || ''}</Text>
+                      </View>
+                    </View>
+                  )}
                 </View>
-              )}
-            </View>
+              );
+            })()}
           </View>
 
           <View style={styles.footer}>

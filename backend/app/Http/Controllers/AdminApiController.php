@@ -222,6 +222,7 @@ class AdminApiController extends Controller
             'category_id' => $request->category_id,
             'product_code' => $request->product_code,
             'name' => $request->name,
+            'name_ta' => $request->name_ta,
             'pack_size' => $request->pack_size,
             'mrp' => $request->mrp,
             'selling_price' => $request->selling_price,
@@ -245,7 +246,7 @@ class AdminApiController extends Controller
     public function quickUpdateProduct(Request $request, $id)
     {
         $product = Product::findOrFail($id);
-        $fields = ['name', 'pack_size', 'mrp', 'selling_price', 'product_code', 'category_id', 'status', 'is_bestseller', 'sort_order'];
+        $fields = ['name', 'name_ta', 'pack_size', 'mrp', 'selling_price', 'product_code', 'category_id', 'status', 'is_bestseller', 'sort_order'];
         foreach ($fields as $field) {
             if ($request->has($field)) {
                 $product->$field = $request->input($field);
@@ -268,7 +269,7 @@ class AdminApiController extends Controller
     public function bulkUpdateProducts(Request $request)
     {
         $updates = $request->input('products', []);
-        $allowedFields = ['name', 'pack_size', 'mrp', 'selling_price', 'product_code', 'category_id', 'status', 'sort_order'];
+        $allowedFields = ['name', 'name_ta', 'pack_size', 'mrp', 'selling_price', 'product_code', 'category_id', 'status', 'sort_order'];
         $updatedCount = 0;
 
         foreach ($updates as $item) {
