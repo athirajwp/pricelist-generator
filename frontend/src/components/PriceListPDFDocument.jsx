@@ -502,7 +502,7 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
                         {showProductPdf && <Text style={{ width: colNameWidth, textAlign: 'left', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, paddingLeft: 4, fontSize: 8, fontWeight: 'bold' }}>{product.name}</Text>}
                         {showTamilPdf && <Text style={{ width: colTamilWidth, textAlign: 'left', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, paddingLeft: 4, fontSize: 8, fontWeight: 'bold' }}>{product.name_ta || ''}</Text>}
                         {showUnitPdf && <Text style={{ width: colPackWidth, textAlign: 'center', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, fontSize: 8 }}>{product.pack_size}</Text>}
-                        {showMrpPdf && <Text style={{ width: colMrpWidth, textAlign: 'right', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, fontSize: 8 }}>{product.mrp}</Text>}
+                        {showMrpPdf && <Text style={{ width: colMrpWidth, textAlign: 'right', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, fontSize: 8, textDecoration: editForm.strikethrough_mrp !== false ? 'line-through' : 'none' }}>{product.mrp}</Text>}
                         {showOfferPdf && <Text style={{ width: colOfferWidth, textAlign: 'right', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, fontSize: 8, fontWeight: 'bold', color: '#b91c1c' }}>₹{product.selling_price}</Text>}
                         {showReqPdf && <Text style={styles.colReq}>{product.req || '[   ]'}</Text>}
                       </View>

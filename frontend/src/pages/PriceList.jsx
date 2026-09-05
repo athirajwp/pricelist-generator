@@ -317,6 +317,7 @@ export default function PriceList({ defaultTab }) {
     show_bank_details: true,
     show_upi_qr: true,
     show_tamil_name: false,
+    strikethrough_mrp: true,
     header_product: 'PRODUCT NAME (ENG)',
     header_product_ta: 'பொருள் பெயர் (TAMIL)',
     important_note_1: 'தொடர்ந்து பல ஆண்டுகளாக எங்கள் நிறுவன பட்டாசுகளை வாங்கி தீபாவளியை குடும்பத்தினருடன் கொண்டாடி மகிழும் உங்கள் அனைவருக்கும் இனிய தீபாவளி நல்வாழ்த்துக்கள்!',
@@ -368,6 +369,7 @@ export default function PriceList({ defaultTab }) {
         show_bank_details: settings.show_bank_details !== undefined ? settings.show_bank_details : true,
         show_upi_qr: settings.show_upi_qr !== undefined ? settings.show_upi_qr : true,
         show_tamil_name: settings.show_tamil_name !== undefined ? settings.show_tamil_name : false,
+        strikethrough_mrp: settings.strikethrough_mrp !== undefined ? settings.strikethrough_mrp : true,
         header_product: settings.header_product || 'PRODUCT NAME (ENG)',
         header_product_ta: settings.header_product_ta || 'பொருள் பெயர் (TAMIL)',
         bank_name: settings.bank_name || settings.bank_holder || 'Muthusamy Ganesan',
@@ -2448,6 +2450,15 @@ export default function PriceList({ defaultTab }) {
                   <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
                     <input
                       type="checkbox"
+                      checked={editForm.strikethrough_mrp !== false}
+                      onChange={(e) => handleInputChange('strikethrough_mrp', e.target.checked)}
+                      className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span className="text-slate-800 font-medium">Cross Rate (MRP)</span>
+                  </label>
+                  <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
                       checked={editForm.show_col_offer !== false}
                       onChange={(e) => handleInputChange('show_col_offer', e.target.checked)}
                       className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer"
@@ -3250,7 +3261,7 @@ export default function PriceList({ defaultTab }) {
                                             onFocus={(e) => e.target.select()}
                                             onKeyDown={(e) => handleExcelGridKeyDown(e, absoluteIndex, showTamilName ? 4 : 3)}
                                             onPaste={(e) => handleExcelGridPaste(e, absoluteIndex, showTamilName ? 4 : 3)}
-                                            className="w-full bg-transparent border-0 text-right font-extrabold text-black text-[11px] focus:bg-emerald-50 focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 focus:z-20 rounded-xs px-1 cursor-text hover:bg-amber-50/50 transition-all focus:outline-none focus:shadow-md"
+                                            className={`w-full bg-transparent border-0 text-right font-extrabold text-[11px] focus:bg-emerald-50 focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 focus:z-20 rounded-xs px-1 cursor-text hover:bg-amber-50/50 transition-all focus:outline-none focus:shadow-md ${editForm.strikethrough_mrp !== false ? 'line-through text-slate-500' : 'text-black'}`}
                                           />
                                         </td>
                                       )}

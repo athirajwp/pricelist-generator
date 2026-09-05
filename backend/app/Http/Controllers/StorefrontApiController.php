@@ -415,6 +415,7 @@ class StorefrontApiController extends Controller
             'store_upi_name' => $request->query('store_upi_name', Setting::get('store_upi_name', 'Muthusamy Ganesan')),
             'store_upi_name_2' => $request->query('store_upi_name_2', Setting::get('store_upi_name_2', '')),
             'show_tamil_name' => filter_var($request->query('show_tamil_name', Setting::get('show_tamil_name', false)), FILTER_VALIDATE_BOOLEAN),
+            'strikethrough_mrp' => filter_var($request->query('strikethrough_mrp', Setting::get('strikethrough_mrp', true)), FILTER_VALIDATE_BOOLEAN),
             'header_product' => $request->query('header_product', Setting::get('header_product', 'PRODUCT NAME (ENG)')),
             'header_product_ta' => $request->query('header_product_ta', Setting::get('header_product_ta', 'பொருள் பெயர் (TAMIL)')),
         ];

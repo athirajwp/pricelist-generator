@@ -362,7 +362,8 @@
                                 <td class="text-center font-bold" style="color: #000000; font-size: 10px;">{{ $product['pack_size'] }}</td>
                                 @endif
                                 @if($showMrp)
-                                <td class="text-right font-bold" style="color: #000000;">₹{{ number_format((float)$product['mrp'], 2) }}</td>
+                                @php $strikethroughMrp = ($editForm['strikethrough_mrp'] ?? true) !== false; @endphp
+                                <td class="text-right font-bold {{ $strikethroughMrp ? 'line-through' : '' }}" style="color: #000000;">₹{{ number_format((float)$product['mrp'], 2) }}</td>
                                 @endif
                                 @if($showOffer)
                                 <td class="text-right font-bold" style="color: #000000;">₹{{ number_format((float)$product['selling_price'], 2) }}</td>
