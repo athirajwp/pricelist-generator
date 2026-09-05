@@ -69,13 +69,21 @@
             color: #ffffff;
             text-align: center;
         }
+        @php
+            $strokeC = $editForm['text_stroke_color'] ?? '#000000';
+            $deityStrokeC = $editForm['deity_stroke_color'] ?? '#FFFFFF';
+            $deityFilterCss = ($deityStrokeC === 'transparent' || !$deityStrokeC)
+                ? 'drop-shadow(0 12px 24px rgba(0, 0, 0, 0.6))'
+                : "drop-shadow(-2px -2px 0 {$deityStrokeC}) drop-shadow(2px -2px 0 {$deityStrokeC}) drop-shadow(-2px 2px 0 {$deityStrokeC}) drop-shadow(2px 2px 0 {$deityStrokeC}) drop-shadow(0 12px 24px rgba(0, 0, 0, 0.6))";
+        @endphp
         .cover-invocation {
             font-size: 11px;
-            font-weight: bold;
+            font-weight: 900;
             color: #fef08a;
             letter-spacing: 1px;
             margin-bottom: 20px;
             text-transform: uppercase;
+            text-shadow: -1.5px -1.5px 0 {{ $strokeC }}, 1.5px -1.5px 0 {{ $strokeC }}, -1.5px 1.5px 0 {{ $strokeC }}, 1.5px 1.5px 0 {{ $strokeC }}, 0 2px 4px rgba(0,0,0,0.5);
         }
         @php
             $fontChoice = $settings['store_name_font'] ?? 'cinzel';
@@ -96,7 +104,7 @@
             text-transform: uppercase;
             letter-spacing: 1px;
             margin: 5px 0;
-            text-shadow: -2px -2px 0 #000000, 2px -2px 0 #000000, -2px 2px 0 #000000, 2px 2px 0 #000000, 0 6px 12px rgba(0,0,0,0.9);
+            text-shadow: -2px -2px 0 {{ $strokeC }}, 2px -2px 0 {{ $strokeC }}, -2px 2px 0 {{ $strokeC }}, 2px 2px 0 {{ $strokeC }}, 0 4px 8px rgba(0,0,0,0.5);
         }
         .cover-tagline {
             font-size: 16px;
@@ -104,6 +112,7 @@
             color: #ffffff;
             letter-spacing: 0.5px;
             margin-bottom: 8px;
+            text-shadow: -1.5px -1.5px 0 {{ $strokeC }}, 1.5px -1.5px 0 {{ $strokeC }}, -1.5px 1.5px 0 {{ $strokeC }}, 1.5px 1.5px 0 {{ $strokeC }}, 0 2px 4px rgba(0,0,0,0.5);
         }
         .cover-year-pill {
             color: #0f172a;
@@ -112,8 +121,14 @@
             display: inline-block;
             text-transform: uppercase;
             letter-spacing: 1.5px;
-            text-shadow: -2px -2px 0 #ffffff, 2px -2px 0 #ffffff, -2px 2px 0 #ffffff, 2px 2px 0 #ffffff, 0 3px 6px rgba(0,0,0,0.5);
+            text-shadow: -2px -2px 0 #ffffff, 2px -2px 0 #ffffff, -2px 2px 0 #ffffff, 2px 2px 0 #ffffff, 0 3px 6px rgba(0,0,0,0.4);
             margin-bottom: 20px;
+        }
+        .cover-deity img {
+            max-height: 480px;
+            max-width: 480px;
+            object-fit: contain;
+            filter: {{ $deityFilterCss }};
         }
         
         .cover-card {
@@ -247,7 +262,9 @@
         @php
             $deityPreset = $settings['store_deity_preset'] ?? 'vinayagar';
             $deityImgPath = null;
-            if(!empty($settings['store_deity_image']) && file_exists(public_path($settings['store_deity_image']))) {
+            if(!empty($editForm['store_deity_image']) && file_exists(public_path($editForm['store_deity_image']))) {
+                $deityImgPath = public_path($editForm['store_deity_image']);
+            } elseif(!empty($settings['store_deity_image']) && file_exists(public_path($settings['store_deity_image']))) {
                 $deityImgPath = public_path($settings['store_deity_image']);
             }
         @endphp

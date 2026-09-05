@@ -359,6 +359,8 @@ export default function PriceList({ defaultTab }) {
     store_tagline_color: '#FFFFFF',
     store_invocation_color: '#FFFFFF',
     store_badge_color: '#0F172A',
+    text_stroke_color: '#000000',
+    deity_stroke_color: '#FFFFFF',
     store_upi_qr: '',
     store_upi_qr_2: '',
     store_gpay: '9787772038',
@@ -422,6 +424,8 @@ export default function PriceList({ defaultTab }) {
         store_tagline_color: settings.store_tagline_color || '#FFFFFF',
         store_invocation_color: settings.store_invocation_color || '#FFFFFF',
         store_badge_color: settings.store_badge_color || '#0F172A',
+        text_stroke_color: settings.text_stroke_color || '#000000',
+        deity_stroke_color: settings.deity_stroke_color || '#FFFFFF',
         custom_float_image: settings.custom_float_image || '',
         custom_float_x: settings.custom_float_x !== undefined ? Number(settings.custom_float_x) : 15,
         custom_float_y: settings.custom_float_y !== undefined ? Number(settings.custom_float_y) : 15,
@@ -2091,6 +2095,70 @@ export default function PriceList({ defaultTab }) {
                         </div>
                       </div>
                     </div>
+
+                    {/* Text Outline Stroke Color */}
+                    <div className="bg-white p-2.5 rounded-xl border border-amber-200 space-y-1.5 col-span-full">
+                      <div className="flex justify-between items-center text-xs font-bold text-slate-800">
+                        <span className="flex items-center gap-1.5">
+                          <i className="fa-solid fa-border-all text-amber-600"></i>
+                          Text Outline Color
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-500">{editForm.text_stroke_color || '#000000'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={editForm.text_stroke_color || '#000000'}
+                          onChange={(e) => handleInputChange('text_stroke_color', e.target.value)}
+                          className="w-9 h-8 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
+                        />
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {['#000000', '#FFFFFF', '#78350F', '#450A0A', '#0F172A', '#1E1B4B', '#064E3B', '#F59E0B'].map((c) => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => handleInputChange('text_stroke_color', c)}
+                              className="w-5 h-5 rounded-full border border-slate-300 shadow-2xs hover:scale-110 transition-transform cursor-pointer"
+                              style={{ backgroundColor: c }}
+                              title={c}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* God Image Outline Color */}
+                    <div className="bg-white p-2.5 rounded-xl border border-amber-200 space-y-1.5 col-span-full">
+                      <div className="flex justify-between items-center text-xs font-bold text-slate-800">
+                        <span className="flex items-center gap-1.5">
+                          <i className="fa-solid fa-image text-amber-600"></i>
+                          God Image Outline Color
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-500">{editForm.deity_stroke_color || '#FFFFFF'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={editForm.deity_stroke_color === 'transparent' ? '#FFFFFF' : (editForm.deity_stroke_color || '#FFFFFF')}
+                          onChange={(e) => handleInputChange('deity_stroke_color', e.target.value)}
+                          className="w-9 h-8 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
+                        />
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {['#FFFFFF', '#000000', '#FDE047', '#F59E0B', '#DC2626', '#38BDF8', '#0F172A', 'transparent'].map((c) => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => handleInputChange('deity_stroke_color', c)}
+                              className={`h-5 rounded-md border border-slate-300 shadow-2xs hover:scale-110 transition-transform cursor-pointer flex items-center justify-center text-[9px] font-bold ${c === 'transparent' ? 'px-1.5 bg-slate-100 text-slate-700' : 'w-5'}`}
+                              style={{ backgroundColor: c !== 'transparent' ? c : undefined }}
+                              title={c === 'transparent' ? 'No Outline' : c}
+                            >
+                              {c === 'transparent' ? 'None' : ''}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -2975,75 +3043,112 @@ export default function PriceList({ defaultTab }) {
                 </div>
               )}
 
-              {/* Top Invocation Header Section (Flush to top, 30% reduced font size) */}
-              <div className="relative text-center z-10 mt-0 space-y-0.5">
-                {editForm.store_invocation_symbol && (
-                  <div className="text-white font-extrabold text-xs sm:text-sm tracking-wider" style={{ color: editForm.store_invocation_color || undefined }}>
-                    {editForm.store_invocation_symbol}
-                  </div>
-                )}
-                {editForm.store_invocation && (
-                  <div className="text-white font-extrabold text-[10px] sm:text-xs tracking-wide drop-shadow-md" style={{ color: editForm.store_invocation_color || undefined }}>
-                    {editForm.store_invocation}
-                  </div>
-                )}
-              </div>
+              {/* Dynamic Cover Text Styling */}
+              {(() => {
+                const strokeC = editForm.text_stroke_color || '#000000';
+                const deityStrokeC = editForm.deity_stroke_color !== undefined ? editForm.deity_stroke_color : '#FFFFFF';
+                const deityFilterStyle = deityStrokeC === 'transparent' || !deityStrokeC
+                  ? 'drop-shadow(0 12px 24px rgba(0, 0, 0, 0.6))'
+                  : `drop-shadow(-2px -2px 0 ${deityStrokeC}) drop-shadow(2px -2px 0 ${deityStrokeC}) drop-shadow(-2px 2px 0 ${deityStrokeC}) drop-shadow(2px 2px 0 ${deityStrokeC}) drop-shadow(0 12px 24px rgba(0, 0, 0, 0.6))`;
 
-              {/* Main Brand & Logo Motif Center Section */}
-              <div className="relative z-10 text-center space-y-6 mt-8 mb-2">
-                {/* Brand Title & Tagline */}
-                <div className="flex flex-col items-center space-y-4 sm:space-y-5 mt-6">
-                  <h1
-                    className="font-black text-white uppercase"
-                    style={{
-                      fontSize: '2.8rem',
-                      letterSpacing: '0.15em',
-                      lineHeight: '1.35',
-                      fontFamily: getStoreNameFontFamily(),
-                      textShadow: '-3px -3px 0 #000000, 3px -3px 0 #000000, -3px 3px 0 #000000, 3px 3px 0 #000000, -4px 0 0 #000000, 4px 0 0 #000000, 0 4px 0 #000000, 0 8px 20px rgba(0,0,0,0.95)',
-                      color: editForm.store_title_color || undefined,
-                    }}
-                  >
-                    {editForm.store_name}
-                  </h1>
-                  <p className="text-xl sm:text-2xl font-bold text-white tracking-wide drop-shadow-md pt-1 pb-1" style={{ color: editForm.store_tagline_color || undefined }}>
-                    "{editForm.store_tagline}"
-                  </p>
-                  <div
-                    className="inline-block text-slate-950 font-black text-2xl sm:text-3xl uppercase tracking-wider pt-2"
-                    style={{ textShadow: '-2px -2px 0 #ffffff, 2px -2px 0 #ffffff, -2px 2px 0 #ffffff, 2px 2px 0 #ffffff, 0 4px 8px rgba(0,0,0,0.6)', color: editForm.store_badge_color || undefined }}
-                  >
-                    PRICE LIST - {editForm.store_year}
-                  </div>
-                </div>
-              </div>
+                const titleStyle = {
+                  fontSize: '2.8rem',
+                  letterSpacing: '0.15em',
+                  lineHeight: '1.35',
+                  fontFamily: getStoreNameFontFamily(),
+                  color: editForm.store_title_color || undefined,
+                  textShadow: `-2px -2px 0 ${strokeC}, 2px -2px 0 ${strokeC}, -2px 2px 0 ${strokeC}, 2px 2px 0 ${strokeC}, 0 4px 8px rgba(0,0,0,0.5)`
+                };
 
-              {/* Center Cover Image Section (Natural Unmodified Colors - Canva Resizable) */}
-              {getDeityImageUrl() && (
-                <div className="relative z-10 flex-1 min-h-0 my-auto flex justify-center items-center py-1 overflow-hidden">
-                  <div
-                    className="relative group border border-transparent hover:border-sky-400 hover:border-dashed rounded-2xl p-1.5 transition-all flex items-center justify-center"
-                    style={{
-                      transform: `scale(${(editForm.deity_scale || 100) / 100})`,
-                      transformOrigin: 'center center',
-                    }}
-                  >
-                    <img
-                      src={getDeityImageUrl()}
-                      alt="Cover Image"
-                      className="max-h-[540px] sm:max-h-[630px] w-auto object-contain relative z-10 drop-shadow-[0_20px_40px_rgba(0,0,0,0.85)] pointer-events-auto"
-                    />
-                    {/* Canva Resize Handle */}
-                    <div
-                      onMouseDown={(e) => handleElementResizeStart('deity', editForm.deity_scale || 100, e)}
-                      className="absolute bottom-2 right-2 w-5 h-5 bg-sky-500 hover:bg-sky-600 rounded-full border-2 border-white cursor-se-resize shadow-lg opacity-0 group-hover:opacity-100 z-30 transition-opacity print:hidden flex items-center justify-center text-[9px] text-white"
-                      title="Drag corner to resize God Image like Canva"
-                    >
-                      <i className="fa-solid fa-up-right-and-down-left-from-center"></i>
+                const invocationStyle = {
+                  color: editForm.store_invocation_color || undefined,
+                  textShadow: `-1.5px -1.5px 0 ${strokeC}, 1.5px -1.5px 0 ${strokeC}, -1.5px 1.5px 0 ${strokeC}, 1.5px 1.5px 0 ${strokeC}, 0 2px 4px rgba(0,0,0,0.5)`
+                };
+
+                const taglineStyle = {
+                  color: editForm.store_tagline_color || undefined,
+                  textShadow: `-1.5px -1.5px 0 ${strokeC}, 1.5px -1.5px 0 ${strokeC}, -1.5px 1.5px 0 ${strokeC}, 1.5px 1.5px 0 ${strokeC}, 0 2px 4px rgba(0,0,0,0.5)`
+                };
+
+                return (
+                  <>
+                    {/* Top Invocation Header Section */}
+                    <div className="relative text-center z-10 mt-0 space-y-0.5">
+                      {editForm.store_invocation_symbol && (
+                        <div
+                          className="font-extrabold text-xs sm:text-sm tracking-wider"
+                          style={invocationStyle}
+                        >
+                          {editForm.store_invocation_symbol}
+                        </div>
+                      )}
+                      {editForm.store_invocation && (
+                        <div
+                          className="font-extrabold text-[10px] sm:text-xs tracking-wide"
+                          style={invocationStyle}
+                        >
+                          {editForm.store_invocation}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                </div>
-              )}
+
+                    {/* Main Brand & Logo Motif Center Section */}
+                    <div className="relative z-10 text-center space-y-6 mt-8 mb-2">
+                      {/* Brand Title & Tagline */}
+                      <div className="flex flex-col items-center space-y-4 sm:space-y-5 mt-6">
+                        <h1
+                          className="font-black text-white uppercase relative z-10"
+                          style={titleStyle}
+                        >
+                          {editForm.store_name}
+                        </h1>
+                        <p
+                          className="text-xl sm:text-2xl font-bold tracking-wide pt-1 pb-1"
+                          style={taglineStyle}
+                        >
+                          "{editForm.store_tagline}"
+                        </p>
+                        <div
+                          className="inline-block text-slate-950 font-black text-2xl sm:text-3xl uppercase tracking-wider pt-2"
+                          style={{ textShadow: '-2px -2px 0 #ffffff, 2px -2px 0 #ffffff, -2px 2px 0 #ffffff, 2px 2px 0 #ffffff, 0 4px 8px rgba(0,0,0,0.4)', color: editForm.store_badge_color || undefined }}
+                        >
+                          PRICE LIST - {editForm.store_year}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Center Cover Image Section */}
+                    {getDeityImageUrl() && (
+                      <div className="relative z-10 flex-1 min-h-0 my-auto flex justify-center items-center py-1 overflow-hidden">
+                        <div
+                          className="relative group border border-transparent hover:border-sky-400 hover:border-dashed rounded-2xl p-1.5 transition-all flex items-center justify-center"
+                          style={{
+                            transform: `scale(${(editForm.deity_scale || 100) / 100})`,
+                            transformOrigin: 'center center',
+                          }}
+                        >
+                          <img
+                            src={getDeityImageUrl()}
+                            alt="Cover Image"
+                            className="max-h-[540px] sm:max-h-[630px] w-auto object-contain relative z-10 pointer-events-auto"
+                            style={{
+                              filter: deityFilterStyle
+                            }}
+                          />
+                          {/* Canva Resize Handle */}
+                          <div
+                            onMouseDown={(e) => handleElementResizeStart('deity', editForm.deity_scale || 100, e)}
+                            className="absolute bottom-2 right-2 w-5 h-5 bg-sky-500 hover:bg-sky-600 rounded-full border-2 border-white cursor-se-resize shadow-lg opacity-0 group-hover:opacity-100 z-30 transition-opacity print:hidden flex items-center justify-center text-[9px] text-white"
+                            title="Drag corner to resize God Image like Canva"
+                          >
+                            <i className="fa-solid fa-up-right-and-down-left-from-center"></i>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
 
               {/* For Order Full-Width Banner Card (Spans Start to End Flush Across Sheet - Compact & High-Legibility) */}
               <div className="relative z-10 w-full mx-0 mt-auto mb-0">

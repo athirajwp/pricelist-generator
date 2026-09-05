@@ -42,7 +42,7 @@ const styles = StyleSheet.create({
   },
   invocationSymbol: {
     fontSize: 14,
-    color: '#ffffff',
+    color: '#fde047',
     fontWeight: 'bold',
     marginBottom: 2,
   },
@@ -70,6 +70,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     marginBottom: 8,
     fontStyle: 'italic',
+    fontWeight: 'bold',
   },
   priceListBadge: {
     backgroundColor: '#ffffff',
