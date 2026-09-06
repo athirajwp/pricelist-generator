@@ -656,6 +656,8 @@ export default function PriceList({ defaultTab }) {
       return { textClass: 'text-amber-600', bgClass: 'bg-amber-700', hex: '#b45309' };
     } else if (bg.includes('cover_bg_blue_gradient')) {
       return { textClass: 'text-indigo-600', bgClass: 'bg-indigo-600', hex: '#4f46e5' };
+    } else if (bg.includes('cover_bg_blue_sparkle') || bg.includes('cover_bg_blue_burst')) {
+      return { textClass: 'text-sky-600', bgClass: 'bg-sky-500', hex: '#0284c7' };
     } else if (bg.includes('cover_bg_purple') || bg.includes('cover_bg_4')) {
       return { textClass: 'text-purple-600', bgClass: 'bg-purple-600', hex: '#9333ea' };
     } else if (bg.includes('cover_bg_5')) {
@@ -1678,46 +1680,109 @@ export default function PriceList({ defaultTab }) {
 
           {/* EXPANDABLE EDIT SHOP DETAILS FORM PANEL */}
           {showEditDrawer && (
-            <div className="bg-amber-50/60 border-2 border-amber-300 rounded-2xl p-6 space-y-6 transition-all duration-300 animate-fadeIn">
-              <div className="flex justify-between items-center pb-3 border-b border-amber-200">
+            <div className="bg-amber-50/60 border-2 border-amber-300 rounded-2xl p-5 md:p-6 space-y-6 transition-all duration-300 animate-fadeIn">
+              {/* Drawer Top Header */}
+              <div className="flex flex-wrap justify-between items-center pb-3 border-b border-amber-200 gap-3">
                 <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
                   <i className="fa-solid fa-sliders text-amber-600"></i> Edit Price List Content & Details (Real-time Live Preview)
                 </h3>
                 <button
                   onClick={handleSaveSettings}
                   disabled={savingSettings}
-                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black px-5 py-2 rounded-xl text-xs uppercase tracking-wider transition-all shadow-sm active:scale-95"
+                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black px-5 py-2 rounded-xl text-xs uppercase tracking-wider transition-all shadow-sm active:scale-95 cursor-pointer"
                 >
                   <i className="fa-solid fa-floppy-disk"></i> {savingSettings ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
-                {/* Shop Name */}
-                <div>
-                  <label className="block text-slate-700 font-extrabold mb-1">Shop / Company Name</label>
-                  <input
-                    type="text"
-                    value={editForm.store_name}
-                    onChange={(e) => handleInputChange('store_name', e.target.value)}
-                    className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
+              {/* 1. SHOP IDENTITY & INVOCATION SECTION */}
+              <div className="bg-white/80 border border-amber-200 rounded-2xl p-4.5 space-y-4 shadow-2xs">
+                <div className="flex items-center gap-2 text-xs font-black text-amber-900 uppercase tracking-wider border-b border-amber-100 pb-2">
+                  <i className="fa-solid fa-store text-amber-600"></i>
+                  <span>Shop Identity & Invocation</span>
                 </div>
 
-                {/* Tagline */}
-                <div>
-                  <label className="block text-slate-700 font-extrabold mb-1">Tagline</label>
-                  <input
-                    type="text"
-                    value={editForm.store_tagline}
-                    onChange={(e) => handleInputChange('store_tagline', e.target.value)}
-                    className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
+                {/* Basic Shop Information Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                  <div>
+                    <label className="block text-slate-700 font-extrabold mb-1">Shop / Company Name</label>
+                    <input
+                      type="text"
+                      value={editForm.store_name}
+                      onChange={(e) => handleInputChange('store_name', e.target.value)}
+                      className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-extrabold mb-1">Tagline</label>
+                    <input
+                      type="text"
+                      value={editForm.store_tagline}
+                      onChange={(e) => handleInputChange('store_tagline', e.target.value)}
+                      className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-extrabold mb-1">Price List Year</label>
+                    <input
+                      type="text"
+                      value={editForm.store_year}
+                      onChange={(e) => handleInputChange('store_year', e.target.value)}
+                      className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-extrabold mb-1">Discount Offer %</label>
+                    <input
+                      type="number"
+                      value={editForm.discount_percent}
+                      onChange={(e) => handleInputChange('discount_percent', parseFloat(e.target.value) || 0)}
+                      className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Invocation Symbol & Tamil Invocation Line Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs items-end">
+                  <div>
+                    <label className="block text-slate-700 font-extrabold mb-1">Top Invocation Symbol</label>
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {['உ', '卐', '🕉', '✨', '✝', '☪', 'ੴ', ''].map((sym) => (
+                        <button
+                          key={sym || 'none'}
+                          type="button"
+                          onClick={() => handleInputChange('store_invocation_symbol', sym)}
+                          className={`px-2.5 py-1 rounded-lg font-black text-xs border transition-all cursor-pointer ${editForm.store_invocation_symbol === sym
+                            ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
+                            : 'bg-white text-slate-800 border-slate-300 hover:bg-amber-50'
+                            }`}
+                        >
+                          {sym || 'None'}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="text"
+                      value={editForm.store_invocation_symbol || ''}
+                      onChange={(e) => handleInputChange('store_invocation_symbol', e.target.value)}
+                      placeholder="e.g. உ"
+                      className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-slate-700 font-extrabold mb-1">Tamil Invocation Line</label>
+                    <input
+                      type="text"
+                      value={editForm.store_invocation}
+                      onChange={(e) => handleInputChange('store_invocation', e.target.value)}
+                      className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
                 </div>
 
                 {/* Company Name Font Style Selector */}
-                <div className="md:col-span-2 lg:col-span-3 bg-amber-50/90 p-3.5 rounded-2xl border-2 border-amber-300 space-y-2">
-                  <label className="block text-slate-800 font-black text-sm">
+                <div className="bg-amber-50/70 p-3.5 rounded-2xl border border-amber-200 space-y-2">
+                  <label className="block text-slate-800 font-black text-xs uppercase tracking-wide">
                     Company Name Font Style
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -1731,7 +1796,7 @@ export default function PriceList({ defaultTab }) {
                         key={f.id}
                         type="button"
                         onClick={() => handleInputChange('store_name_font', f.id)}
-                        className={`p-2.5 rounded-xl border-2 transition-all text-center flex flex-col items-center justify-center ${(editForm.store_name_font || 'cinzel') === f.id
+                        className={`p-2.5 rounded-xl border-2 transition-all text-center flex flex-col items-center justify-center cursor-pointer ${(editForm.store_name_font || 'cinzel') === f.id
                           ? 'bg-amber-500 text-white border-amber-600 shadow-md scale-105'
                           : 'bg-white text-slate-800 border-slate-200 hover:bg-amber-100'
                           }`}
@@ -1744,431 +1809,419 @@ export default function PriceList({ defaultTab }) {
                     ))}
                   </div>
                 </div>
+              </div>
 
-                {/* Top Invocation Symbol */}
-                <div>
-                  <label className="block text-slate-700 font-extrabold mb-1">Top Invocation Symbol</label>
-                  <div className="flex flex-wrap gap-1.5 mb-2">
-                    {['உ', '卐', '🕉', '✨', '✝', '☪', 'ੴ', ''].map((sym) => (
-                      <button
-                        key={sym || 'none'}
-                        type="button"
-                        onClick={() => handleInputChange('store_invocation_symbol', sym)}
-                        className={`px-2.5 py-1 rounded-lg font-black text-xs border transition-all ${editForm.store_invocation_symbol === sym
-                          ? 'bg-amber-500 text-white border-amber-600 shadow'
-                          : 'bg-white text-slate-800 border-slate-300 hover:bg-amber-50'
-                          }`}
-                      >
-                        {sym || 'None'}
-                      </button>
-                    ))}
-                  </div>
-                  <input
-                    type="text"
-                    value={editForm.store_invocation_symbol || ''}
-                    onChange={(e) => handleInputChange('store_invocation_symbol', e.target.value)}
-                    placeholder="e.g. உ"
-                    className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
+              {/* 2. COVER PAGE MEDIA & STYLING CUSTOMIZATION */}
+              <div className="bg-white/80 border border-amber-200 rounded-2xl p-4.5 space-y-4 shadow-2xs">
+                <div className="flex items-center gap-2 text-xs font-black text-amber-900 uppercase tracking-wider border-b border-amber-100 pb-2">
+                  <i className="fa-solid fa-palette text-amber-600"></i>
+                  <span>Cover Page Media, Background & Colors</span>
                 </div>
 
-                {/* Tamil Invocation Header */}
-                <div>
-                  <label className="block text-slate-700 font-extrabold mb-1">Tamil Invocation Line</label>
-                  <input
-                    type="text"
-                    value={editForm.store_invocation}
-                    onChange={(e) => handleInputChange('store_invocation', e.target.value)}
-                    className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-xs">
+                  {/* Card A: Cover Image & Store Logo Uploads */}
+                  <div className="bg-amber-50/60 p-4 rounded-2xl border border-amber-200 space-y-4 flex flex-col justify-between">
+                    {/* Upload Cover Page Image */}
+                    <div className="space-y-2">
+                      <label className="block text-slate-800 font-black text-xs flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <i className="fa-solid fa-cloud-arrow-up text-amber-600"></i>
+                          Cover Page Image
+                        </span>
+                        {editForm.store_deity_image && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleInputChange('store_deity_image', '');
+                              handleInputChange('store_deity_preset', 'none');
+                            }}
+                            className="text-[10px] bg-red-100 hover:bg-red-200 text-red-700 font-extrabold px-2 py-0.5 rounded-lg transition-all border border-red-300 cursor-pointer"
+                          >
+                            <i className="fa-solid fa-trash-can mr-1"></i> Remove
+                          </button>
+                        )}
+                      </label>
 
-                {/* Cover Page Custom Upload Image Section */}
-                <div className="bg-amber-50/90 p-4 rounded-2xl border-2 border-amber-300 space-y-3 shadow-sm">
-                  <label className="block text-slate-800 font-black text-sm flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      <i className="fa-solid fa-cloud-arrow-up text-amber-600 text-base"></i>
-                      Upload Cover Page Image
-                    </span>
-                    {editForm.store_deity_image && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleInputChange('store_deity_image', '');
-                          handleInputChange('store_deity_preset', 'none');
-                        }}
-                        className="text-xs bg-red-100 hover:bg-red-200 text-red-700 font-extrabold px-3 py-1 rounded-xl transition-all border border-red-300 cursor-pointer"
-                      >
-                        <i className="fa-solid fa-trash-can mr-1"></i> Remove Image
-                      </button>
-                    )}
-                  </label>
-
-                  {editForm.store_deity_image ? (
-                    <div className="flex items-center gap-4 bg-white p-3 rounded-xl border-2 border-amber-300 shadow-sm">
-                      <img
-                        src={getImageUrl(editForm.store_deity_image)}
-                        alt="Cover Image Preview"
-                        className="h-16 w-16 object-contain rounded-lg border border-slate-200 bg-slate-50 p-1"
-                      />
-                      <div className="space-y-1">
-                        <p className="text-xs font-black text-emerald-700 flex items-center gap-1.5">
-                          <i className="fa-solid fa-circle-check"></i> Image Uploaded & Displaying
+                      {editForm.store_deity_image ? (
+                        <div className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-amber-300 shadow-2xs">
+                          <img
+                            src={getImageUrl(editForm.store_deity_image)}
+                            alt="Cover Image Preview"
+                            className="h-12 w-12 object-contain rounded-lg border border-slate-200 bg-slate-50 p-0.5"
+                          />
+                          <div className="space-y-0.5">
+                            <p className="text-[11px] font-black text-emerald-700 flex items-center gap-1">
+                              <i className="fa-solid fa-circle-check"></i> Custom Image Active
+                            </p>
+                            <p className="text-[10px] text-slate-500 font-medium leading-tight">
+                              Displaying on cover sheet center.
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-slate-600 font-medium">
+                          Upload cover image (PNG / JPG / WEBP).
                         </p>
-                        <p className="text-[11px] text-slate-500 font-medium">
-                          Displaying live in the center of your cover sheet.
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-slate-600 font-semibold">
-                      Upload any image file (PNG / JPG / WEBP).
-                    </p>
-                  )}
+                      )}
 
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={async (e) => {
-                      const file = e.target.files[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (event) => {
-                          handleInputChange('store_deity_image', event.target.result);
-                          handleInputChange('store_deity_preset', 'custom');
-                        };
-                        reader.readAsDataURL(file);
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                              handleInputChange('store_deity_image', event.target.result);
+                              handleInputChange('store_deity_preset', 'custom');
+                            };
+                            reader.readAsDataURL(file);
 
-                        const formData = new FormData();
-                        formData.append('store_deity_image', file);
-                        try {
-                          const res = await fetch('/api/admin/settings/update', {
-                            method: 'POST',
-                            body: formData,
-                          });
-                          const data = await res.json();
-                          if (data.path) {
-                            handleInputChange('store_deity_image', data.path);
-                            handleInputChange('store_deity_preset', 'custom');
+                            const formData = new FormData();
+                            formData.append('store_deity_image', file);
+                            try {
+                              const res = await fetch('/api/admin/settings/update', {
+                                method: 'POST',
+                                body: formData,
+                              });
+                              const data = await res.json();
+                              if (data.path) {
+                                handleInputChange('store_deity_image', data.path);
+                                handleInputChange('store_deity_preset', 'custom');
+                              }
+                            } catch (err) {
+                              console.error(err);
+                            }
                           }
-                        } catch (err) {
-                          console.error(err);
-                        }
-                      }
-                    }}
-                    className="block w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-amber-500 file:text-slate-950 hover:file:bg-amber-600 cursor-pointer border border-amber-300 rounded-xl bg-white p-1"
-                  />
-                </div>
-                <div className="bg-amber-50/90 p-3.5 rounded-2xl border-2 border-amber-300 space-y-2">
-                  <label className="block text-slate-800 font-extrabold text-xs flex items-center gap-2">
-                    <i className="fa-solid fa-building-flag text-amber-600"></i>
-                    Upload Store Logo (Custom Logo Image)
-                  </label>
-                  {editForm.store_logo && (
-                    <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-amber-200">
-                      <img
-                        src={getImageUrl(editForm.store_logo)}
-                        alt="Store Logo"
-                        className="h-10 w-10 object-contain rounded-lg border border-amber-300 bg-amber-50"
+                        }}
+                        className="block w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-amber-500 file:text-white hover:file:bg-amber-600 cursor-pointer border border-amber-300 rounded-xl bg-white p-1"
                       />
-                      <button
-                        type="button"
-                        onClick={() => handleInputChange('store_logo', '')}
-                        className="text-xs text-red-600 font-extrabold hover:underline"
-                      >
-                        Remove Logo
-                      </button>
                     </div>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (event) => {
-                          handleInputChange('store_logo', event.target.result);
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                    className="block w-full text-xs text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-amber-500 file:text-white hover:file:bg-amber-600 cursor-pointer"
-                  />
-                </div>
 
-                {/* Upload Custom Cover / A4 Background Image */}
-                <div className="bg-amber-50/90 p-3.5 rounded-2xl border-2 border-amber-300 space-y-2">
-                  <label className="block text-slate-800 font-extrabold text-xs flex items-center gap-2">
-                    <i className="fa-solid fa-image text-amber-600"></i>
-                    A4 Cover Background Color Options
-                  </label>
-                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 mb-2">
-                    {[
-                      { id: 'none', label: 'None', bg: 'bg-slate-100 border border-slate-300 text-slate-700 font-bold' },
-                      { id: '/images/cover_bg_orange_burst.jpg', label: '#1 Orange Burst', bg: 'bg-amber-500' },
-                      { id: '/images/cover_bg_red_sparkle.jpg', label: '#2 Red Sparkle', bg: 'bg-red-600' },
-                      { id: '/images/cover_bg_maroon_festive.jpg', label: '#3 Maroon Festive', bg: 'bg-amber-900' },
-                      { id: '/images/cover_bg_blue_gradient.jpg', label: '#4 Festive Border', bg: 'bg-indigo-600' },
-                    ].map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => handleInputChange('store_cover_bg', item.id)}
-                        className={`p-1 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 ${
-                          (editForm.store_cover_bg || '/images/cover_bg_orange_burst.jpg') === item.id ||
-                          (['/images/cover_bg.jpg', '/images/cover_bg_1.jpg'].includes(editForm.store_cover_bg) && item.id === '/images/cover_bg_orange_burst.jpg')
-                            ? 'border-amber-600 bg-amber-200 shadow-sm scale-105'
-                            : 'border-slate-200 bg-white hover:bg-amber-100'
-                        }`}
-                      >
-                        <div className={`w-full h-8 rounded-lg ${item.bg} overflow-hidden shadow-xs relative flex items-center justify-center`}>
-                          {item.id === 'none' ? (
-                            <i className="fa-solid fa-ban text-slate-500 text-sm"></i>
-                          ) : (
-                            <img src={item.id} alt={item.label} className="w-full h-full object-cover" />
-                          )}
+                    {/* Upload Store Logo */}
+                    <div className="space-y-2 pt-3 border-t border-amber-200">
+                      <label className="block text-slate-800 font-extrabold text-xs flex items-center gap-1.5">
+                        <i className="fa-solid fa-building-flag text-amber-600"></i>
+                        Store Logo Image
+                      </label>
+                      {editForm.store_logo && (
+                        <div className="flex items-center justify-between gap-2 bg-white p-2 rounded-xl border border-amber-200 shadow-2xs">
+                          <img
+                            src={getImageUrl(editForm.store_logo)}
+                            alt="Store Logo"
+                            className="h-9 w-9 object-contain rounded-lg border border-amber-300 bg-amber-50"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleInputChange('store_logo', '')}
+                            className="text-[11px] text-red-600 font-extrabold hover:underline cursor-pointer"
+                          >
+                            Remove Logo
+                          </button>
                         </div>
-                        <span className="text-[9px] font-black">{item.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                  {editForm.store_cover_bg && editForm.store_cover_bg !== 'none' && !['/images/cover_bg_orange_burst.jpg', '/images/cover_bg_red_sparkle.jpg', '/images/cover_bg_maroon_festive.jpg', '/images/cover_bg_blue_gradient.jpg', '/images/cover_bg_blue_burst.jpg', '/images/cover_bg_red_burst.jpg', '/images/cover_bg_purple.jpg', '/images/cover_bg_1.jpg', '/images/cover_bg_5.jpg', '/images/cover_bg_red.jpg', '/images/cover_bg.jpg'].includes(editForm.store_cover_bg) && (
-                    <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-amber-200 mb-2">
-                      <img
-                        src={getImageUrl(editForm.store_cover_bg)}
-                        alt="Custom Background"
-                        className="h-10 w-16 object-cover rounded-lg border border-amber-300"
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                              handleInputChange('store_logo', event.target.result);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                        className="block w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-amber-500 file:text-white hover:file:bg-amber-600 cursor-pointer"
                       />
-                      <button
-                        type="button"
-                        onClick={() => handleInputChange('store_cover_bg', '/images/cover_bg_orange_burst.jpg')}
-                        className="text-xs text-red-600 font-extrabold hover:underline"
-                      >
-                        Reset Background
-                      </button>
-                    </div>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (event) => {
-                          handleInputChange('store_cover_bg', event.target.result);
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                    className="block w-full text-xs text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-amber-500 file:text-white hover:file:bg-amber-600 cursor-pointer"
-                  />
-                </div>
-
-                {/* Cover Text Font Colors */}
-                <div className="bg-amber-50/90 p-3.5 rounded-2xl border-2 border-amber-300 space-y-3">
-                  <label className="block text-slate-800 font-extrabold text-xs flex items-center justify-between">
-                    <span className="flex items-center gap-2 text-slate-900 font-black">
-                      <i className="fa-solid fa-palette text-amber-600"></i>
-                      Cover Text Font Colors
-                    </span>
-                    <span className="text-[10px] text-amber-700 font-bold">Pick custom text colors</span>
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {/* Store Title Font Color */}
-                    <div className="bg-white p-2.5 rounded-xl border border-amber-200 space-y-1.5">
-                      <div className="flex justify-between items-center text-xs font-bold text-slate-800">
-                        <span>Store Title Color</span>
-                        <span className="text-[10px] font-mono text-slate-500">{editForm.store_title_color || '#FFFFFF'}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={editForm.store_title_color || '#FFFFFF'}
-                          onChange={(e) => handleInputChange('store_title_color', e.target.value)}
-                          className="w-9 h-8 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
-                        />
-                        <div className="flex items-center gap-1 flex-wrap">
-                          {['#FFFFFF', '#FBBF24', '#FEF08A', '#38BDF8', '#DC2626', '#0F172A'].map((c) => (
-                            <button
-                              key={c}
-                              type="button"
-                              onClick={() => handleInputChange('store_title_color', c)}
-                              className="w-5 h-5 rounded-full border border-slate-300 shadow-2xs hover:scale-110 transition-transform cursor-pointer"
-                              style={{ backgroundColor: c }}
-                              title={c}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Tagline Font Color */}
-                    <div className="bg-white p-2.5 rounded-xl border border-amber-200 space-y-1.5">
-                      <div className="flex justify-between items-center text-xs font-bold text-slate-800">
-                        <span>Tagline Color</span>
-                        <span className="text-[10px] font-mono text-slate-500">{editForm.store_tagline_color || '#FFFFFF'}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={editForm.store_tagline_color || '#FFFFFF'}
-                          onChange={(e) => handleInputChange('store_tagline_color', e.target.value)}
-                          className="w-9 h-8 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
-                        />
-                        <div className="flex items-center gap-1 flex-wrap">
-                          {['#FFFFFF', '#FBBF24', '#FEF08A', '#38BDF8', '#DC2626', '#0F172A'].map((c) => (
-                            <button
-                              key={c}
-                              type="button"
-                              onClick={() => handleInputChange('store_tagline_color', c)}
-                              className="w-5 h-5 rounded-full border border-slate-300 shadow-2xs hover:scale-110 transition-transform cursor-pointer"
-                              style={{ backgroundColor: c }}
-                              title={c}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Invocation Font Color */}
-                    <div className="bg-white p-2.5 rounded-xl border border-amber-200 space-y-1.5">
-                      <div className="flex justify-between items-center text-xs font-bold text-slate-800">
-                        <span>Deity / Invocation Color</span>
-                        <span className="text-[10px] font-mono text-slate-500">{editForm.store_invocation_color || '#FFFFFF'}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={editForm.store_invocation_color || '#FFFFFF'}
-                          onChange={(e) => handleInputChange('store_invocation_color', e.target.value)}
-                          className="w-9 h-8 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
-                        />
-                        <div className="flex items-center gap-1 flex-wrap">
-                          {['#FFFFFF', '#FBBF24', '#FEF08A', '#38BDF8', '#DC2626', '#0F172A'].map((c) => (
-                            <button
-                              key={c}
-                              type="button"
-                              onClick={() => handleInputChange('store_invocation_color', c)}
-                              className="w-5 h-5 rounded-full border border-slate-300 shadow-2xs hover:scale-110 transition-transform cursor-pointer"
-                              style={{ backgroundColor: c }}
-                              title={c}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Price List Badge Font Color */}
-                    <div className="bg-white p-2.5 rounded-xl border border-amber-200 space-y-1.5">
-                      <div className="flex justify-between items-center text-xs font-bold text-slate-800">
-                        <span>Price List Badge Text Color</span>
-                        <span className="text-[10px] font-mono text-slate-500">{editForm.store_badge_color || '#0F172A'}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={editForm.store_badge_color || '#0F172A'}
-                          onChange={(e) => handleInputChange('store_badge_color', e.target.value)}
-                          className="w-9 h-8 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
-                        />
-                        <div className="flex items-center gap-1 flex-wrap">
-                          {['#0F172A', '#FFFFFF', '#FBBF24', '#FEF08A', '#38BDF8', '#DC2626'].map((c) => (
-                            <button
-                              key={c}
-                              type="button"
-                              onClick={() => handleInputChange('store_badge_color', c)}
-                              className="w-5 h-5 rounded-full border border-slate-300 shadow-2xs hover:scale-110 transition-transform cursor-pointer"
-                              style={{ backgroundColor: c }}
-                              title={c}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Text Outline Stroke Color */}
-                    <div className="bg-white p-2.5 rounded-xl border border-amber-200 space-y-1.5 col-span-full">
-                      <div className="flex justify-between items-center text-xs font-bold text-slate-800">
-                        <span className="flex items-center gap-1.5">
-                          <i className="fa-solid fa-border-all text-amber-600"></i>
-                          Text Outline Color
-                        </span>
-                        <span className="text-[10px] font-mono text-slate-500">{editForm.text_stroke_color || '#000000'}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={editForm.text_stroke_color || '#000000'}
-                          onChange={(e) => handleInputChange('text_stroke_color', e.target.value)}
-                          className="w-9 h-8 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
-                        />
-                        <div className="flex items-center gap-1 flex-wrap">
-                          {['#000000', '#FFFFFF', '#78350F', '#450A0A', '#0F172A', '#1E1B4B', '#064E3B', '#F59E0B'].map((c) => (
-                            <button
-                              key={c}
-                              type="button"
-                              onClick={() => handleInputChange('text_stroke_color', c)}
-                              className="w-5 h-5 rounded-full border border-slate-300 shadow-2xs hover:scale-110 transition-transform cursor-pointer"
-                              style={{ backgroundColor: c }}
-                              title={c}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* God Image Outline Color */}
-                    <div className="bg-white p-2.5 rounded-xl border border-amber-200 space-y-1.5 col-span-full">
-                      <div className="flex justify-between items-center text-xs font-bold text-slate-800">
-                        <span className="flex items-center gap-1.5">
-                          <i className="fa-solid fa-image text-amber-600"></i>
-                          God Image Outline Color
-                        </span>
-                        <span className="text-[10px] font-mono text-slate-500">{editForm.deity_stroke_color || '#FFFFFF'}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={editForm.deity_stroke_color === 'transparent' ? '#FFFFFF' : (editForm.deity_stroke_color || '#FFFFFF')}
-                          onChange={(e) => handleInputChange('deity_stroke_color', e.target.value)}
-                          className="w-9 h-8 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
-                        />
-                        <div className="flex items-center gap-1 flex-wrap">
-                          {['#FFFFFF', '#000000', '#FDE047', '#F59E0B', '#DC2626', '#38BDF8', '#0F172A', 'transparent'].map((c) => (
-                            <button
-                              key={c}
-                              type="button"
-                              onClick={() => handleInputChange('deity_stroke_color', c)}
-                              className={`h-5 rounded-md border border-slate-300 shadow-2xs hover:scale-110 transition-transform cursor-pointer flex items-center justify-center text-[9px] font-bold ${c === 'transparent' ? 'px-1.5 bg-slate-100 text-slate-700' : 'w-5'}`}
-                              style={{ backgroundColor: c !== 'transparent' ? c : undefined }}
-                              title={c === 'transparent' ? 'No Outline' : c}
-                            >
-                              {c === 'transparent' ? 'None' : ''}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
                     </div>
                   </div>
+
+                  {/* Card B: A4 Cover Background Color Options */}
+                  <div className="bg-amber-50/60 p-4 rounded-2xl border border-amber-200 space-y-3 flex flex-col justify-between">
+                    <div className="space-y-2">
+                      <label className="block text-slate-800 font-extrabold text-xs flex items-center gap-1.5">
+                        <i className="fa-solid fa-image text-amber-600"></i>
+                        A4 Cover Background Color Options
+                      </label>
+                      <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-3 xl:grid-cols-6 gap-1.5 mb-2">
+                        {[
+                          { id: 'none', label: 'None', bg: 'bg-slate-100 border border-slate-300 text-slate-700 font-bold' },
+                          { id: '/images/cover_bg_orange_burst.jpg', label: '#1 Orange', bg: 'bg-amber-500' },
+                          { id: '/images/cover_bg_red_sparkle.jpg', label: '#2 Red', bg: 'bg-red-600' },
+                          { id: '/images/cover_bg_maroon_festive.jpg', label: '#3 Maroon', bg: 'bg-amber-900' },
+                          { id: '/images/cover_bg_blue_gradient.jpg', label: '#4 Festive', bg: 'bg-indigo-600' },
+                          { id: '/images/cover_bg_blue_sparkle.jpg', label: '#5 Blue Sparkle', bg: 'bg-sky-500' },
+                        ].map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => handleInputChange('store_cover_bg', item.id)}
+                            className={`p-1 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                              (editForm.store_cover_bg || '/images/cover_bg_orange_burst.jpg') === item.id ||
+                              (['/images/cover_bg.jpg', '/images/cover_bg_1.jpg'].includes(editForm.store_cover_bg) && item.id === '/images/cover_bg_orange_burst.jpg')
+                                ? 'border-amber-600 bg-amber-200 shadow-xs scale-105'
+                                : 'border-slate-200 bg-white hover:bg-amber-100'
+                            }`}
+                          >
+                            <div className={`w-full h-7 rounded-lg ${item.bg} overflow-hidden shadow-2xs relative flex items-center justify-center`}>
+                              {item.id === 'none' ? (
+                                <i className="fa-solid fa-ban text-slate-500 text-xs"></i>
+                              ) : (
+                                <img src={item.id} alt={item.label} className="w-full h-full object-cover" />
+                              )}
+                            </div>
+                            <span className="text-[9px] font-black truncate max-w-full">{item.label}</span>
+                          </button>
+                        ))}
+                      </div>
+
+                      {editForm.store_cover_bg && editForm.store_cover_bg !== 'none' && !['/images/cover_bg_orange_burst.jpg', '/images/cover_bg_red_sparkle.jpg', '/images/cover_bg_maroon_festive.jpg', '/images/cover_bg_blue_gradient.jpg', '/images/cover_bg_blue_sparkle.jpg', '/images/cover_bg_blue_burst.jpg', '/images/cover_bg_red_burst.jpg', '/images/cover_bg_purple.jpg', '/images/cover_bg_1.jpg', '/images/cover_bg_5.jpg', '/images/cover_bg_red.jpg', '/images/cover_bg.jpg'].includes(editForm.store_cover_bg) && (
+                        <div className="flex items-center justify-between gap-2 bg-white p-2 rounded-xl border border-amber-200 mb-2 shadow-2xs">
+                          <img
+                            src={getImageUrl(editForm.store_cover_bg)}
+                            alt="Custom Background"
+                            className="h-9 w-14 object-cover rounded-lg border border-amber-300"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleInputChange('store_cover_bg', '/images/cover_bg_orange_burst.jpg')}
+                            className="text-[11px] text-red-600 font-extrabold hover:underline cursor-pointer"
+                          >
+                            Reset Background
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-1 pt-2 border-t border-amber-200">
+                      <label className="block text-[11px] font-bold text-slate-600">Upload Custom Background</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                              handleInputChange('store_cover_bg', event.target.result);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                        className="block w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-amber-500 file:text-white hover:file:bg-amber-600 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Card C: Cover Text Font Colors */}
+                  <div className="bg-amber-50/60 p-4 rounded-2xl border border-amber-200 space-y-3">
+                    <label className="block text-slate-800 font-black text-xs flex items-center justify-between border-b border-amber-200 pb-1.5">
+                      <span className="flex items-center gap-1.5 text-slate-900">
+                        <i className="fa-solid fa-palette text-amber-600"></i>
+                        Cover Text Font Colors
+                      </span>
+                      <span className="text-[10px] text-amber-700 font-bold">Custom Pickers</span>
+                    </label>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {/* Store Title Font Color */}
+                      <div className="bg-white p-2.5 rounded-xl border border-amber-200 space-y-1.5 shadow-2xs">
+                        <div className="flex justify-between items-center text-[11px] font-bold text-slate-800">
+                          <span>Store Title</span>
+                          <span className="text-[9px] font-mono text-slate-500">{editForm.store_title_color || '#FFFFFF'}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="color"
+                            value={editForm.store_title_color || '#FFFFFF'}
+                            onChange={(e) => handleInputChange('store_title_color', e.target.value)}
+                            className="w-7 h-7 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
+                          />
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {['#FFFFFF', '#FBBF24', '#FEF08A', '#38BDF8', '#DC2626', '#0F172A'].map((c) => (
+                              <button
+                                key={c}
+                                type="button"
+                                onClick={() => handleInputChange('store_title_color', c)}
+                                className="w-5 h-5 rounded-full border border-slate-300 shadow-2xs hover:scale-110 transition-transform cursor-pointer shrink-0"
+                                style={{ backgroundColor: c, width: '20px', height: '20px' }}
+                                title={c}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Tagline Font Color */}
+                      <div className="bg-white p-2.5 rounded-xl border border-amber-200 space-y-1.5 shadow-2xs">
+                        <div className="flex justify-between items-center text-[11px] font-bold text-slate-800">
+                          <span>Tagline</span>
+                          <span className="text-[9px] font-mono text-slate-500">{editForm.store_tagline_color || '#FFFFFF'}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="color"
+                            value={editForm.store_tagline_color || '#FFFFFF'}
+                            onChange={(e) => handleInputChange('store_tagline_color', e.target.value)}
+                            className="w-7 h-7 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
+                          />
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {['#FFFFFF', '#FBBF24', '#FEF08A', '#38BDF8', '#DC2626', '#0F172A'].map((c) => (
+                              <button
+                                key={c}
+                                type="button"
+                                onClick={() => handleInputChange('store_tagline_color', c)}
+                                className="w-5 h-5 rounded-full border border-slate-300 shadow-2xs hover:scale-110 transition-transform cursor-pointer shrink-0"
+                                style={{ backgroundColor: c, width: '20px', height: '20px' }}
+                                title={c}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Invocation Font Color */}
+                      <div className="bg-white p-2.5 rounded-xl border border-amber-200 space-y-1.5 shadow-2xs">
+                        <div className="flex justify-between items-center text-[11px] font-bold text-slate-800">
+                          <span>Deity / Invocation</span>
+                          <span className="text-[9px] font-mono text-slate-500">{editForm.store_invocation_color || '#FFFFFF'}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="color"
+                            value={editForm.store_invocation_color || '#FFFFFF'}
+                            onChange={(e) => handleInputChange('store_invocation_color', e.target.value)}
+                            className="w-7 h-7 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
+                          />
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {['#FFFFFF', '#FBBF24', '#FEF08A', '#38BDF8', '#DC2626', '#0F172A'].map((c) => (
+                              <button
+                                key={c}
+                                type="button"
+                                onClick={() => handleInputChange('store_invocation_color', c)}
+                                className="w-5 h-5 rounded-full border border-slate-300 shadow-2xs hover:scale-110 transition-transform cursor-pointer shrink-0"
+                                style={{ backgroundColor: c, width: '20px', height: '20px' }}
+                                title={c}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Price List Badge Font Color */}
+                      <div className="bg-white p-2.5 rounded-xl border border-amber-200 space-y-1.5 shadow-2xs">
+                        <div className="flex justify-between items-center text-[11px] font-bold text-slate-800">
+                          <span>Badge Text</span>
+                          <span className="text-[9px] font-mono text-slate-500">{editForm.store_badge_color || '#0F172A'}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="color"
+                            value={editForm.store_badge_color || '#0F172A'}
+                            onChange={(e) => handleInputChange('store_badge_color', e.target.value)}
+                            className="w-7 h-7 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
+                          />
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {['#0F172A', '#FFFFFF', '#FBBF24', '#FEF08A', '#38BDF8', '#DC2626'].map((c) => (
+                              <button
+                                key={c}
+                                type="button"
+                                onClick={() => handleInputChange('store_badge_color', c)}
+                                className="w-5 h-5 rounded-full border border-slate-300 shadow-2xs hover:scale-110 transition-transform cursor-pointer shrink-0"
+                                style={{ backgroundColor: c, width: '20px', height: '20px' }}
+                                title={c}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Text Outline Stroke Color */}
+                      <div className="bg-white p-2.5 rounded-xl border border-amber-200 space-y-1.5 shadow-2xs col-span-full">
+                        <div className="flex justify-between items-center text-[11px] font-bold text-slate-800">
+                          <span className="flex items-center gap-1">
+                            <i className="fa-solid fa-border-all text-amber-600"></i>
+                            Text Outline Stroke
+                          </span>
+                          <span className="text-[9px] font-mono text-slate-500">{editForm.text_stroke_color || '#000000'}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="color"
+                            value={editForm.text_stroke_color || '#000000'}
+                            onChange={(e) => handleInputChange('text_stroke_color', e.target.value)}
+                            className="w-7 h-7 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
+                          />
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {['#000000', '#FFFFFF', '#78350F', '#450A0A', '#0F172A', '#1E1B4B', '#064E3B', '#F59E0B'].map((c) => (
+                              <button
+                                key={c}
+                                type="button"
+                                onClick={() => handleInputChange('text_stroke_color', c)}
+                                className="w-5 h-5 rounded-full border border-slate-300 shadow-2xs hover:scale-110 transition-transform cursor-pointer shrink-0"
+                                style={{ backgroundColor: c, width: '20px', height: '20px' }}
+                                title={c}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* God Image Outline Color */}
+                      <div className="bg-white p-2.5 rounded-xl border border-amber-200 space-y-1.5 shadow-2xs col-span-full">
+                        <div className="flex justify-between items-center text-[11px] font-bold text-slate-800">
+                          <span className="flex items-center gap-1">
+                            <i className="fa-solid fa-image text-amber-600"></i>
+                            Cover Image Outline
+                          </span>
+                          <span className="text-[9px] font-mono text-slate-500">{editForm.deity_stroke_color || '#FFFFFF'}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="color"
+                            value={editForm.deity_stroke_color === 'transparent' ? '#FFFFFF' : (editForm.deity_stroke_color || '#FFFFFF')}
+                            onChange={(e) => handleInputChange('deity_stroke_color', e.target.value)}
+                            className="w-7 h-7 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
+                          />
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {['#FFFFFF', '#000000', '#FDE047', '#F59E0B', '#DC2626', '#38BDF8', '#0F172A', 'transparent'].map((c) => (
+                              <button
+                                key={c}
+                                type="button"
+                                onClick={() => handleInputChange('deity_stroke_color', c)}
+                                className={`h-5 rounded-md border border-slate-300 shadow-2xs hover:scale-110 transition-transform cursor-pointer flex items-center justify-center text-[9px] font-bold shrink-0 ${c === 'transparent' ? 'px-1 bg-slate-100 text-slate-700' : 'w-5'}`}
+                                style={{ backgroundColor: c !== 'transparent' ? c : undefined, width: c !== 'transparent' ? '20px' : undefined, height: '20px' }}
+                                title={c === 'transparent' ? 'No Outline' : c}
+                              >
+                                {c === 'transparent' ? 'None' : ''}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. PAYMENT QR CODES & CUSTOM FLOATING IMAGE */}
+              <div className="bg-white/80 border border-amber-200 rounded-2xl p-4.5 space-y-4 shadow-2xs">
+                <div className="flex items-center justify-between text-xs font-black text-amber-900 uppercase tracking-wider border-b border-amber-100 pb-2">
+                  <span className="flex items-center gap-2">
+                    <i className="fa-solid fa-qrcode text-amber-600"></i>
+                    Payment QR Codes & Custom Floating Image
+                  </span>
+                  <span className="text-[10px] text-amber-700 font-bold bg-amber-100 px-2 py-0.5 rounded-lg border border-amber-300">
+                    Interactive Preview Controls
+                  </span>
                 </div>
 
-                {/* Dual Payment QR Codes Section (2 QR Code Options) */}
-                <div className="bg-amber-50/90 p-3.5 rounded-2xl border-2 border-amber-300 space-y-3 col-span-full">
-                  <label className="block text-slate-800 font-black text-xs uppercase tracking-wide flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      <i className="fa-solid fa-qrcode text-amber-600 text-sm"></i>
-                      Payment QR Codes (2 Options Available)
-                    </span>
-                    <span className="text-[10px] text-amber-700 font-bold bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
-                      Upload 1 or 2 QR Codes
-                    </span>
-                  </label>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                    {/* QR CODE 1 CARD */}
-                    <div className="bg-white p-3 rounded-xl border border-amber-200 space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                  {/* QR CODE 1 CARD */}
+                  <div className="bg-white p-3.5 rounded-2xl border border-amber-200 space-y-2.5 shadow-2xs flex flex-col justify-between">
+                    <div className="space-y-2">
                       <div className="flex justify-between items-center text-xs font-black text-slate-800 border-b border-slate-100 pb-1.5">
                         <span className="flex items-center gap-1.5 text-sky-600">
                           <i className="fa-solid fa-1"></i> QR Code 1 (Primary / GPay)
@@ -2179,16 +2232,16 @@ export default function PriceList({ defaultTab }) {
                       </div>
 
                       {editForm.store_upi_qr && (
-                        <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                        <div className="flex items-center justify-between gap-3 bg-slate-50 p-2 rounded-lg border border-slate-200">
                           <img
                             src={getImageUrl(editForm.store_upi_qr)}
                             alt="Payment QR 1"
-                            className="h-12 w-12 object-contain rounded-md border border-slate-300 bg-white"
+                            className="h-10 w-10 object-contain rounded-md border border-slate-300 bg-white"
                           />
                           <button
                             type="button"
                             onClick={() => handleInputChange('store_upi_qr', '')}
-                            className="text-xs text-red-600 font-extrabold hover:underline"
+                            className="text-[11px] text-red-600 font-extrabold hover:underline cursor-pointer"
                           >
                             Reset QR 1 Image
                           </button>
@@ -2213,7 +2266,9 @@ export default function PriceList({ defaultTab }) {
                           className="block w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-sky-500 file:text-white hover:file:bg-sky-600 cursor-pointer"
                         />
                       </div>
+                    </div>
 
+                    <div className="space-y-2 pt-2 border-t border-slate-100">
                       <div>
                         <label className="block text-[11px] font-bold text-slate-600 mb-1">QR 1 Account Name</label>
                         <input
@@ -2221,7 +2276,7 @@ export default function PriceList({ defaultTab }) {
                           value={editForm.store_upi_name || ''}
                           onChange={(e) => handleInputChange('store_upi_name', e.target.value)}
                           placeholder="e.g. Muthusamy Ganesan"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 mb-2"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
                         />
                       </div>
 
@@ -2236,9 +2291,11 @@ export default function PriceList({ defaultTab }) {
                         />
                       </div>
                     </div>
+                  </div>
 
-                    {/* QR CODE 2 CARD */}
-                    <div className="bg-white p-3 rounded-xl border border-amber-200 space-y-2">
+                  {/* QR CODE 2 CARD */}
+                  <div className="bg-white p-3.5 rounded-2xl border border-amber-200 space-y-2.5 shadow-2xs flex flex-col justify-between">
+                    <div className="space-y-2">
                       <div className="flex justify-between items-center text-xs font-black text-slate-800 border-b border-slate-100 pb-1.5">
                         <span className="flex items-center gap-1.5 text-indigo-600">
                           <i className="fa-solid fa-2"></i> QR Code 2 (Secondary / PhonePe)
@@ -2249,16 +2306,16 @@ export default function PriceList({ defaultTab }) {
                       </div>
 
                       {editForm.store_upi_qr_2 && (
-                        <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                        <div className="flex items-center justify-between gap-3 bg-slate-50 p-2 rounded-lg border border-slate-200">
                           <img
                             src={getImageUrl(editForm.store_upi_qr_2)}
                             alt="Payment QR 2"
-                            className="h-12 w-12 object-contain rounded-md border border-slate-300 bg-white"
+                            className="h-10 w-10 object-contain rounded-md border border-slate-300 bg-white"
                           />
                           <button
                             type="button"
                             onClick={() => handleInputChange('store_upi_qr_2', '')}
-                            className="text-xs text-red-600 font-extrabold hover:underline"
+                            className="text-[11px] text-red-600 font-extrabold hover:underline cursor-pointer"
                           >
                             Remove QR 2 Image
                           </button>
@@ -2283,7 +2340,9 @@ export default function PriceList({ defaultTab }) {
                           className="block w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer"
                         />
                       </div>
+                    </div>
 
+                    <div className="space-y-2 pt-2 border-t border-slate-100">
                       <div>
                         <label className="block text-[11px] font-bold text-slate-600 mb-1">QR 2 Account Name</label>
                         <input
@@ -2291,7 +2350,7 @@ export default function PriceList({ defaultTab }) {
                           value={editForm.store_upi_name_2 || ''}
                           onChange={(e) => handleInputChange('store_upi_name_2', e.target.value)}
                           placeholder="e.g. Muthusamy Ganesan"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 mb-2"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
                         />
                       </div>
 
@@ -2309,10 +2368,11 @@ export default function PriceList({ defaultTab }) {
                   </div>
 
                   {/* CUSTOM FLOATING IMAGE CARD (PAGE 1) */}
-                    <div className="bg-white p-3 rounded-xl border border-sky-300 space-y-2.5 shadow-2xs col-span-1 md:col-span-2">
+                  <div className="bg-white p-3.5 rounded-2xl border border-sky-300 space-y-2.5 shadow-2xs flex flex-col justify-between">
+                    <div className="space-y-2">
                       <div className="flex justify-between items-center text-xs font-black text-slate-800 border-b border-slate-100 pb-1.5">
                         <span className="flex items-center gap-1.5 text-sky-700">
-                          <i className="fa-solid fa-arrows-up-down-left-right text-sky-500"></i> Custom Floating Image (Draggable on First Page)
+                          <i className="fa-solid fa-arrows-up-down-left-right text-sky-500"></i> Floating Image (Page 1)
                         </span>
                         <label className="inline-flex items-center gap-1 cursor-pointer select-none">
                           <input
@@ -2321,35 +2381,35 @@ export default function PriceList({ defaultTab }) {
                             onChange={(e) => handleInputChange('show_custom_float_image', e.target.checked)}
                             className="rounded text-sky-600 focus:ring-sky-500 w-3.5 h-3.5"
                           />
-                          <span className="text-[10px] text-slate-700 font-extrabold">Show Image</span>
+                          <span className="text-[10px] text-slate-700 font-extrabold">Show</span>
                         </label>
                       </div>
 
                       {editForm.custom_float_image && (
-                        <div className="flex items-center justify-between gap-3 bg-sky-50/80 p-2 rounded-lg border border-sky-200">
+                        <div className="flex items-center justify-between gap-2 bg-sky-50/80 p-2 rounded-lg border border-sky-200">
                           <div className="flex items-center gap-2">
                             <img
                               src={getImageUrl(editForm.custom_float_image)}
                               alt="Custom Floating"
-                              className="h-10 w-10 object-contain rounded-md border border-slate-300 bg-white"
+                              className="h-9 w-9 object-contain rounded-md border border-slate-300 bg-white"
                             />
-                            <div className="text-[11px] font-extrabold text-slate-800">
-                              <div>Position: X: {editForm.custom_float_x ?? 15}%, Y: {editForm.custom_float_y ?? 15}%</div>
-                              <div className="text-[10px] text-sky-700 font-semibold">💡 Click & drag directly on Page 1 to move anytime!</div>
+                            <div className="text-[10px] font-extrabold text-slate-800 leading-tight">
+                              <div>Pos: X: {editForm.custom_float_x ?? 15}%, Y: {editForm.custom_float_y ?? 15}%</div>
+                              <div className="text-[9px] text-sky-700 font-medium">💡 Drag directly on Page 1</div>
                             </div>
                           </div>
                           <button
                             type="button"
                             onClick={() => handleInputChange('custom_float_image', '')}
-                            className="text-xs text-red-600 font-extrabold hover:underline cursor-pointer"
+                            className="text-[11px] text-red-600 font-extrabold hover:underline cursor-pointer"
                           >
-                            Remove Image
+                            Remove
                           </button>
                         </div>
                       )}
 
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1">Upload Custom Image (PNG / JPG / WebP)</label>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">Upload Custom Floating Image</label>
                         <input
                           type="file"
                           accept="image/*"
@@ -2366,259 +2426,253 @@ export default function PriceList({ defaultTab }) {
                           className="block w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-sky-600 file:text-white hover:file:bg-sky-700 cursor-pointer"
                         />
                       </div>
+                    </div>
 
-                      {editForm.custom_float_image && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                          <div>
-                            <div className="flex justify-between text-[10px] font-bold text-slate-700 mb-0.5">
-                              <span>Scale / Size</span>
-                              <span className="font-mono text-sky-600">{editForm.custom_float_scale || 100}%</span>
-                            </div>
-                            <input
-                              type="range"
-                              min="20"
-                              max="300"
-                              value={editForm.custom_float_scale || 100}
-                              onChange={(e) => handleInputChange('custom_float_scale', parseInt(e.target.value, 10))}
-                              className="w-full accent-sky-600 cursor-pointer h-1.5 bg-slate-100 rounded-lg"
-                            />
+                    {editForm.custom_float_image && (
+                      <div className="space-y-2 pt-2 border-t border-slate-100">
+                        <div>
+                          <div className="flex justify-between text-[10px] font-bold text-slate-700 mb-0.5">
+                            <span>Scale / Size</span>
+                            <span className="font-mono text-sky-600">{editForm.custom_float_scale || 100}%</span>
                           </div>
-
-                          <div className="flex items-end">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                handleInputChange('custom_float_x', 15);
-                                handleInputChange('custom_float_y', 15);
-                              }}
-                              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-[11px] py-1.5 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 border border-slate-200"
-                            >
-                              <i className="fa-solid fa-rotate-left text-xs text-sky-600"></i> Reset Position (15%, 15%)
-                            </button>
-                          </div>
+                          <input
+                            type="range"
+                            min="20"
+                            max="300"
+                            value={editForm.custom_float_scale || 100}
+                            onChange={(e) => handleInputChange('custom_float_scale', parseInt(e.target.value, 10))}
+                            className="w-full accent-sky-600 cursor-pointer h-1.5 bg-slate-100 rounded-lg"
+                          />
                         </div>
-                      )}
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleInputChange('custom_float_x', 15);
+                            handleInputChange('custom_float_y', 15);
+                          }}
+                          className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-[10px] py-1.5 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 border border-slate-200"
+                        >
+                          <i className="fa-solid fa-rotate-left text-xs text-sky-600"></i> Reset Position (15%, 15%)
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. CONTACT INFO & STORE ADDRESS SECTION */}
+              <div className="bg-white/80 border border-amber-200 rounded-2xl p-4.5 space-y-4 shadow-2xs">
+                <div className="flex items-center gap-2 text-xs font-black text-amber-900 uppercase tracking-wider border-b border-amber-100 pb-2">
+                  <i className="fa-solid fa-address-book text-amber-600"></i>
+                  <span>Contact Information & Store Address</span>
+                </div>
+
+                {/* 4 Phone Numbers Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                  <div>
+                    <label className="block text-slate-700 font-extrabold mb-1">Phone 1 (WhatsApp)</label>
+                    <input
+                      type="text"
+                      value={editForm.store_phone || ''}
+                      onChange={(e) => handleInputChange('store_phone', e.target.value)}
+                      className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-extrabold mb-1">Phone Number 2</label>
+                    <input
+                      type="text"
+                      value={editForm.store_phone_2 || ''}
+                      onChange={(e) => handleInputChange('store_phone_2', e.target.value)}
+                      className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-extrabold mb-1">Phone Number 3</label>
+                    <input
+                      type="text"
+                      value={editForm.store_phone_3 || ''}
+                      onChange={(e) => handleInputChange('store_phone_3', e.target.value)}
+                      className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-extrabold mb-1">Phone Number 4</label>
+                    <input
+                      type="text"
+                      value={editForm.store_phone_4 || ''}
+                      onChange={(e) => handleInputChange('store_phone_4', e.target.value)}
+                      className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Email, GPay Number & Full Store Address Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                  <div>
+                    <label className="block text-slate-700 font-extrabold mb-1">Email / Website</label>
+                    <input
+                      type="text"
+                      value={editForm.store_email}
+                      onChange={(e) => handleInputChange('store_email', e.target.value)}
+                      className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-extrabold mb-1">GPay / PhonePe Number</label>
+                    <input
+                      type="text"
+                      value={editForm.store_gpay || ''}
+                      onChange={(e) => handleInputChange('store_gpay', e.target.value)}
+                      className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-extrabold mb-1">Full Store Address</label>
+                    <input
+                      type="text"
+                      value={editForm.store_address}
+                      onChange={(e) => handleInputChange('store_address', e.target.value)}
+                      className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 5. PRINT & TABLE LAYOUT + BANK ACCOUNT DETAILS */}
+              <div className="bg-white/80 border border-amber-200 rounded-2xl p-4.5 space-y-4 shadow-2xs">
+                {/* Print Layout Options */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-black text-amber-900 uppercase tracking-wider border-b border-amber-100 pb-2">
+                    <i className="fa-solid fa-sliders text-amber-600"></i>
+                    <span>Print & Table Layout Settings</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs items-center">
+                    <div>
+                      <label className="block text-slate-700 font-extrabold mb-1">Rows Per A4 Page (TR Count)</label>
+                      <input
+                        type="number"
+                        min="10"
+                        max="50"
+                        value={editForm.max_tr_per_page || 30}
+                        onChange={(e) => handleInputChange('max_tr_per_page', parseInt(e.target.value) || 30)}
+                        className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 text-amber-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-extrabold mb-1">Table Row Height (px)</label>
+                      <input
+                        type="number"
+                        min="14"
+                        max="50"
+                        value={editForm.table_row_height || 22}
+                        onChange={(e) => handleInputChange('table_row_height', parseInt(e.target.value) || 22)}
+                        className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 text-amber-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-extrabold mb-1">Footer Position (Bank & Notes)</label>
+                      <select
+                        value={editForm.footer_position || 'below_table'}
+                        onChange={(e) => handleInputChange('footer_position', e.target.value)}
+                        className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
+                      >
+                        <option value="below_table">📍 Below Product Table (Next to Table)</option>
+                        <option value="new_page">📄 New Dedicated Page (Standalone Page)</option>
+                      </select>
                     </div>
                   </div>
-
-                {/* Price List Year */}
-                <div>
-                  <label className="block text-slate-700 font-extrabold mb-1">Price List Year</label>
-                  <input
-                    type="text"
-                    value={editForm.store_year}
-                    onChange={(e) => handleInputChange('store_year', e.target.value)}
-                    className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
                 </div>
 
-                {/* Email / Website */}
-                <div>
-                  <label className="block text-slate-700 font-extrabold mb-1">Email / Website</label>
-                  <input
-                    type="text"
-                    value={editForm.store_email}
-                    onChange={(e) => handleInputChange('store_email', e.target.value)}
-                    className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-
-                {/* Primary WhatsApp / Phone */}
-                <div>
-                  <label className="block text-slate-700 font-extrabold mb-1">Phone Number 1 (WhatsApp)</label>
-                  <input
-                    type="text"
-                    value={editForm.store_phone || ''}
-                    onChange={(e) => handleInputChange('store_phone', e.target.value)}
-                    className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-
-                {/* Phone Number 2 */}
-                <div>
-                  <label className="block text-slate-700 font-extrabold mb-1">Phone Number 2</label>
-                  <input
-                    type="text"
-                    value={editForm.store_phone_2 || ''}
-                    onChange={(e) => handleInputChange('store_phone_2', e.target.value)}
-                    className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-
-                {/* Phone Number 3 */}
-                <div>
-                  <label className="block text-slate-700 font-extrabold mb-1">Phone Number 3</label>
-                  <input
-                    type="text"
-                    value={editForm.store_phone_3 || ''}
-                    onChange={(e) => handleInputChange('store_phone_3', e.target.value)}
-                    className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-
-                {/* Phone Number 4 */}
-                <div>
-                  <label className="block text-slate-700 font-extrabold mb-1">Phone Number 4</label>
-                  <input
-                    type="text"
-                    value={editForm.store_phone_4 || ''}
-                    onChange={(e) => handleInputChange('store_phone_4', e.target.value)}
-                    className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-
-                {/* Dedicated GPay Number */}
-                <div>
-                  <label className="block text-slate-700 font-extrabold mb-1">GPay / PhonePe Number</label>
-                  <input
-                    type="text"
-                    value={editForm.store_gpay || ''}
-                    onChange={(e) => handleInputChange('store_gpay', e.target.value)}
-                    className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-
-                {/* Discount Offer % */}
-                <div>
-                  <label className="block text-slate-700 font-extrabold mb-1">Discount Offer %</label>
-                  <input
-                    type="number"
-                    value={editForm.discount_percent}
-                    onChange={(e) => handleInputChange('discount_percent', parseFloat(e.target.value) || 0)}
-                    className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-
-                {/* Rows Per Page (TR Count) */}
-                <div>
-                  <label className="block text-slate-700 font-extrabold mb-1">Rows Per A4 Page (TR Count)</label>
-                  <input
-                    type="number"
-                    min="10"
-                    max="50"
-                    value={editForm.max_tr_per_page || 30}
-                    onChange={(e) => handleInputChange('max_tr_per_page', parseInt(e.target.value) || 30)}
-                    className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 font-black text-amber-900"
-                  />
-                </div>
-
-                {/* Table Row Height (px) */}
-                <div>
-                  <label className="block text-slate-700 font-extrabold mb-1">Table Row Height (px)</label>
-                  <input
-                    type="number"
-                    min="14"
-                    max="50"
-                    value={editForm.table_row_height || 22}
-                    onChange={(e) => handleInputChange('table_row_height', parseInt(e.target.value) || 22)}
-                    className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 font-black text-amber-900"
-                  />
-                </div>
-
-                {/* Store Address */}
-                <div className="md:col-span-2 lg:col-span-3">
-                  <label className="block text-slate-700 font-extrabold mb-1">Full Store Address</label>
-                  <input
-                    type="text"
-                    value={editForm.store_address}
-                    onChange={(e) => handleInputChange('store_address', e.target.value)}
-                    className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-
-                {/* Bank Details Section with Enable / Disable Toggle */}
-                <div className="md:col-span-2 lg:col-span-3 pt-3 border-t border-amber-200 flex flex-wrap items-center justify-between gap-2">
-                  <div className="font-extrabold text-amber-900 text-xs uppercase tracking-wider flex items-center gap-2">
-                    <i className="fa-solid fa-building-columns text-amber-600"></i>
-                    <span>Bank Account Details</span>
+                {/* Bank Account Details */}
+                <div className="pt-3 border-t border-amber-200 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-100 pb-2">
+                    <div className="font-extrabold text-amber-900 text-xs uppercase tracking-wider flex items-center gap-2">
+                      <i className="fa-solid fa-building-columns text-amber-600"></i>
+                      <span>Bank Account Details</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleInputChange('show_bank_details', editForm.show_bank_details === false ? true : false)}
+                      className={`flex items-center gap-2 px-3 py-1 rounded-xl font-black text-xs transition-all shadow-2xs cursor-pointer border ${editForm.show_bank_details !== false
+                        ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700'
+                        : 'bg-slate-200 text-slate-700 border-slate-300 hover:bg-slate-300'
+                        }`}
+                    >
+                      <i className={`fa-solid ${editForm.show_bank_details !== false ? 'fa-toggle-on text-sm' : 'fa-toggle-off text-sm'}`}></i>
+                      <span>{editForm.show_bank_details !== false ? 'Enabled on Document' : 'Disabled on Document'}</span>
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleInputChange('show_bank_details', editForm.show_bank_details === false ? true : false)}
-                    className={`flex items-center gap-2 px-3 py-1 rounded-xl font-black text-xs transition-all shadow-xs cursor-pointer border ${editForm.show_bank_details !== false
-                      ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700'
-                      : 'bg-slate-200 text-slate-700 border-slate-300 hover:bg-slate-300'
-                      }`}
-                  >
-                    <i className={`fa-solid ${editForm.show_bank_details !== false ? 'fa-toggle-on text-sm' : 'fa-toggle-off text-sm'}`}></i>
-                    <span>{editForm.show_bank_details !== false ? 'Enabled on Document' : 'Disabled on Document'}</span>
-                  </button>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                    <div>
+                      <label className="block text-slate-700 font-extrabold mb-1">Account Name</label>
+                      <input
+                        type="text"
+                        value={editForm.bank_name}
+                        onChange={(e) => handleInputChange('bank_name', e.target.value)}
+                        className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-extrabold mb-1">Bank Name / Branch</label>
+                      <input
+                        type="text"
+                        value={editForm.bank_branch}
+                        onChange={(e) => handleInputChange('bank_branch', e.target.value)}
+                        className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-extrabold mb-1">Account Number</label>
+                      <input
+                        type="text"
+                        value={editForm.bank_account_no}
+                        onChange={(e) => handleInputChange('bank_account_no', e.target.value)}
+                        className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-extrabold mb-1">IFSC Code</label>
+                      <input
+                        type="text"
+                        value={editForm.bank_ifsc}
+                        onChange={(e) => handleInputChange('bank_ifsc', e.target.value)}
+                        className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 6. IMPORTANT NOTE TEXT (பின்குறிப்பு) */}
+              <div className="bg-white/80 border border-amber-200 rounded-2xl p-4.5 space-y-3 shadow-2xs">
+                <div className="flex items-center gap-2 text-xs font-black text-amber-900 uppercase tracking-wider border-b border-amber-100 pb-2">
+                  <i className="fa-solid fa-note-sticky text-amber-600"></i>
+                  <span>Important Note Text (பின்குறிப்பு)</span>
                 </div>
 
-                <div>
-                  <label className="block text-slate-700 font-extrabold mb-1">Account Name</label>
-                  <input
-                    type="text"
-                    value={editForm.bank_name}
-                    onChange={(e) => handleInputChange('bank_name', e.target.value)}
-                    className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-700 font-extrabold mb-1">Bank Name / Branch</label>
-                  <input
-                    type="text"
-                    value={editForm.bank_branch}
-                    onChange={(e) => handleInputChange('bank_branch', e.target.value)}
-                    className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-700 font-extrabold mb-1">Account Number</label>
-                  <input
-                    type="text"
-                    value={editForm.bank_account_no}
-                    onChange={(e) => handleInputChange('bank_account_no', e.target.value)}
-                    className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-700 font-extrabold mb-1">IFSC Code</label>
-                  <input
-                    type="text"
-                    value={editForm.bank_ifsc}
-                    onChange={(e) => handleInputChange('bank_ifsc', e.target.value)}
-                    className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
-                  />
-                </div>
-
-                {/* Footer Position Selector (Input Style) */}
-                <div className="md:col-span-2 lg:col-span-3 bg-amber-100/70 p-3.5 rounded-2xl border-2 border-amber-300 space-y-2">
-                  <label className="block text-slate-800 font-black text-xs uppercase tracking-wide flex items-center gap-1.5">
-                    <i className="fa-solid fa-square-poll-vertical text-amber-600 text-sm"></i>
-                    Footer Position (Bank Info & Notes Placement)
-                  </label>
-                  <select
-                    value={editForm.footer_position || 'below_table'}
-                    onChange={(e) => handleInputChange('footer_position', e.target.value)}
-                    className="w-full bg-white border-2 border-amber-300 rounded-xl px-3.5 py-2.5 text-xs font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer shadow-xs"
-                  >
-                    <option value="below_table">📍 Below Product Table (Next to Table)</option>
-                    <option value="new_page">📄 New Dedicated Page (Standalone Page)</option>
-                  </select>
-                </div>
-
-                {/* Tamil Terms & Note */}
-                <div className="md:col-span-2 lg:col-span-3 pt-3 border-t border-amber-200 font-extrabold text-amber-900 text-xs uppercase tracking-wider">
-                  📜 Important Note Text (பின்குறிப்பு)
-                </div>
-
-                <div className="md:col-span-2 lg:col-span-3">
-                  <textarea
-                    rows={4}
-                    value={editForm.important_note_1}
-                    onChange={(e) => handleInputChange('important_note_1', e.target.value)}
-                    className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-semibold text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 mb-2"
-                  ></textarea>
-                  <textarea
-                    rows={4}
-                    value={editForm.important_note_2}
-                    onChange={(e) => handleInputChange('important_note_2', e.target.value)}
-                    className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-semibold text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  ></textarea>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <label className="block text-slate-700 font-extrabold mb-1">Note Paragraph 1</label>
+                    <textarea
+                      rows={4}
+                      value={editForm.important_note_1}
+                      onChange={(e) => handleInputChange('important_note_1', e.target.value)}
+                      className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-semibold text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    ></textarea>
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-extrabold mb-1">Note Paragraph 2</label>
+                    <textarea
+                      rows={4}
+                      value={editForm.important_note_2}
+                      onChange={(e) => handleInputChange('important_note_2', e.target.value)}
+                      className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-semibold text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    ></textarea>
+                  </div>
                 </div>
               </div>
             </div>

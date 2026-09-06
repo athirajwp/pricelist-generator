@@ -100,28 +100,70 @@ if ($envFile) {
         }
     }
 
-    $dbHost = $env['DB_HOST'] ?? 'localhost';
-    $dbName = $env['DB_DATABASE'] ?? '';
-    $dbUser = $env['DB_USERNAME'] ?? '';
-    $dbPass = $env['DB_PASSWORD'] ?? '';
+    $dbConn = strtolower($env['DB_CONNECTION'] ?? 'sqlite');
 
-    echo "Attempting MySQL connection to <code>$dbUser@$dbHost/$dbName</code>...<br/>";
-
-    try {
-        $pdo = new PDO("mysql:host=$dbHost;dbname=$dbName;charset=utf8mb4", $dbUser, $dbPass, [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
-        ]);
-        echo "<span class='success'>✓ Database Connected Successfully!</span><br/>";
-
-        $stmt = $pdo->query("SHOW TABLES");
-        $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
-        echo "Tables found in database: <span class='info'>" . count($tables) . " tables</span>";
-        if (count($tables) === 0) {
-            echo " <br/><span class='error'>(Warning: Database is empty! Import your MySQL database backup in Hostinger phpMyAdmin.)</span>";
+    if ($dbConn === 'sqlite') {
+        $dbPath = $env['DB_DATABASE'] ?? 'database/database.sqlite';
+        $fullDbPath = __DIR__ . '/' . $dbPath;
+        if (!file_exists($fullDbPath)) {
+            $fullDbPath = __DIR__ . '/backend/' . $dbPath;
         }
-    } catch (PDOException $e) {
-        echo "<span class='error'>✗ Database Connection Failed:</span>";
-        echo "<pre>" . htmlspecialchars($e->getMessage()) . "</pre>";
+        if (!file_exists($fullDbPath)) {
+            $fullDbPath = __DIR__ . '/database/database.sqlite';
+        }
+
+        echo "Attempting SQLite connection to <code>" . htmlspecialchars($fullDbPath) . "</code>...<br/>";
+
+        try {
+            if (!in_array('sqlite', PDO::getAvailableDrivers())) {
+                throw new Exception("pdo_sqlite extension is not enabled in PHP settings!");
+            }
+            if (file_exists($fullDbPath)) {
+                @chmod($fullDbPath, 0666);
+                @chmod(dirname($fullDbPath), 0755);
+            }
+            $pdo = new PDO("sqlite:$fullDbPath", null, null, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+            ]);
+            echo "<span class='success'>✓ SQLite Database Connected Successfully!</span><br/>";
+
+            $stmt = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
+            $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            echo "Tables found in SQLite: <span class='info'>" . count($tables) . " tables</span><br/>";
+
+            if (in_array('products', $tables)) {
+                $pCount = $pdo->query("SELECT COUNT(*) FROM products")->fetchColumn();
+                $cCount = in_array('categories', $tables) ? $pdo->query("SELECT COUNT(*) FROM categories")->fetchColumn() : 0;
+                echo "Data loaded: <span class='success'>$pCount Products</span>, <span class='success'>$cCount Categories</span>";
+            }
+        } catch (Exception $e) {
+            echo "<span class='error'>✗ SQLite Connection Failed:</span>";
+            echo "<pre>" . htmlspecialchars($e->getMessage()) . "</pre>";
+        }
+    } else {
+        $dbHost = $env['DB_HOST'] ?? 'localhost';
+        $dbName = $env['DB_DATABASE'] ?? '';
+        $dbUser = $env['DB_USERNAME'] ?? '';
+        $dbPass = $env['DB_PASSWORD'] ?? '';
+
+        echo "Attempting MySQL connection to <code>$dbUser@$dbHost/$dbName</code>...<br/>";
+
+        try {
+            $pdo = new PDO("mysql:host=$dbHost;dbname=$dbName;charset=utf8mb4", $dbUser, $dbPass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+            ]);
+            echo "<span class='success'>✓ Database Connected Successfully!</span><br/>";
+
+            $stmt = $pdo->query("SHOW TABLES");
+            $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            echo "Tables found in database: <span class='info'>" . count($tables) . " tables</span>";
+            if (count($tables) === 0) {
+                echo " <br/><span class='error'>(Warning: Database is empty! Import your MySQL database backup in Hostinger phpMyAdmin.)</span>";
+            }
+        } catch (PDOException $e) {
+            echo "<span class='error'>✗ Database Connection Failed:</span>";
+            echo "<pre>" . htmlspecialchars($e->getMessage()) . "</pre>";
+        }
     }
 } else {
     echo "<span class='error'>✗ .env file not found</span>";

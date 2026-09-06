@@ -18,46 +18,47 @@ echo "<h1>🚀 Hostinger Laravel Auto-Fixer & Diagnostics</h1>";
 
 // 1. Clear bootstrap/cache
 echo "<div class='step'><strong>Step 1: Clearing Bootstrap Cache</strong><br/>";
-$cacheDir = __DIR__ . '/../bootstrap/cache';
-if (!is_dir($cacheDir)) {
-    $cacheDir = __DIR__ . '/bootstrap/cache';
-}
-if (is_dir($cacheDir)) {
-    $files = glob($cacheDir . '/*.php');
-    $cleared = 0;
-    foreach ($files as $file) {
-        if (@unlink($file)) $cleared++;
+$cacheDirs = [
+    __DIR__ . '/bootstrap/cache',
+    __DIR__ . '/../bootstrap/cache',
+    __DIR__ . '/backend/bootstrap/cache',
+];
+
+$clearedTotal = 0;
+foreach ($cacheDirs as $cacheDir) {
+    if (is_dir($cacheDir)) {
+        $files = glob($cacheDir . '/*.php');
+        foreach ($files as $file) {
+            if (@unlink($file)) $clearedTotal++;
+        }
     }
-    echo "<span class='success'>✓ Cleared $cleared stale cache files from bootstrap/cache!</span>";
-} else {
-    echo "<span class='error'>✗ bootstrap/cache directory not found at $cacheDir</span>";
 }
-echo "</div>";
+echo "<span class='success'>✓ Cleared $clearedTotal stale cache files from bootstrap/cache!</span></div>";
 
 // 2. Ensure Storage Subdirectories Exist
 echo "<div class='step'><strong>Step 2: Ensuring Storage Directory Structure</strong><br/>";
-$baseStorage = __DIR__ . '/../storage';
-if (!is_dir($baseStorage)) {
-    $baseStorage = __DIR__ . '/storage';
-}
-
-$dirs = [
-    $baseStorage . '/app/public',
-    $baseStorage . '/framework/cache/data',
-    $baseStorage . '/framework/sessions',
-    $baseStorage . '/framework/views',
-    $baseStorage . '/logs',
+$storageBaseDirs = [
+    __DIR__ . '/storage',
+    __DIR__ . '/backend/storage',
+    __DIR__ . '/../storage',
 ];
 
-foreach ($dirs as $dir) {
-    if (!is_dir($dir)) {
-        if (@mkdir($dir, 0755, true)) {
-            echo "<span class='success'>+ Created missing folder: " . basename(dirname($dir)) . '/' . basename($dir) . "</span><br/>";
-        } else {
-            echo "<span class='error'>- Failed to create: $dir</span><br/>";
+foreach ($storageBaseDirs as $baseStorage) {
+    if (is_dir($baseStorage)) {
+        $dirs = [
+            $baseStorage . '/app/public',
+            $baseStorage . '/framework/cache/data',
+            $baseStorage . '/framework/sessions',
+            $baseStorage . '/framework/views',
+            $baseStorage . '/logs',
+        ];
+        foreach ($dirs as $dir) {
+            if (!is_dir($dir)) {
+                @mkdir($dir, 0755, true);
+            } else {
+                @chmod($dir, 0755);
+            }
         }
-    } else {
-        @chmod($dir, 0755);
     }
 }
 echo "<span class='success'>✓ Storage folder permissions verified (0755)!</span></div>";
@@ -74,12 +75,21 @@ echo "</div>";
 
 // 4. Test Database Connection
 echo "<div class='step'><strong>Step 4: Database Connection Test</strong><br/>";
-$envFile = __DIR__ . '/../.env';
-if (!file_exists($envFile)) {
-    $envFile = __DIR__ . '/.env';
+$envFiles = [
+    __DIR__ . '/.env',
+    __DIR__ . '/backend/.env',
+    __DIR__ . '/../.env',
+];
+
+$envFile = null;
+foreach ($envFiles as $file) {
+    if (file_exists($file)) {
+        $envFile = $file;
+        break;
+    }
 }
 
-if (file_exists($envFile)) {
+if ($envFile) {
     $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     $env = [];
     foreach ($lines as $line) {
@@ -90,34 +100,75 @@ if (file_exists($envFile)) {
         }
     }
 
-    $dbHost = $env['DB_HOST'] ?? 'localhost';
-    $dbName = $env['DB_DATABASE'] ?? '';
-    $dbUser = $env['DB_USERNAME'] ?? '';
-    $dbPass = $env['DB_PASSWORD'] ?? '';
+    $dbConn = strtolower($env['DB_CONNECTION'] ?? 'sqlite');
 
-    echo "Attempting MySQL connection to <code>$dbUser@$dbHost/$dbName</code>...<br/>";
-
-    try {
-        $pdo = new PDO("mysql:host=$dbHost;dbname=$dbName;charset=utf8mb4", $dbUser, $dbPass, [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
-        ]);
-        echo "<span class='success'>✓ Database Connected Successfully!</span><br/>";
-
-        // Check if tables exist
-        $stmt = $pdo->query("SHOW TABLES");
-        $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
-        echo "Tables found in database: <span class='info'>" . count($tables) . " tables</span>";
-        if (count($tables) === 0) {
-            echo " <span class='error'>(Warning: Database is empty! You may need to import your database tables.)</span>";
+    if ($dbConn === 'sqlite') {
+        $dbPath = $env['DB_DATABASE'] ?? 'database/database.sqlite';
+        $fullDbPath = __DIR__ . '/' . $dbPath;
+        if (!file_exists($fullDbPath)) {
+            $fullDbPath = __DIR__ . '/backend/' . $dbPath;
         }
-    } catch (PDOException $e) {
-        echo "<span class='error'>✗ Database Connection Failed:</span>";
-        echo "<pre>" . htmlspecialchars($e->getMessage()) . "</pre>";
+        if (!file_exists($fullDbPath)) {
+            $fullDbPath = __DIR__ . '/database/database.sqlite';
+        }
+
+        echo "Attempting SQLite connection to <code>" . htmlspecialchars($fullDbPath) . "</code>...<br/>";
+
+        try {
+            if (!in_array('sqlite', PDO::getAvailableDrivers())) {
+                throw new Exception("pdo_sqlite extension is not enabled in PHP settings!");
+            }
+            if (file_exists($fullDbPath)) {
+                @chmod($fullDbPath, 0666);
+                @chmod(dirname($fullDbPath), 0755);
+            }
+            $pdo = new PDO("sqlite:$fullDbPath", null, null, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+            ]);
+            echo "<span class='success'>✓ SQLite Database Connected Successfully!</span><br/>";
+
+            $stmt = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
+            $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            echo "Tables found in SQLite: <span class='info'>" . count($tables) . " tables</span><br/>";
+
+            if (in_array('products', $tables)) {
+                $pCount = $pdo->query("SELECT COUNT(*) FROM products")->fetchColumn();
+                $cCount = in_array('categories', $tables) ? $pdo->query("SELECT COUNT(*) FROM categories")->fetchColumn() : 0;
+                echo "Data loaded: <span class='success'>$pCount Products</span>, <span class='success'>$cCount Categories</span>";
+            }
+        } catch (Exception $e) {
+            echo "<span class='error'>✗ SQLite Connection Failed:</span>";
+            echo "<pre>" . htmlspecialchars($e->getMessage()) . "</pre>";
+        }
+    } else {
+        $dbHost = $env['DB_HOST'] ?? 'localhost';
+        $dbName = $env['DB_DATABASE'] ?? '';
+        $dbUser = $env['DB_USERNAME'] ?? '';
+        $dbPass = $env['DB_PASSWORD'] ?? '';
+
+        echo "Attempting MySQL connection to <code>$dbUser@$dbHost/$dbName</code>...<br/>";
+
+        try {
+            $pdo = new PDO("mysql:host=$dbHost;dbname=$dbName;charset=utf8mb4", $dbUser, $dbPass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+            ]);
+            echo "<span class='success'>✓ Database Connected Successfully!</span><br/>";
+
+            $stmt = $pdo->query("SHOW TABLES");
+            $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            echo "Tables found in database: <span class='info'>" . count($tables) . " tables</span>";
+            if (count($tables) === 0) {
+                echo " <br/><span class='error'>(Warning: Database is empty! Import your MySQL database backup in Hostinger phpMyAdmin.)</span>";
+            }
+        } catch (PDOException $e) {
+            echo "<span class='error'>✗ Database Connection Failed:</span>";
+            echo "<pre>" . htmlspecialchars($e->getMessage()) . "</pre>";
+        }
     }
 } else {
-    echo "<span class='error'>✗ .env file not found at $envFile</span>";
+    echo "<span class='error'>✗ .env file not found</span>";
 }
 echo "</div>";
 
-echo "<p style='text-align:center; margin-top:20px; font-size:12px; color:#94a3b8;'>Hostinger Fixer Utility Completed • Delete fix.php after troubleshooting for security</p>";
+echo "<p style='text-align:center; margin-top:20px; font-size:12px; color:#94a3b8;'>Hostinger Fixer Utility Completed • Refresh your site homepage after running</p>";
 echo "</div>";
