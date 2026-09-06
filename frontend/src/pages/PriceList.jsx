@@ -220,6 +220,114 @@ export default function PriceList({ defaultTab }) {
     }
   };
 
+  // Prompt user to create a new project
+  const promptCreateNewProject = () => {
+    if (window.Swal) {
+      window.Swal.fire({
+        title: 'Create New Project',
+        text: 'Enter a name for your new price list project:',
+        input: 'text',
+        inputValue: 'My Price List Project',
+        showCancelButton: true,
+        confirmButtonText: 'Create Project',
+        confirmButtonColor: '#059669',
+        cancelButtonColor: '#64748b',
+        inputValidator: (value) => {
+          if (!value || !value.trim()) {
+            return 'Project name cannot be empty!';
+          }
+        },
+      }).then((result) => {
+        if (result.isConfirmed && result.value) {
+          handleCreateNewProject(result.value);
+        }
+      });
+    } else {
+      const name = prompt('Enter a name for your new price list project:', 'My Price List Project');
+      if (name && name.trim()) {
+        handleCreateNewProject(name);
+      }
+    }
+  };
+
+  // Create a brand new project snapshot and set as active
+  const handleCreateNewProject = (customName = null) => {
+    const projName = (customName || 'My Price List Project').trim();
+    const projId = `proj_${Date.now()}`;
+    const timestamp = new Date().toISOString();
+
+    const newForm = {
+      store_name: projName !== 'My Price List Project' ? projName : 'MY CRACKER STORE',
+      store_tagline: 'Ready for the Sparkle',
+      store_invocation_symbol: 'உ',
+      store_invocation: 'சங்கிலி மாடசாமி துணை, கொமண்டியம்மன் துணை',
+      store_year: String(new Date().getFullYear()),
+      store_email: 'www.masscrackers.com',
+      store_phone: '63837 22887',
+      store_phone_2: '97877 72038',
+      store_phone_3: '97877 72038',
+      store_address: 'Virudhunagar to Sivakasi Main Road, Opposite to Nayagara Petrol Bulk, Amathur - 626005.',
+      discount_percent: 50,
+      bank_name: 'Muthusamy Ganesan',
+      bank_branch: 'IDBI Bank',
+      bank_account_no: '1118104000136815',
+      bank_ifsc: 'IBKL0001118',
+      footer_position: 'below_table',
+      show_bank_details: true,
+      show_upi_qr: true,
+      show_tamil_name: false,
+      strikethrough_mrp: true,
+      header_product: 'PRODUCT NAME (ENG)',
+      header_product_ta: 'பொருள் பெயர் (TAMIL)',
+      important_note_1: 'தொடர்ந்து பல ஆண்டுகளாக எங்கள் நிறுவன பட்டாசுகளை வாங்கி தீபாவளியை குடும்பத்தினருடன் கொண்டாடி மகிழும் உங்கள் அனைவருக்கும் இனிய தீபாவளி நல்வாழ்த்துக்கள்!',
+      important_note_2: 'வரவிருக்கும் தீபாவளி பண்டிகைக்கான பட்டாசுகளை அக்டோபர் 15 - ஆம் தேதிக்குள் ஆர்டர் செய்து பெற்றுக்கொள்ளுமாறு வேண்டுகிறோம்.',
+      store_title_color: '#FFFFFF',
+      store_tagline_color: '#FFFFFF',
+      store_invocation_color: '#FFFFFF',
+      store_badge_color: '#0F172A',
+      text_stroke_color: '#000000',
+      deity_stroke_color: '#FFFFFF',
+      store_cover_bg: '/images/cover_bg_orange_burst.jpg',
+      store_deity_preset: 'vinayagar',
+    };
+
+    setEditForm(newForm);
+    setActiveProjectId(projId);
+    setActiveProjectName(projName);
+
+    const snapshot = {
+      id: projId,
+      name: projName,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      editForm: newForm,
+      categories: JSON.parse(JSON.stringify(categories || [])),
+      colWidths: { sno: 45, product: 220, product_ta: 220, unit: 95, mrp: 80, offer: 105, req: 45 },
+      showMrp: true,
+      productCount: (categories || []).reduce((acc, cat) => acc + (cat.products?.length || 0), 0),
+    };
+
+    const updatedList = [snapshot, ...savedProjects];
+    setSavedProjects(updatedList);
+    try {
+      localStorage.setItem('pricelist_saved_projects', JSON.stringify(updatedList));
+    } catch (err) {
+      console.warn('LocalStorage save warning:', err);
+    }
+
+    setShowProjectsModal(false);
+
+    if (window.Swal) {
+      window.Swal.fire({
+        icon: 'success',
+        title: 'New Project Created!',
+        text: `"${projName}" has been created and loaded into the editor.`,
+        timer: 1800,
+        showConfirmButton: false,
+      });
+    }
+  };
+
   // Export project snapshot as JSON file download
   const handleExportProjectJson = (project) => {
     const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(project, null, 2));
@@ -1614,6 +1722,16 @@ export default function PriceList({ defaultTab }) {
                 <span className="bg-slate-950 text-amber-400 text-[10px] font-black px-1.5 py-0.5 rounded-full ml-0.5">
                   {savedProjects.length}
                 </span>
+              </button>
+
+              {/* CREATE NEW PROJECT Button */}
+              <button
+                onClick={promptCreateNewProject}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-3.5 py-2 rounded-full text-xs uppercase tracking-wider shadow-xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer border border-emerald-500"
+                title="Create a new blank price list project"
+              >
+                <i className="fa-solid fa-folder-plus text-emerald-200 text-sm"></i>
+                <span>NEW PROJECT</span>
               </button>
 
               {/* 1. TEMPLATE Button */}
@@ -4496,6 +4614,15 @@ export default function PriceList({ defaultTab }) {
 
                   <button
                     type="button"
+                    onClick={promptCreateNewProject}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                    title="Create a new price list project"
+                  >
+                    <i className="fa-solid fa-folder-plus text-emerald-200"></i> + Create New Project
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => {
                       setNewProjectNameInput(editForm.store_name || 'My Price List Project');
                       setShowProjectsModal(false);
@@ -4519,17 +4646,26 @@ export default function PriceList({ defaultTab }) {
                     <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 font-semibold">
                       Save your current shop details, products, and configurations to reopen and edit them anytime.
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setNewProjectNameInput(editForm.store_name || 'My Price List Project');
-                        setShowProjectsModal(false);
-                        setShowSaveAsModal(true);
-                      }}
-                      className="mt-4 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-5 py-2 rounded-xl text-xs inline-flex items-center gap-2 shadow-xs transition-all cursor-pointer"
-                    >
-                      <i className="fa-solid fa-floppy-disk"></i> Save Current Project Now
-                    </button>
+                    <div className="mt-4 flex items-center justify-center gap-3">
+                      <button
+                        type="button"
+                        onClick={promptCreateNewProject}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-4 py-2 rounded-xl text-xs inline-flex items-center gap-2 shadow-xs transition-all cursor-pointer"
+                      >
+                        <i className="fa-solid fa-folder-plus text-emerald-200"></i> + Create New Project
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewProjectNameInput(editForm.store_name || 'My Price List Project');
+                          setShowProjectsModal(false);
+                          setShowSaveAsModal(true);
+                        }}
+                        className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-4 py-2 rounded-xl text-xs inline-flex items-center gap-2 shadow-xs transition-all cursor-pointer"
+                      >
+                        <i className="fa-solid fa-floppy-disk"></i> Save Current Project Now
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
