@@ -26,14 +26,16 @@ RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
 # Install PHP packages (skipping scripts and ignoring platform requirements to avoid build errors)
 RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts --ignore-platform-reqs
 
-# Create storage directory structure and set permissions
+# Create storage directory structure, clean stale dev cache, and set permissions
 RUN mkdir -p /var/www/storage/framework/cache/data \
     && mkdir -p /var/www/storage/framework/sessions \
     && mkdir -p /var/www/storage/framework/testing \
     && mkdir -p /var/www/storage/framework/views \
     && mkdir -p /var/www/storage/logs \
     && mkdir -p /var/www/bootstrap/cache \
+    && rm -f /var/www/bootstrap/cache/*.php \
     && chmod -R 777 /var/www/storage /var/www/bootstrap/cache
+
 
 # Expose port and start Laravel
 EXPOSE 8000

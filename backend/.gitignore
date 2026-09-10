@@ -11,6 +11,9 @@
 .env
 .env.backup
 .env.production
+/bootstrap/cache/*.php
+!/bootstrap/cache/.gitkeep
+
 
 # Never overwrite the production database with local dev data
 /database/database.sqlite
