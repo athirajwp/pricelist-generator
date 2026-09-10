@@ -1,16 +1,18 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Outlet, useLocation, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import AOS from 'aos';
 import 'aos/dist/aos.css';
 import { StoreProvider, useStore } from './context/StoreContext';
-import Header from './components/Header';
-import PriceList from './pages/PriceList';
 import LoadingScreen from './components/LoadingScreen';
+
+// Pages
+import HomePage from './pages/HomePage';
 
 // Admin imports
 import AdminProducts from './pages/admin/AdminProducts';
+import AdminImageCompressor from './pages/admin/AdminImageCompressor';
 
-function PublicLayout() {
+function MainApp() {
   const { loading, settings } = useStore();
 
   useEffect(() => {
@@ -33,12 +35,22 @@ function PublicLayout() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 relative overflow-hidden">
-      <Header />
-      <main className="flex-grow relative z-10">
-        <Outlet />
-      </main>
-    </div>
+    <Routes>
+      {/* Home Page Routes with Top Tab Switcher */}
+      <Route path="/" element={<HomePage initialTab="pricelist" />} />
+      <Route path="/price-list" element={<HomePage initialTab="pricelist" />} />
+      <Route path="/price_list" element={<HomePage initialTab="pricelist" />} />
+      <Route path="/image-compressor" element={<HomePage initialTab="compressor" />} />
+      <Route path="/compressor" element={<HomePage initialTab="compressor" />} />
+
+      {/* Admin Routes */}
+      <Route path="/admin/products" element={<AdminProducts />} />
+      <Route path="/admin/image-compressor" element={<AdminImageCompressor />} />
+      <Route path="/admin/compressor" element={<AdminImageCompressor />} />
+
+      {/* Catch-all redirect to Home */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
 
@@ -57,21 +69,10 @@ function App() {
     <StoreProvider>
       <Router>
         <ScrollToTop />
-        <Routes>
-          {/* Main Application Pages */}
-          <Route element={<PublicLayout />}>
-            <Route path="/" element={<PriceList />} />
-            <Route path="/price-list" element={<PriceList />} />
-            <Route path="/price_list" element={<PriceList />} />
-          </Route>
-
-          {/* Catch-all redirect to Pricelist Generator */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <MainApp />
       </Router>
     </StoreProvider>
   );
 }
 
 export default App;
-

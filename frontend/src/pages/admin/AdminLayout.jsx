@@ -8,6 +8,7 @@ export default function AdminLayout({ children }) {
 
   const menuItems = [
     { path: '/admin/products', label: 'Products & Excel Upload', icon: 'fa-box-open' },
+    { path: '/admin/image-compressor', label: 'Bulk Image Compressor', icon: 'fa-file-image' },
   ];
 
   return (
