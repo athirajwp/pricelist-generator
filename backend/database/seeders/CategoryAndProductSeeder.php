@@ -15,6 +15,25 @@ class CategoryAndProductSeeder extends Seeder
      */
     public function run(): void
     {
+        // Check if SQL dump exists and seed from dump if present
+        $dumpCandidates = [
+            base_path('u405695954_pricelist(1).sql'),
+            base_path('database_dump.sql'),
+            database_path('u405695954_pricelist.sql'),
+        ];
+        foreach ($dumpCandidates as $cand) {
+            if (\Illuminate\Support\Facades\File::exists($cand)) {
+                try {
+                    \Illuminate\Support\Facades\Artisan::call('db:import-dump', ['file' => $cand]);
+                    if (Category::count() > 0 && Product::count() > 0) {
+                        return;
+                    }
+                } catch (\Exception $e) {
+                    // Fall back to manual seeding if dump import fails
+                }
+            }
+        }
+
         // 1. Determine active company from database name
         $dbConnName = \Illuminate\Support\Facades\DB::getDefaultConnection();
         $dbName = config("database.connections.{$dbConnName}.database");
