@@ -6,6 +6,8 @@ import AdminProducts from './admin/AdminProducts';
 import { generateReactPDFBlob } from '../components/PriceListPDFDocument';
 import { sortProductsByCode, sortCategoriesByProductCode } from '../utils/productSorter';
 import { batchTranslateCategoriesToTamil, translateEnglishToTamil } from '../utils/translator';
+import { compressImageToTargetSize } from '../utils/imageCompressor';
+import { loadProjectsFromStorage, saveProjectsToStorage, deleteProjectFromStorage } from '../utils/projectStorage';
 
 export default function PriceList({ defaultTab }) {
   const location = useLocation();
@@ -60,19 +62,24 @@ export default function PriceList({ defaultTab }) {
   const [projectSearchQuery, setProjectSearchQuery] = useState('');
   const projectFileInputRef = useRef(null);
 
-  // Load Saved Projects from localStorage on initialization
+  // Load Saved Projects from storage on initialization (IndexedDB + LocalStorage fallback)
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('pricelist_saved_projects');
-      if (stored) {
-        setSavedProjects(JSON.parse(stored));
-      }
-    } catch (err) {
-      console.error('Error loading saved projects from localStorage:', err);
-    }
+    let isMounted = true;
+    loadProjectsFromStorage()
+      .then((projects) => {
+        if (isMounted && projects) {
+          setSavedProjects(projects);
+        }
+      })
+      .catch((err) => {
+        console.error('Error loading saved projects from storage:', err);
+      });
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // Save current state into a project snapshot
+  // Save current state into a project snapshot without stripping data
   const handleSaveCurrentProject = async (customName = null) => {
     try {
       const projName = (customName || activeProjectName || editForm.store_name || 'My Price List Project').trim();
@@ -104,26 +111,8 @@ export default function PriceList({ defaultTab }) {
       setActiveProjectId(projId);
       setActiveProjectName(projName);
 
-      try {
-        localStorage.setItem('pricelist_saved_projects', JSON.stringify(updatedList));
-      } catch (storageErr) {
-        console.warn('LocalStorage quota warning:', storageErr);
-        const compactList = updatedList.map((p) => ({
-          ...p,
-          editForm: {
-            ...p.editForm,
-            store_logo: (p.editForm?.store_logo && p.editForm.store_logo.length > 2000) ? '' : p.editForm?.store_logo,
-            store_deity_image: (p.editForm?.store_deity_image && p.editForm.store_deity_image.length > 2000) ? '' : p.editForm?.store_deity_image,
-            store_upi_qr: (p.editForm?.store_upi_qr && p.editForm.store_upi_qr.length > 2000) ? '' : p.editForm?.store_upi_qr,
-            store_upi_qr_2: (p.editForm?.store_upi_qr_2 && p.editForm.store_upi_qr_2.length > 2000) ? '' : p.editForm?.store_upi_qr_2,
-          },
-        }));
-        try {
-          localStorage.setItem('pricelist_saved_projects', JSON.stringify(compactList));
-        } catch (compactErr) {
-          console.error('LocalStorage save error:', compactErr);
-        }
-      }
+      // Persist full snapshot safely into IndexedDB
+      await saveProjectsToStorage(updatedList);
 
       handleSaveSettings();
 
@@ -149,11 +138,14 @@ export default function PriceList({ defaultTab }) {
     }
   };
 
-  // Open & restore a saved project
+  // Open & restore a saved project with deep state merging
   const handleOpenProject = (project) => {
     if (!project) return;
     if (project.editForm) {
-      setEditForm(project.editForm);
+      setEditForm((prev) => ({
+        ...prev,
+        ...project.editForm,
+      }));
     }
     if (project.categories && setCategories) {
       setCategories(project.categories);
@@ -180,7 +172,7 @@ export default function PriceList({ defaultTab }) {
   };
 
   // Duplicate a project
-  const handleDuplicateProject = (project) => {
+  const handleDuplicateProject = async (project) => {
     const copyName = `${project.name} (Copy)`;
     const copyId = `proj_${Date.now()}`;
     const copy = {
@@ -192,7 +184,7 @@ export default function PriceList({ defaultTab }) {
     };
     const updated = [copy, ...savedProjects];
     setSavedProjects(updated);
-    localStorage.setItem('pricelist_saved_projects', JSON.stringify(updated));
+    await saveProjectsToStorage(updated);
   };
 
   // Delete a project
@@ -206,11 +198,12 @@ export default function PriceList({ defaultTab }) {
         confirmButtonColor: '#d33',
         cancelButtonColor: '#3085d6',
         confirmButtonText: 'Yes, Delete',
-      }).then((result) => {
+      }).then(async (result) => {
         if (result.isConfirmed) {
           const updated = savedProjects.filter((p) => p.id !== projectId);
           setSavedProjects(updated);
-          localStorage.setItem('pricelist_saved_projects', JSON.stringify(updated));
+          await deleteProjectFromStorage(projectId);
+          await saveProjectsToStorage(updated);
           if (activeProjectId === projectId) {
             setActiveProjectId(null);
             setActiveProjectName('');
@@ -251,7 +244,7 @@ export default function PriceList({ defaultTab }) {
   };
 
   // Create a brand new project snapshot and set as active
-  const handleCreateNewProject = (customName = null) => {
+  const handleCreateNewProject = async (customName = null) => {
     const projName = (customName || 'My Price List Project').trim();
     const projId = `proj_${Date.now()}`;
     const timestamp = new Date().toISOString();
@@ -309,11 +302,7 @@ export default function PriceList({ defaultTab }) {
 
     const updatedList = [snapshot, ...savedProjects];
     setSavedProjects(updatedList);
-    try {
-      localStorage.setItem('pricelist_saved_projects', JSON.stringify(updatedList));
-    } catch (err) {
-      console.warn('LocalStorage save warning:', err);
-    }
+    await saveProjectsToStorage(updatedList);
 
     setShowProjectsModal(false);
 
@@ -345,7 +334,7 @@ export default function PriceList({ defaultTab }) {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const parsed = JSON.parse(event.target.result);
         if (parsed && (parsed.editForm || parsed.categories)) {
@@ -357,7 +346,7 @@ export default function PriceList({ defaultTab }) {
           };
           const updated = [importedProj, ...savedProjects];
           setSavedProjects(updated);
-          localStorage.setItem('pricelist_saved_projects', JSON.stringify(updated));
+          await saveProjectsToStorage(updated);
           handleOpenProject(importedProj);
         } else {
           alert('Invalid project JSON file format.');
@@ -439,6 +428,9 @@ export default function PriceList({ defaultTab }) {
   };
 
   const [editForm, setEditForm] = useState({
+    first_page_layout: 'full',
+    gstin: '33ABLFM8150D1ZD',
+    store_sub_header_tag: '(ALL Types of Crackers available Whole Sales & Retail)',
     store_name: 'MASS CRACKERS',
     store_tagline: 'Ready for the Sparkle',
     store_invocation_symbol: 'உ',
@@ -455,6 +447,7 @@ export default function PriceList({ defaultTab }) {
     bank_account_no: '1118104000136815',
     bank_ifsc: 'IBKL0001118',
     footer_position: 'below_table',
+    show_footer: true,
     show_bank_details: true,
     show_upi_qr: true,
     show_tamil_name: false,
@@ -487,6 +480,9 @@ export default function PriceList({ defaultTab }) {
   useEffect(() => {
     if (settings) {
       setEditForm({
+        first_page_layout: settings.first_page_layout || 'full',
+        gstin: settings.gstin || '33ABLFM8150D1ZD',
+        store_sub_header_tag: settings.store_sub_header_tag || '(ALL Types of Crackers available Whole Sales & Retail)',
         store_name: settings.store_name || 'MASS CRACKERS',
         store_tagline: settings.store_tagline || 'Ready for the Sparkle',
         store_invocation_symbol: settings.store_invocation_symbol !== undefined ? settings.store_invocation_symbol : 'உ',
@@ -525,6 +521,7 @@ export default function PriceList({ defaultTab }) {
         bank_account_no: settings.bank_account_no || settings.bank_acc_no || '1118104000136815',
         bank_ifsc: settings.bank_ifsc || 'IBKL0001118',
         footer_position: settings.footer_position || 'below_table',
+        show_footer: settings.show_footer !== undefined ? settings.show_footer : true,
         max_tr_per_page: settings.max_tr_per_page || 30,
         important_note_1: settings.important_note_1 || 'தொடர்ந்து பல ஆண்டுகளாக எங்கள் நிறுவன பட்டாசுகளை வாங்கி தீபாவளியை குடும்பத்தினருடன் கொண்டாடி மகிழும் உங்கள் அனைவருக்கும் இனிய தீபாவளி நல்வாழ்த்துக்கள்!',
         important_note_2: settings.important_note_2 || 'வரவிருக்கும் தீபாவளி பண்டிகைக்கான பட்டாசுகளை அக்டோபர் 15 - ஆம் தேதிக்குள் ஆர்டர் செய்து பெற்றுக்கொள்ளுமாறு வேண்டுகிறோம்.',
@@ -999,7 +996,10 @@ export default function PriceList({ defaultTab }) {
     postData.append('stock_quantity', productFormData.stock_quantity ?? 100);
     postData.append('min_stock_alert', productFormData.min_stock_alert ?? 10);
     postData.append('manage_stock', productFormData.manage_stock || 'yes');
-    if (productImageFile) postData.append('image', productImageFile);
+    if (productImageFile) {
+      const compressedImg = await compressImageToTargetSize(productImageFile, 100);
+      postData.append('image', compressedImg);
+    }
 
     try {
       const res = await fetch('/api/admin/products/store', {
@@ -1502,15 +1502,24 @@ export default function PriceList({ defaultTab }) {
     });
   });
 
-  // 3. Exact 30 TRs per A4 Page Sheet Chunking
+  // 3. Exact TRs per A4 Page Sheet Chunking (supports Full Cover vs Simpler Header Layout)
+  const isSimplerLayout = editForm.first_page_layout === 'simpler';
   const MAX_TR_PER_PAGE = parseInt(editForm.max_tr_per_page || 30, 10);
-  const productPageChunks = [];
+  const SIMPLER_HEADER_TR_COST = 6; // Simpler header div counts as 6 TRs worth of page height
 
+  const productPageChunks = [];
   let currentChunkProducts = [];
   let currentChunkTrCount = 0;
   let currentCatIdInChunk = null;
 
   allFilteredProducts.forEach((product) => {
+    const isFirstChunk = productPageChunks.length === 0;
+
+    // When starting page 1 under simpler layout, offset initial TR count by 6 TR for the header box
+    if (currentChunkProducts.length === 0 && isSimplerLayout && isFirstChunk) {
+      currentChunkTrCount = SIMPLER_HEADER_TR_COST;
+    }
+
     const needsNewCatHeader = product.category_id !== currentCatIdInChunk;
     const trCostForThisProduct = (needsNewCatHeader ? 1 : 0) + 1;
 
@@ -1537,7 +1546,12 @@ export default function PriceList({ defaultTab }) {
     productPageChunks.push([]);
   }
 
-  const totalDocPages = 1 + productPageChunks.length + (editForm.footer_position === 'new_page' ? 1 : 0);
+  const isFooterEnabled = editForm.show_footer !== false && editForm.footer_position !== 'disabled';
+  const hasNewPageFooter = isFooterEnabled && editForm.footer_position === 'new_page';
+
+  const totalDocPages = isSimplerLayout
+    ? productPageChunks.length + (hasNewPageFooter ? 1 : 0)
+    : 1 + productPageChunks.length + (hasNewPageFooter ? 1 : 0);
   const cardBgStyle = { backgroundColor: settings?.card_bg_color || '#FFFFFF' };
   const discountPercent = editForm.discount_percent !== undefined ? editForm.discount_percent : (settings?.discount_percent || 50);
 
@@ -1813,6 +1827,77 @@ export default function PriceList({ defaultTab }) {
                 </button>
               </div>
 
+              {/* 0. FIRST PAGE LAYOUT MODE SELECTOR */}
+              <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-amber-50 border-2 border-emerald-400 rounded-2xl p-4.5 space-y-3 shadow-sm">
+                <div className="flex items-center justify-between border-b border-emerald-200 pb-2">
+                  <h4 className="text-xs font-black text-emerald-950 uppercase tracking-wider flex items-center gap-2">
+                    <i className="fa-solid fa-layer-group text-emerald-600"></i>
+                    First Page Layout Mode
+                  </h4>
+                  <span className="text-[10px] bg-emerald-700 text-white font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                    Template Option
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Full Cover Page Option */}
+                  <button
+                    type="button"
+                    onClick={() => handleInputChange('first_page_layout', 'full')}
+                    className={`p-3 rounded-xl border-2 text-left transition-all flex items-start gap-3 cursor-pointer ${
+                      (editForm.first_page_layout || 'full') === 'full'
+                        ? 'bg-white border-emerald-600 shadow-md ring-2 ring-emerald-400'
+                        : 'bg-white/70 border-slate-200 hover:bg-emerald-50/50'
+                    }`}
+                  >
+                    <div className="w-10 h-14 bg-gradient-to-b from-red-600 to-red-800 rounded-lg shrink-0 flex flex-col items-center justify-center text-white text-[9px] font-black border border-red-400 p-1 shadow-xs">
+                      <i className="fa-solid fa-sparkles mb-0.5 text-yellow-300"></i>
+                      <span>FULL</span>
+                      <span className="text-[7px]">COVER</span>
+                    </div>
+                    <div>
+                      <div className="font-extrabold text-xs text-slate-900 flex items-center gap-1.5">
+                        Full Cover Page
+                        {(editForm.first_page_layout || 'full') === 'full' && (
+                          <i className="fa-solid fa-circle-check text-emerald-600 text-xs"></i>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-500 font-medium leading-snug mt-0.5">
+                        Dedicated 210mm x 297mm full-page festive cover sheet with background & cover image.
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Simpler Header Option */}
+                  <button
+                    type="button"
+                    onClick={() => handleInputChange('first_page_layout', 'simpler')}
+                    className={`p-3 rounded-xl border-2 text-left transition-all flex items-start gap-3 cursor-pointer ${
+                      editForm.first_page_layout === 'simpler'
+                        ? 'bg-white border-emerald-600 shadow-md ring-2 ring-emerald-400'
+                        : 'bg-white/70 border-slate-200 hover:bg-emerald-50/50'
+                    }`}
+                  >
+                    <div className="w-10 h-14 bg-white rounded-lg shrink-0 flex flex-col items-center justify-between text-emerald-800 text-[7px] font-black border-2 border-emerald-700 p-0.5 shadow-xs">
+                      <div className="w-full bg-emerald-700 text-white text-[6px] text-center font-bold">GSTIN</div>
+                      <div className="text-[8px] font-black text-center text-emerald-900 leading-tight">HEADER</div>
+                      <div className="w-full border-t border-emerald-500 text-[6px] text-center text-slate-600">TABLE</div>
+                    </div>
+                    <div>
+                      <div className="font-extrabold text-xs text-slate-900 flex items-center gap-1.5">
+                        Simpler Version (Classic)
+                        {editForm.first_page_layout === 'simpler' && (
+                          <i className="fa-solid fa-circle-check text-emerald-600 text-xs"></i>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-500 font-medium leading-snug mt-0.5">
+                        Compact green double-bordered header with GSTIN & Deity icons. Product table starts right on Page 1.
+                      </p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
               {/* 1. SHOP IDENTITY & INVOCATION SECTION */}
               <div className="bg-white/80 border border-amber-200 rounded-2xl p-4.5 space-y-4 shadow-2xs">
                 <div className="flex items-center gap-2 text-xs font-black text-amber-900 uppercase tracking-wider border-b border-amber-100 pb-2">
@@ -1821,8 +1906,8 @@ export default function PriceList({ defaultTab }) {
                 </div>
 
                 {/* Basic Shop Information Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
-                  <div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 text-xs">
+                  <div className="sm:col-span-2">
                     <label className="block text-slate-700 font-extrabold mb-1">Shop / Company Name</label>
                     <input
                       type="text"
@@ -1837,6 +1922,16 @@ export default function PriceList({ defaultTab }) {
                       type="text"
                       value={editForm.store_tagline}
                       onChange={(e) => handleInputChange('store_tagline', e.target.value)}
+                      className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-extrabold mb-1">GSTIN No.</label>
+                    <input
+                      type="text"
+                      value={editForm.gstin || ''}
+                      onChange={(e) => handleInputChange('gstin', e.target.value)}
+                      placeholder="e.g. 33ABLFM8150D1ZD"
                       className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
                     />
                   </div>
@@ -2691,14 +2786,36 @@ export default function PriceList({ defaultTab }) {
                       />
                     </div>
                     <div>
-                      <label className="block text-slate-700 font-extrabold mb-1">Footer Position (Bank & Notes)</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-slate-700 font-extrabold text-xs">Footer Section (Bank, QR & Notes)</label>
+                        <button
+                          type="button"
+                          onClick={() => handleInputChange('show_footer', editForm.show_footer === false ? true : false)}
+                          className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg font-black text-[11px] transition-all cursor-pointer border ${editForm.show_footer !== false && editForm.footer_position !== 'disabled'
+                            ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700'
+                            : 'bg-slate-200 text-slate-700 border-slate-300 hover:bg-slate-300'
+                          }`}
+                        >
+                          <i className={`fa-solid ${editForm.show_footer !== false && editForm.footer_position !== 'disabled' ? 'fa-toggle-on text-xs' : 'fa-toggle-off text-xs'}`}></i>
+                          <span>{editForm.show_footer !== false && editForm.footer_position !== 'disabled' ? 'Enabled' : 'Disabled'}</span>
+                        </button>
+                      </div>
                       <select
-                        value={editForm.footer_position || 'below_table'}
-                        onChange={(e) => handleInputChange('footer_position', e.target.value)}
+                        value={editForm.show_footer === false ? 'disabled' : (editForm.footer_position || 'below_table')}
+                        onChange={(e) => {
+                          if (e.target.value === 'disabled') {
+                            handleInputChange('show_footer', false);
+                            handleInputChange('footer_position', 'disabled');
+                          } else {
+                            handleInputChange('show_footer', true);
+                            handleInputChange('footer_position', e.target.value);
+                          }
+                        }}
                         className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
                       >
                         <option value="below_table">📍 Below Product Table (Next to Table)</option>
                         <option value="new_page">📄 New Dedicated Page (Standalone Page)</option>
+                        <option value="disabled">🚫 Disabled / Hidden (No Footer)</option>
                       </select>
                     </div>
                   </div>
@@ -2889,18 +3006,40 @@ export default function PriceList({ defaultTab }) {
                 </div>
               </div>
 
-              {/* 5. Footer Position */}
+              {/* 5. Footer Position & Enable Toggle */}
               <div>
-                <label className="block text-slate-700 mb-1 font-extrabold flex items-center justify-between text-[11px]">
-                  <span>Footer Position</span>
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-slate-700 font-extrabold text-[11px]">
+                    Footer Section
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => handleInputChange('show_footer', editForm.show_footer === false ? true : false)}
+                    className={`text-[10px] font-black px-2 py-0.5 rounded transition-all cursor-pointer ${
+                      editForm.show_footer !== false && editForm.footer_position !== 'disabled'
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    {editForm.show_footer !== false && editForm.footer_position !== 'disabled' ? 'ON' : 'OFF'}
+                  </button>
+                </div>
                 <select
-                  value={editForm.footer_position || 'below_table'}
-                  onChange={(e) => handleInputChange('footer_position', e.target.value)}
+                  value={editForm.show_footer === false ? 'disabled' : (editForm.footer_position || 'below_table')}
+                  onChange={(e) => {
+                    if (e.target.value === 'disabled') {
+                      handleInputChange('show_footer', false);
+                      handleInputChange('footer_position', 'disabled');
+                    } else {
+                      handleInputChange('show_footer', true);
+                      handleInputChange('footer_position', e.target.value);
+                    }
+                  }}
                   className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1 text-xs font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer h-[42px] transition-all shadow-2xs"
                 >
                   <option value="below_table">📍 Below Table</option>
                   <option value="new_page">📄 New Page</option>
+                  <option value="disabled">🚫 Disabled / Hidden</option>
                 </select>
               </div>
             </div>
@@ -3163,7 +3302,8 @@ export default function PriceList({ defaultTab }) {
         >
 
           {/* A4 PAGE 1: DEDICATED FULL FESTIVE COVER SHEET (210mm x 297mm) */}
-          <div className="w-full max-w-[210mm] print:w-[210mm]">
+          {!isSimplerLayout && (
+            <div className="w-full max-w-[210mm] print:w-[210mm]">
 
 
             <div
@@ -3480,11 +3620,12 @@ export default function PriceList({ defaultTab }) {
                 </div>
               </div>
             </div>
-          </div>
+            </div>
+          )}
 
-          {/* A4 PAGES 2 ONWARDS: PRODUCT REGISTRY PAGES (25 PRODUCTS PER A4 SHEET - 210mm x 297mm) */}
+          {/* A4 PRODUCT REGISTRY PAGES (210mm x 297mm) */}
           {productPageChunks.map((chunkProducts, chunkIdx) => {
-            const docPageIndex = chunkIdx + 2; // Page 2, Page 3...
+            const docPageIndex = isSimplerLayout ? chunkIdx + 1 : chunkIdx + 2;
 
             // Group chunk products by category for this page
             const chunkCategories = [];
@@ -3503,6 +3644,90 @@ export default function PriceList({ defaultTab }) {
                   className={`a4-page-sheet w-[210mm] h-[297mm] max-h-[297mm] overflow-hidden text-slate-900 transition-all duration-300 relative shadow-2xl flex flex-col justify-between p-4 sm:p-5 select-none mx-auto break-after-page bg-cover bg-center bg-no-repeat box-border`}
                   style={{ backgroundImage: editForm.store_cover_bg === 'none' ? 'none' : `url(${editForm.store_cover_bg ? getImageUrl(editForm.store_cover_bg) : '/images/cover_bg.jpg'})`, pageBreakAfter: 'always' }}
                 >
+                  {/* Simpler Header Box (Traditional Sivakasi Printed Layout - Mahalakshmi Traders Style) */}
+                  {isSimplerLayout && chunkIdx === 0 && (
+                    <div className="w-full border-4 border-double border-emerald-800 rounded-xl p-2.5 sm:p-3 bg-white text-emerald-950 mb-3 shadow-xs print:border-emerald-800 shrink-0">
+                      {/* Top Row: GSTIN, Invocation, Phone */}
+                      <div className="flex flex-wrap justify-between items-center text-[10px] sm:text-[11px] font-extrabold border-b border-emerald-800/40 pb-1 mb-2 gap-1 text-emerald-900">
+                        <div>
+                          <span className="font-black text-emerald-900">GSTIN No:</span>{' '}
+                          <span className="font-mono">{editForm.gstin || '33ABLFM8150D1ZD'}</span>
+                        </div>
+                        <div className="text-center font-black text-emerald-900 flex items-center gap-1">
+                          <span className="underline decoration-emerald-600 underline-offset-2">
+                            {editForm.store_invocation_symbol ? editForm.store_invocation_symbol + ' ' : ''}
+                            {editForm.store_invocation || 'Sri Sena Kasava Perumal Thunai'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="font-black text-emerald-900">Call:</span>{' '}
+                          <span className="font-mono">{[editForm.store_phone, editForm.store_phone_2].filter(Boolean).join(', ') || '94420 60457'}</span>
+                        </div>
+                      </div>
+
+                      {/* Main Header Content Grid */}
+                      <div className="grid grid-cols-12 items-center gap-2">
+                        {/* Left Column: Left Deity & SRM Seal */}
+                        <div className="col-span-3 flex items-center justify-start gap-2">
+                          {getDeityImageUrl() ? (
+                            <img
+                              src={getDeityImageUrl()}
+                              alt="Deity Left"
+                              className="h-14 w-14 sm:h-16 sm:w-16 object-contain drop-shadow"
+                            />
+                          ) : (
+                            <div className="h-12 w-12 rounded-full border-2 border-emerald-800 bg-emerald-50 flex items-center justify-center text-emerald-800 font-black text-xs">
+                              🛕
+                            </div>
+                          )}
+                          <div className="hidden sm:flex flex-col items-center justify-center w-11 h-11 rounded-full border-2 border-emerald-800 p-0.5 text-center shrink-0">
+                            <span className="text-[8px] font-black text-emerald-900 leading-none">S R M</span>
+                          </div>
+                        </div>
+
+                        {/* Center Column: Shop Name, Address, Email & Tagline */}
+                        <div className="col-span-6 text-center space-y-0.5">
+                          <h1
+                            className="text-lg sm:text-2xl font-black text-emerald-900 uppercase tracking-tight leading-tight"
+                            style={{ fontFamily: getStoreNameFontFamily() }}
+                          >
+                            {editForm.store_name}
+                          </h1>
+                          <p className="text-[9.5px] sm:text-[10.5px] font-extrabold text-emerald-950 leading-tight">
+                            {editForm.store_address}
+                          </p>
+                          {editForm.store_email && (
+                            <p className="text-[9px] font-bold text-emerald-800">
+                              Email : {editForm.store_email}
+                            </p>
+                          )}
+                          <p className="text-[9px] font-extrabold text-emerald-900 italic pt-0.5">
+                            {editForm.store_sub_header_tag || '(ALL Types of Crackers available Whole Sales & Retail)'}
+                          </p>
+                        </div>
+
+                        {/* Right Column: Right Deity & Discount Badge */}
+                        <div className="col-span-3 flex items-center justify-end gap-2">
+                          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 border-emerald-800 bg-white flex flex-col items-center justify-center text-center shrink-0 shadow-xs">
+                            <span className="text-xs sm:text-sm font-black text-emerald-900 leading-none">{discountPercent}%</span>
+                            <span className="text-[7.5px] sm:text-[8.5px] font-bold text-emerald-800 uppercase tracking-tighter">Discount</span>
+                          </div>
+                          {getDeityImageUrl() ? (
+                            <img
+                              src={getDeityImageUrl()}
+                              alt="Deity Right"
+                              className="h-14 w-14 sm:h-16 sm:w-16 object-contain drop-shadow"
+                            />
+                          ) : (
+                            <div className="h-12 w-12 rounded-full border-2 border-emerald-800 bg-emerald-50 flex items-center justify-center text-emerald-800 font-black text-xs">
+                              ✨
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Product Table Container */}
                   <div className="w-full flex-1">
                     {chunkProducts.length === 0 ? (
@@ -3890,7 +4115,7 @@ export default function PriceList({ defaultTab }) {
                     )}
 
                     {/* RIGHT AFTER TABLE ENDS: CLEAN TABLE-MATCHING PAYMENT BLOCK */}
-                    {(editForm.footer_position || 'below_table') === 'below_table' && chunkIdx === productPageChunks.length - 1 && (() => {
+                    {isFooterEnabled && (editForm.footer_position || 'below_table') === 'below_table' && chunkIdx === productPageChunks.length - 1 && (() => {
                       const hasQr2 = !!(editForm.store_upi_qr_2 || editForm.store_gpay_2);
                       const showQr = editForm.show_upi_qr !== false;
                       const showBank = editForm.show_bank_details !== false;
@@ -4086,7 +4311,7 @@ export default function PriceList({ defaultTab }) {
           })}
 
           {/* A4 STANDALONE BACK COVER / FOOTER PAGE */}
-          {editForm.footer_position === 'new_page' && (
+          {isFooterEnabled && editForm.footer_position === 'new_page' && (
             <div className="w-full max-w-[210mm] print:w-[210mm]">
               <div
                 className="a4-page-sheet w-[210mm] h-[297mm] max-h-[297mm] overflow-hidden text-slate-900 transition-all duration-300 relative shadow-2xl flex flex-col justify-between p-4 sm:p-5 select-none mx-auto break-after-page bg-cover bg-center bg-no-repeat box-border"

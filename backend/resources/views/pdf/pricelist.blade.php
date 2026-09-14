@@ -219,6 +219,7 @@
 </head>
 <body>
 
+@if(($editForm['first_page_layout'] ?? 'full') !== 'simpler')
     <!-- PAGE 1: COVER PAGE -->
     <div class="page-sheet cover-sheet">
         @php
@@ -319,6 +320,7 @@
             @endif
         </div>
     </div>
+@endif
 
     <!-- PRODUCT PAGES -->
     @php 
@@ -335,6 +337,58 @@
 
     @foreach($productPageChunks as $chunkIdx => $chunkProducts)
         <div class="page-sheet">
+            @if(($editForm['first_page_layout'] ?? 'full') === 'simpler' && $chunkIdx === 0)
+            @php
+                $deityLeftImg = !empty($editForm['store_deity_image_left']) ? $editForm['store_deity_image_left'] : (!empty($editForm['store_deity_image']) ? $editForm['store_deity_image'] : 'images/god_perumal.png');
+                $deityRightImg = !empty($editForm['store_deity_image_right']) ? $editForm['store_deity_image_right'] : (!empty($editForm['store_deity_image']) ? $editForm['store_deity_image'] : 'images/god_perumal.png');
+                
+                $deityLeftPath = file_exists(public_path($deityLeftImg)) ? public_path($deityLeftImg) : (file_exists(public_path('images/god_perumal.png')) ? public_path('images/god_perumal.png') : null);
+                $deityRightPath = file_exists(public_path($deityRightImg)) ? public_path($deityRightImg) : (file_exists(public_path('images/god_perumal.png')) ? public_path('images/god_perumal.png') : null);
+            @endphp
+            <div style="border: 3px double #065f46; border-radius: 8px; padding: 8px; margin-bottom: 12px; background: #ffffff;">
+                <div style="display: table; width: 100%; border-bottom: 1px solid rgba(6,95,70,0.3); padding-bottom: 4px; margin-bottom: 6px; font-size: 9px; font-weight: bold; color: #064e3b;">
+                    <div style="display: table-cell; width: 33%;">
+                        {{ $editForm['store_gstin_label'] ?? 'GSTIN No:' }} {{ $editForm['gstin'] ?? '33ABLFM8150D1ZD' }}
+                    </div>
+                    <div style="display: table-cell; width: 34%; text-align: center;">
+                        <span style="text-decoration: underline;">
+                            {{ !empty($editForm['store_invocation_symbol']) ? $editForm['store_invocation_symbol'] . ' ' : '' }}
+                            {{ $editForm['store_invocation'] ?? 'Sri Sena Kasava Perumal Thunai' }}
+                        </span>
+                    </div>
+                    <div style="display: table-cell; width: 33%; text-align: right;">
+                        {{ $editForm['store_call_label'] ?? 'Call:' }} {{ implode(', ', array_filter([$editForm['store_phone'] ?? '', $editForm['store_phone_2'] ?? ''])) }}
+                    </div>
+                </div>
+                <div style="display: table; width: 100%; vertical-align: middle;">
+                    <div style="display: table-cell; width: 25%; vertical-align: middle;">
+                        @if($deityLeftPath)
+                        <img src="{{ $deityLeftPath }}" style="height: 55px; width: 55px; object-fit: contain; vertical-align: middle;" alt="Deity Left"/>
+                        @endif
+                        <div style="display: inline-block; width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid #065f46; text-align: center; line-height: 24px; font-size: 8px; font-weight: 900; color: #064e3b; margin-left: 4px; vertical-align: middle;">
+                            {{ $editForm['store_srm_seal_text'] ?? 'SRM' }}
+                        </div>
+                    </div>
+                    <div style="display: table-cell; width: 50%; text-align: center; vertical-align: middle;">
+                        <div style="font-size: 18px; font-weight: 900; color: #064e3b; text-transform: uppercase;">{{ $editForm['store_name'] ?? 'MASS CRACKERS' }}</div>
+                        <div style="font-size: 9px; font-weight: bold; color: #0f172a; margin-top: 2px;">{{ $editForm['store_address'] ?? '' }}</div>
+                        @if(!empty($editForm['store_email']))
+                        <div style="font-size: 8px; font-weight: bold; color: #065f46; margin-top: 1px;">Email : {{ $editForm['store_email'] }}</div>
+                        @endif
+                        <div style="font-size: 8px; font-weight: bold; color: #064e3b; font-style: italic; margin-top: 2px;">{{ $editForm['store_sub_header_tag'] ?? '(ALL Types of Crackers available Whole Sales & Retail)' }}</div>
+                    </div>
+                    <div style="display: table-cell; width: 25%; text-align: right; vertical-align: middle;">
+                        <div style="display: inline-block; width: 38px; height: 38px; border-radius: 50%; border: 1.5px solid #065f46; text-align: center; margin-right: 4px; vertical-align: middle;">
+                            <div style="font-size: 11px; font-weight: 900; color: #064e3b; line-height: 1.2;">{{ $discountPercent }}%</div>
+                            <div style="font-size: 5.5px; font-weight: bold; color: #064e3b; text-transform: uppercase;">{{ $editForm['store_discount_label'] ?? 'DISCOUNT' }}</div>
+                        </div>
+                        @if($deityRightPath)
+                        <img src="{{ $deityRightPath }}" style="height: 55px; width: 55px; object-fit: contain; vertical-align: middle;" alt="Deity Right"/>
+                        @endif
+                    </div>
+                </div>
+            </div>
+            @endif
             <table class="pricelist-table">
                 <thead>
                     <tr>

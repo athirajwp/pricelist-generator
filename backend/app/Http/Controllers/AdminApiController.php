@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use App\Helpers\ImageOptimizer;
 
 class AdminApiController extends Controller
 {
@@ -193,6 +194,7 @@ class AdminApiController extends Controller
             $imageName = time() . '_' . uniqid() . '.' . $request->image->extension();
             $request->image->move(public_path($uploadDir), $imageName);
             $imagePath = $uploadDir . '/' . $imageName;
+            ImageOptimizer::compressToTargetSize(public_path($imagePath));
         }
 
         // Auto-heal missing columns if tenant database schema has not executed recent migrations
@@ -320,6 +322,7 @@ class AdminApiController extends Controller
             $imageName = time() . '_' . uniqid() . '.' . $request->image->extension();
             $request->image->move(public_path($uploadDir), $imageName);
             $imagePath = $uploadDir . '/' . $imageName;
+            ImageOptimizer::compressToTargetSize(public_path($imagePath));
         }
 
         // Auto-heal missing columns if tenant database schema has not executed recent migrations
@@ -1631,6 +1634,7 @@ class AdminApiController extends Controller
                 $fileName = time() . '_' . $field . '_' . uniqid() . '.' . $ext;
                 $file->move(public_path($uploadDir), $fileName);
                 $filePath = $uploadDir . '/' . $fileName;
+                ImageOptimizer::compressToTargetSize(public_path($filePath));
 
                 // Clean up old file from disk if it existed
                 $oldPath = Setting::get($field);

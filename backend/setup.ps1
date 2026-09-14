@@ -7,17 +7,29 @@ $phpDir = Join-Path $toolsDir "php"
 $phpZipPath = Join-Path $toolsDir "php.zip"
 $composerPath = Join-Path $toolsDir "composer.phar"
 
-# Create Tools directory
-if (-not (Test-Path $toolsDir)) {
-    New-Item -ItemType Directory -Path $toolsDir | Out-Null
-    Write-Host "Created tools directory inside backend." -ForegroundColor Green
+# Create required storage directories
+$storageDirs = @(
+    (Join-Path $PSScriptRoot "storage\app\public"),
+    (Join-Path $PSScriptRoot "storage\framework\cache\data"),
+    (Join-Path $PSScriptRoot "storage\framework\sessions"),
+    (Join-Path $PSScriptRoot "storage\framework\views"),
+    (Join-Path $PSScriptRoot "storage\logs")
+)
+foreach ($dir in $storageDirs) {
+    if (-not (Test-Path $dir)) {
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    }
 }
 
+
 # 1. Download & Extract PHP
-if (-not (Test-Path (Join-Path $phpDir "php.exe"))) {
+$systemPhpExists = $null -ne (Get-Command php -ErrorAction SilentlyContinue)
+if (-not (Test-Path (Join-Path $phpDir "php.exe")) -and -not $systemPhpExists) {
     Write-Host "Downloading portable PHP 8.2..." -ForegroundColor Yellow
     try {
-        cmd.exe /c "node download.js php"
+        if (-not (Test-Path $toolsDir)) { New-Item -ItemType Directory -Path $toolsDir | Out-Null }
+        $phpUrl = "https://windows.php.net/downloads/releases/archives/php-8.2.18-Win32-vs16-x64.zip"
+        Invoke-WebRequest -Uri $phpUrl -OutFile $phpZipPath -UseBasicParsing
         Write-Host "PHP download completed." -ForegroundColor Green
         
         Write-Host "Extracting PHP..." -ForegroundColor Yellow
@@ -28,16 +40,15 @@ if (-not (Test-Path (Join-Path $phpDir "php.exe"))) {
         Remove-Item $phpZipPath -Force
         Write-Host "PHP extracted successfully." -ForegroundColor Green
     } catch {
-        Write-Error "Failed to download/extract PHP: $_"
-        exit 1
+        Write-Host "Could not download portable PHP. System PHP will be used if present." -ForegroundColor Yellow
     }
 } else {
-    Write-Host "Portable PHP already set up." -ForegroundColor Green
+    Write-Host "PHP environment available." -ForegroundColor Green
 }
 
 # 2. Configure php.ini
 $phpIniPath = Join-Path $phpDir "php.ini"
-if (-not (Test-Path $phpIniPath)) {
+if ((Test-Path $phpDir) -and -not (Test-Path $phpIniPath)) {
     Write-Host "Configuring php.ini..." -ForegroundColor Yellow
     
     $iniContent = @"
@@ -88,12 +99,14 @@ extension_dir = "ext"
 # Core Extensions
 extension=curl
 extension=fileinfo
+extension=gd
 extension=mbstring
 extension=openssl
 extension=pdo_sqlite
 extension=sqlite3
 extension=pdo_mysql
 extension=mysqli
+extension=zip
 
 
 [CLI Server]
@@ -110,11 +123,12 @@ date.timezone = UTC
 if (-not (Test-Path $composerPath)) {
     Write-Host "Downloading Composer..." -ForegroundColor Yellow
     try {
-        cmd.exe /c "node download.js composer"
+        if (-not (Test-Path $toolsDir)) { New-Item -ItemType Directory -Path $toolsDir | Out-Null }
+        $composerUrl = "https://getcomposer.org/download/latest-stable/composer.phar"
+        Invoke-WebRequest -Uri $composerUrl -OutFile $composerPath -UseBasicParsing
         Write-Host "Composer downloaded successfully." -ForegroundColor Green
     } catch {
-        Write-Error "Failed to download Composer: $_"
-        exit 1
+        Write-Host "Could not download Composer phar." -ForegroundColor Yellow
     }
 } else {
     Write-Host "Composer already set up." -ForegroundColor Green
@@ -125,28 +139,60 @@ Write-Host "Creating helper batch files in backend..." -ForegroundColor Yellow
 
 $phpBat = @"
 @echo off
-"%~dp0.tools\php\php.exe" -c "%~dp0.tools\php\php.ini" %*
+setlocal
+if exist "%~dp0.tools\php\php.exe" (
+    set "PHP_CMD="%~dp0.tools\php\php.exe" -c "%~dp0.tools\php\php.ini""
+) else (
+    set "PHP_CMD=php.exe"
+)
+
+%PHP_CMD% %*
 "@
 Set-Content -Path (Join-Path $PSScriptRoot "php.bat") -Value $phpBat
 
 $composerBat = @"
 @echo off
-"%~dp0.tools\php\php.exe" -c "%~dp0.tools\php\php.ini" "%~dp0.tools\composer.phar" %*
+setlocal
+if exist "%~dp0.tools\php\php.exe" (
+    set "PHP_CMD="%~dp0.tools\php\php.exe" -c "%~dp0.tools\php\php.ini""
+) else (
+    set "PHP_CMD=php.exe"
+)
+
+if exist "%~dp0.tools\composer.phar" (
+    %PHP_CMD% "%~dp0.tools\composer.phar" %*
+) else (
+    composer %*
+)
 "@
 Set-Content -Path (Join-Path $PSScriptRoot "composer.bat") -Value $composerBat
 
 $artisanBat = @"
 @echo off
-"%~dp0.tools\php\php.exe" -c "%~dp0.tools\php\php.ini" "%~dp0artisan" %*
+setlocal
+if exist "%~dp0.tools\php\php.exe" (
+    set "PHP_CMD="%~dp0.tools\php\php.exe" -c "%~dp0.tools\php\php.ini""
+) else (
+    set "PHP_CMD=php.exe"
+)
+
+%PHP_CMD% "%~dp0artisan" %*
 "@
 Set-Content -Path (Join-Path $PSScriptRoot "artisan.bat") -Value $artisanBat
 
 $runBat = @"
 @echo off
+setlocal
+if exist "%~dp0.tools\php\php.exe" (
+    set "PHP_CMD="%~dp0.tools\php\php.exe" -c "%~dp0.tools\php\php.ini""
+) else (
+    set "PHP_CMD=php.exe"
+)
+
 echo Starting Cracker Demo local development environment...
 echo Opening browser...
 start http://127.0.0.1:9000
-"%~dp0.tools\php\php.exe" -c "%~dp0.tools\php\php.ini" "%~dp0artisan" serve --port=9000
+%PHP_CMD% "%~dp0artisan" serve --port=9000
 "@
 Set-Content -Path (Join-Path $PSScriptRoot "run.bat") -Value $runBat
 

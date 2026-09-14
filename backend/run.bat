@@ -1,6 +1,13 @@
 @echo off
+setlocal
+if exist "%~dp0.tools\php\php.exe" (
+    set "PHP_CMD="%~dp0.tools\php\php.exe" -c "%~dp0.tools\php\php.ini""
+) else (
+    set "PHP_CMD=php.exe"
+)
+
 echo Starting Cracker Demo local development environment...
 echo Waiting for server to initialize...
 start "" powershell -Command "Start-Sleep -Seconds 2; Start-Process 'http://127.0.0.1:9000'"
-"%~dp0.tools\php\php.exe" -c "%~dp0.tools\php\php.ini" "%~dp0artisan" serve --port=9000
+%PHP_CMD% "%~dp0artisan" serve --port=9000
 

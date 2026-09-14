@@ -420,6 +420,7 @@ export const StoreProvider = ({ children }) => {
     categories,
     setCategories,
     settings,
+    setSettings,
     loading,
     cart,
     increaseQty,

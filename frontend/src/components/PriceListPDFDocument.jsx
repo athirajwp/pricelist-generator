@@ -356,85 +356,87 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
   return (
     <Document title={`${editForm.store_name || 'PriceList'}_Catalogue`}>
       {/* Cover Page */}
-      <Page size="A4" style={[styles.coverPage, editForm.store_cover_bg === 'none' ? { backgroundColor: '#ffffff' } : null]}>
-        {coverBgUrl && <Image src={coverBgUrl} style={styles.coverBg} />}
-        {customFloatUrl && editForm.show_custom_float_image !== false && (
-          <Image
-            src={customFloatUrl}
-            style={{
-              position: 'absolute',
-              left: `${editForm.custom_float_x !== undefined ? editForm.custom_float_x : 15}%`,
-              top: `${editForm.custom_float_y !== undefined ? editForm.custom_float_y : 15}%`,
-              width: `${Math.round(200 * ((editForm.custom_float_scale || 100) / 100))}px`,
-              height: 'auto',
-              zIndex: 35,
-            }}
-          />
-        )}
-        <View style={styles.coverOverlay}>
-          {/* Top Invocation */}
-          <View style={styles.coverTop}>
-            {editForm.store_invocation_symbol ? (
-              <Text style={[styles.invocationSymbol, editForm.store_invocation_color ? { color: editForm.store_invocation_color } : null]}>{editForm.store_invocation_symbol}</Text>
-            ) : null}
-            {editForm.store_invocation ? (
-              <Text style={[styles.invocationText, editForm.store_invocation_color ? { color: editForm.store_invocation_color } : null]}>{editForm.store_invocation}</Text>
-            ) : null}
-          </View>
-
-          {/* Center Brand */}
-          <View style={styles.coverCenter}>
-            <Text style={[styles.storeName, editForm.store_title_color ? { color: editForm.store_title_color } : null]}>{editForm.store_name || 'MASS CRACKERS'}</Text>
-            {editForm.store_tagline ? (
-              <Text style={[styles.storeTagline, editForm.store_tagline_color ? { color: editForm.store_tagline_color } : null]}>"{editForm.store_tagline}"</Text>
-            ) : null}
-            <Text style={[styles.priceListBadge, editForm.store_badge_color ? { color: editForm.store_badge_color } : null]}>PRICE LIST - {editForm.store_year || '2026'}</Text>
-          </View>
-
-          {/* Center Deity Motif Image */}
-          {deityUrl ? (
-            <View style={styles.deityImageContainer}>
-              <Image src={deityUrl} style={[styles.deityImg, { maxHeight: 390 * ((editForm.deity_scale || 100) / 100), maxWidth: 390 * ((editForm.deity_scale || 100) / 100) }]} />
-            </View>
-          ) : (
-            <View style={{ flex: 1 }} />
+      {editForm.first_page_layout !== 'simpler' && (
+        <Page size="A4" style={[styles.coverPage, editForm.store_cover_bg === 'none' ? { backgroundColor: '#ffffff' } : null]}>
+          {coverBgUrl && <Image src={coverBgUrl} style={styles.coverBg} />}
+          {customFloatUrl && editForm.show_custom_float_image !== false && (
+            <Image
+              src={customFloatUrl}
+              style={{
+                position: 'absolute',
+                left: `${editForm.custom_float_x !== undefined ? editForm.custom_float_x : 15}%`,
+                top: `${editForm.custom_float_y !== undefined ? editForm.custom_float_y : 15}%`,
+                width: `${Math.round(200 * ((editForm.custom_float_scale || 100) / 100))}px`,
+                height: 'auto',
+                zIndex: 35,
+              }}
+            />
           )}
+          <View style={styles.coverOverlay}>
+            {/* Top Invocation */}
+            <View style={styles.coverTop}>
+              {editForm.store_invocation_symbol ? (
+                <Text style={[styles.invocationSymbol, editForm.store_invocation_color ? { color: editForm.store_invocation_color } : null]}>{editForm.store_invocation_symbol}</Text>
+              ) : null}
+              {editForm.store_invocation ? (
+                <Text style={[styles.invocationText, editForm.store_invocation_color ? { color: editForm.store_invocation_color } : null]}>{editForm.store_invocation}</Text>
+              ) : null}
+            </View>
 
-          {/* Bottom Order Banner */}
-          <View style={{ width: '100%' }}>
-            <View style={styles.coverBanner}>
-              <View style={styles.coverBannerLeft}>
-                {logoUrl ? (
-                  <Image src={logoUrl} style={[styles.coverLogo, { height: 45 * ((editForm.logo_scale || 100) / 100), width: 85 * ((editForm.logo_scale || 100) / 100) }]} />
-                ) : (
-                  <Text style={{ fontSize: 12 * ((editForm.logo_scale || 100) / 100), fontWeight: 'bold', color: '#991b1b' }}>{editForm.store_name}</Text>
+            {/* Center Brand */}
+            <View style={styles.coverCenter}>
+              <Text style={[styles.storeName, editForm.store_title_color ? { color: editForm.store_title_color } : null]}>{editForm.store_name || 'MASS CRACKERS'}</Text>
+              {editForm.store_tagline ? (
+                <Text style={[styles.storeTagline, editForm.store_tagline_color ? { color: editForm.store_tagline_color } : null]}>"{editForm.store_tagline}"</Text>
+              ) : null}
+              <Text style={[styles.priceListBadge, editForm.store_badge_color ? { color: editForm.store_badge_color } : null]}>PRICE LIST - {editForm.store_year || '2026'}</Text>
+            </View>
+
+            {/* Center Deity Motif Image */}
+            {deityUrl ? (
+              <View style={styles.deityImageContainer}>
+                <Image src={deityUrl} style={[styles.deityImg, { maxHeight: 390 * ((editForm.deity_scale || 100) / 100), maxWidth: 390 * ((editForm.deity_scale || 100) / 100) }]} />
+              </View>
+            ) : (
+              <View style={{ flex: 1 }} />
+            )}
+
+            {/* Bottom Order Banner */}
+            <View style={{ width: '100%' }}>
+              <View style={styles.coverBanner}>
+                <View style={styles.coverBannerLeft}>
+                  {logoUrl ? (
+                    <Image src={logoUrl} style={[styles.coverLogo, { height: 45 * ((editForm.logo_scale || 100) / 100), width: 85 * ((editForm.logo_scale || 100) / 100) }]} />
+                  ) : (
+                    <Text style={{ fontSize: 12 * ((editForm.logo_scale || 100) / 100), fontWeight: 'bold', color: '#991b1b' }}>{editForm.store_name}</Text>
+                  )}
+                </View>
+                <View style={styles.coverBannerCenter}>
+                  {editForm.store_email ? (
+                    <Text style={[styles.contactItem, { fontSize: 8 * ((editForm.contact_scale || 100) / 100) }]}>🌐 {editForm.store_email}</Text>
+                  ) : null}
+                  <Text style={[styles.contactItem, { fontSize: 8 * ((editForm.contact_scale || 100) / 100) }]}>
+                    📞 {[editForm.store_phone, editForm.store_phone_2].filter(Boolean).join(', ')}
+                  </Text>
+                  {editForm.store_gpay ? (
+                    <Text style={[styles.contactItem, { fontSize: 8 * ((editForm.contact_scale || 100) / 100) }]}>💳 GPay: {editForm.store_gpay}</Text>
+                  ) : null}
+                </View>
+                {editForm.show_discount_badge !== false && (
+                  <View style={styles.coverBannerRight}>
+                    <Text style={[styles.megaSaleText, { fontSize: 9 * ((editForm.discount_scale || 100) / 100) }]}>MEGA SALE</Text>
+                    <Text style={[styles.discountVal, { fontSize: 22 * ((editForm.discount_scale || 100) / 100) }]}>{editForm.discount_percent || 50}%</Text>
+                    <Text style={[styles.discountBadge, { fontSize: 7 * ((editForm.discount_scale || 100) / 100) }]}>DISCOUNT</Text>
+                  </View>
                 )}
               </View>
-              <View style={styles.coverBannerCenter}>
-                {editForm.store_email ? (
-                  <Text style={[styles.contactItem, { fontSize: 8 * ((editForm.contact_scale || 100) / 100) }]}>🌐 {editForm.store_email}</Text>
-                ) : null}
-                <Text style={[styles.contactItem, { fontSize: 8 * ((editForm.contact_scale || 100) / 100) }]}>
-                  📞 {[editForm.store_phone, editForm.store_phone_2].filter(Boolean).join(', ')}
-                </Text>
-                {editForm.store_gpay ? (
-                  <Text style={[styles.contactItem, { fontSize: 8 * ((editForm.contact_scale || 100) / 100) }]}>💳 GPay: {editForm.store_gpay}</Text>
-                ) : null}
-              </View>
-              {editForm.show_discount_badge !== false && (
-                <View style={styles.coverBannerRight}>
-                  <Text style={[styles.megaSaleText, { fontSize: 9 * ((editForm.discount_scale || 100) / 100) }]}>MEGA SALE</Text>
-                  <Text style={[styles.discountVal, { fontSize: 22 * ((editForm.discount_scale || 100) / 100) }]}>{editForm.discount_percent || 50}%</Text>
-                  <Text style={[styles.discountBadge, { fontSize: 7 * ((editForm.discount_scale || 100) / 100) }]}>DISCOUNT</Text>
-                </View>
-              )}
+              {editForm.store_address ? (
+                <Text style={[styles.addressRow, { fontSize: 8 * ((editForm.address_scale || 100) / 100) }]}>📍 {editForm.store_address}</Text>
+              ) : null}
             </View>
-            {editForm.store_address ? (
-              <Text style={[styles.addressRow, { fontSize: 8 * ((editForm.address_scale || 100) / 100) }]}>📍 {editForm.store_address}</Text>
-            ) : null}
           </View>
-        </View>
-      </Page>
+        </Page>
+      )}
 
       {/* Catalogue Product Table Pages */}
       {productPageChunks.map((chunkItem, chunkIdx) => {
@@ -477,17 +479,46 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
 
         return (
           <Page key={chunkIdx} size="A4" style={styles.page}>
-            {/* Header */}
-            <View style={styles.header}>
-              <View style={styles.headerLeft}>
-                <Text style={styles.headerStoreName}>{editForm.store_name || 'MASS CRACKERS'}</Text>
-                <Text style={styles.headerSub}>OFFICIAL PRICE LIST - {editForm.store_year || '2026'}</Text>
+            {/* Simpler Header Box on Page 1 when layout is simpler */}
+            {editForm.first_page_layout === 'simpler' && chunkIdx === 0 ? (
+              <View style={{ border: '2pt double #065f46', borderRadius: 4, padding: 6, marginBottom: 8, backgroundColor: '#ffffff' }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#065f46', paddingBottom: 3, marginBottom: 4 }}>
+                  <Text style={{ fontSize: 7, fontWeight: 'bold', color: '#064e3b' }}>GSTIN No: {editForm.gstin || '33ABLFM8150D1ZD'}</Text>
+                  <Text style={{ fontSize: 7, fontWeight: 'bold', color: '#064e3b' }}>{editForm.store_invocation_symbol ? editForm.store_invocation_symbol + ' ' : ''}{editForm.store_invocation || 'Sri Sena Kasava Perumal Thunai'}</Text>
+                  <Text style={{ fontSize: 7, fontWeight: 'bold', color: '#064e3b' }}>Call: {[editForm.store_phone, editForm.store_phone_2].filter(Boolean).join(', ')}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <View style={{ width: '22%', flexDirection: 'row', alignItems: 'center' }}>
+                    {deityUrl ? <Image src={deityUrl} style={{ width: 36, height: 36, objectFit: 'contain' }} /> : null}
+                  </View>
+                  <View style={{ width: '56%', textAlign: 'center' }}>
+                    <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#064e3b', textTransform: 'uppercase' }}>{editForm.store_name || 'MASS CRACKERS'}</Text>
+                    <Text style={{ fontSize: 7.5, color: '#0f172a', marginTop: 1 }}>{editForm.store_address}</Text>
+                    {editForm.store_email ? <Text style={{ fontSize: 7, color: '#065f46', marginTop: 1 }}>Email: {editForm.store_email}</Text> : null}
+                    <Text style={{ fontSize: 7, fontWeight: 'bold', color: '#064e3b', fontStyle: 'italic', marginTop: 1 }}>{editForm.store_sub_header_tag || '(ALL Types of Crackers available Whole Sales & Retail)'}</Text>
+                  </View>
+                  <View style={{ width: '22%', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }}>
+                    <View style={{ width: 30, height: 30, borderRadius: 15, border: '1pt solid #065f46', alignItems: 'center', justifyContent: 'center', marginRight: 4 }}>
+                      <Text style={{ fontSize: 9, fontWeight: 'bold', color: '#064e3b' }}>{editForm.discount_percent || 50}%</Text>
+                      <Text style={{ fontSize: 5, color: '#065f46' }}>Off</Text>
+                    </View>
+                    {deityUrl ? <Image src={deityUrl} style={{ width: 36, height: 36, objectFit: 'contain' }} /> : null}
+                  </View>
+                </View>
               </View>
-              <View style={styles.headerRight}>
-                <Text style={styles.headerPhone}>📞 {[editForm.store_phone, editForm.store_phone_2].filter(Boolean).join(', ')}</Text>
-                {editForm.store_email ? <Text style={{ fontSize: 7, color: '#64748b' }}>{editForm.store_email}</Text> : null}
+            ) : (
+              /* Standard Header */
+              <View style={styles.header}>
+                <View style={styles.headerLeft}>
+                  <Text style={styles.headerStoreName}>{editForm.store_name || 'MASS CRACKERS'}</Text>
+                  <Text style={styles.headerSub}>OFFICIAL PRICE LIST - {editForm.store_year || '2026'}</Text>
+                </View>
+                <View style={styles.headerRight}>
+                  <Text style={styles.headerPhone}>📞 {[editForm.store_phone, editForm.store_phone_2].filter(Boolean).join(', ')}</Text>
+                  {editForm.store_email ? <Text style={{ fontSize: 7, color: '#64748b' }}>{editForm.store_email}</Text> : null}
+                </View>
               </View>
-            </View>
+            )}
 
             {/* Table */}
             <View style={styles.table}>
@@ -528,7 +559,7 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
             </View>
 
             {/* Payment Info Section on Last Page */}
-            {(editForm.footer_position || 'below_table') === 'below_table' && chunkIdx === productPageChunks.length - 1 && (() => {
+            {editForm.show_footer !== false && editForm.footer_position !== 'disabled' && (editForm.footer_position || 'below_table') === 'below_table' && chunkIdx === productPageChunks.length - 1 && (() => {
               const hasQr2 = !!(upiQrUrl2 || editForm.store_gpay_2);
               const showQr = editForm.show_upi_qr !== false;
               const showBank = editForm.show_bank_details !== false;

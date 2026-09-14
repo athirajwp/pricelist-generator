@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import JSZip from 'jszip';
 import AdminLayout from './AdminLayout';
+import { compressImageToTargetSize } from '../../utils/imageCompressor';
 
 const Swal = window.Swal;
 
@@ -17,8 +18,10 @@ export default function AdminImageCompressor({ noLayout = false }) {
   const [settings, setSettings] = useState({
     format: 'webp', // 'webp' | 'jpeg' | 'png'
     quality: 80, // 10 to 100
-    maxWidth: 0, // 0 means original size, else cap width
-    maxHeight: 0,
+    targetSizeKB: 100, // Target size in KB (e.g., 100KB)
+    useTargetSize: true, // Auto compress down to target size (100KB)
+    maxWidth: 1200, // cap max dimension
+    maxHeight: 1200,
     namingPrefix: '',
     namingSuffix: '_compressed',
     autoCompress: true,
@@ -121,7 +124,33 @@ export default function AdminImageCompressor({ noLayout = false }) {
   };
 
   // Perform canvas compression for a single item
-  const compressSingleItem = (item, currentSettings) => {
+  const compressSingleItem = async (item, currentSettings) => {
+    if (currentSettings.useTargetSize) {
+      try {
+        const compressedFile = await compressImageToTargetSize(
+          item.file,
+          currentSettings.targetSizeKB || 100,
+          currentSettings.maxWidth || 1200
+        );
+        const compressedUrl = URL.createObjectURL(compressedFile);
+        const compressedSize = compressedFile.size;
+        const reduction = ((item.originalSize - compressedSize) / item.originalSize) * 100;
+
+        return {
+          ...item,
+          status: 'done',
+          compressedBlob: compressedFile,
+          compressedUrl,
+          compressedSize,
+          compressedWidth: item.originalWidth,
+          compressedHeight: item.originalHeight,
+          reductionRatio: Math.max(0, parseFloat(reduction.toFixed(1))),
+        };
+      } catch (err) {
+        console.warn('Target size compression failed, falling back to canvas:', err);
+      }
+    }
+
     return new Promise((resolve) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';

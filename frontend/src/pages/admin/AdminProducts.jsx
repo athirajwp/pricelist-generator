@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import AdminLayout from './AdminLayout';
 import { sortProductsByCode } from '../../utils/productSorter';
+import { compressImageToTargetSize } from '../../utils/imageCompressor';
 
 const Swal = window.Swal;
 
@@ -208,7 +209,8 @@ export default function AdminProducts({ noLayout = false }) {
     postData.append('min_stock_alert', formData.min_stock_alert ?? 10);
     postData.append('manage_stock', formData.manage_stock || 'yes');
     if (imageFile) {
-      postData.append('image', imageFile);
+      const compressedImage = await compressImageToTargetSize(imageFile, 100);
+      postData.append('image', compressedImage);
     }
 
     try {
