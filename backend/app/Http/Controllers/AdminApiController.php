@@ -172,16 +172,32 @@ class AdminApiController extends Controller
     public function storeProduct(Request $request)
     {
         $request->validate([
-            'category_id' => 'required|exists:categories,id',
-            'product_code' => 'nullable|string|max:100',
             'name' => 'required|string|max:255',
-            'pack_size' => 'required|string|max:255',
-            'mrp' => 'required|numeric|min:0',
-            'selling_price' => 'required|numeric|min:0',
-            'sort_order' => 'nullable|integer|min:0',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
-            'status' => 'required|in:active,inactive',
         ]);
+
+        $categoryId = $request->category_id;
+        if (!$categoryId || !Category::where('id', $categoryId)->exists()) {
+            $firstCategory = Category::first();
+            if ($firstCategory) {
+                $categoryId = $firstCategory->id;
+            } else {
+                $newCat = Category::create([
+                    'name' => 'GENERAL PATAKAS',
+                    'slug' => 'general-patakas',
+                    'sort_order' => 1,
+                    'status' => 'active',
+                ]);
+                $categoryId = $newCat->id;
+            }
+        }
+
+        $mrp = floatval($request->input('mrp', 0));
+        $sellingPrice = floatval($request->input('selling_price', 0));
+        if ($sellingPrice <= 0 && $mrp > 0) {
+            $sellingPrice = round($mrp * 0.5);
+        } elseif ($mrp <= 0 && $sellingPrice > 0) {
+            $mrp = round($sellingPrice * 2);
+        }
 
         $imagePath = null;
         if ($request->hasFile('image')) {
@@ -221,15 +237,15 @@ class AdminApiController extends Controller
         }
 
         $productData = [
-            'category_id' => $request->category_id,
+            'category_id' => $categoryId,
             'product_code' => $request->product_code,
             'name' => $request->name,
             'name_ta' => $request->name_ta,
-            'pack_size' => $request->pack_size,
-            'mrp' => $request->mrp,
-            'selling_price' => $request->selling_price,
+            'pack_size' => $request->pack_size ?: '1 Box',
+            'mrp' => $mrp,
+            'selling_price' => $sellingPrice,
             'image' => $imagePath,
-            'status' => $request->status,
+            'status' => $request->status ?: 'active',
         ];
 
         if (Schema::hasColumn('products', 'sort_order')) {
@@ -504,11 +520,18 @@ class AdminApiController extends Controller
 
     public function destroyProduct($id)
     {
-        $product = Product::findOrFail($id);
-        if ($product->image && file_exists(public_path($product->image))) {
+        $product = Product::find($id);
+        if (!$product) {
+            return response()->json(['success' => true]);
+        }
+        if ($product->image && file_exists(public_path($product->image)) && !str_contains($product->image, 'img/')) {
             @unlink(public_path($product->image));
         }
-        $product->delete();
+        try {
+            $product->delete();
+        } catch (\Exception $e) {
+            DB::table('products')->where('id', $id)->delete();
+        }
         return response()->json(['success' => true]);
     }
 
@@ -524,20 +547,38 @@ class AdminApiController extends Controller
                     @unlink(public_path($product->image));
                 }
             }
+
+            $driver = DB::getDriverName();
+            if ($driver === 'sqlite') {
+                try { DB::statement('PRAGMA foreign_keys = OFF;'); } catch (\Exception $ex) {}
+            } else {
+                try { DB::statement('SET FOREIGN_KEY_CHECKS=0;'); } catch (\Exception $ex) {}
+            }
+
             try {
-                DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-                Product::truncate();
-                DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+                DB::table('products')->delete();
             } catch (\Exception $ex) {
                 Product::query()->delete();
             }
+
+            if ($driver === 'sqlite') {
+                try { DB::statement('PRAGMA foreign_keys = ON;'); } catch (\Exception $ex) {}
+            } else {
+                try { DB::statement('SET FOREIGN_KEY_CHECKS=1;'); } catch (\Exception $ex) {}
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'All products deleted successfully!'
             ]);
         } catch (\Exception $e) {
             Log::error('Delete All Products Error: ' . $e->getMessage());
-            return response()->json(['error' => 'Failed to delete products: ' . $e->getMessage()], 500);
+            try {
+                DB::table('products')->delete();
+                return response()->json(['success' => true, 'message' => 'All products deleted successfully!']);
+            } catch (\Exception $ex) {
+                return response()->json(['error' => 'Failed to delete products: ' . $e->getMessage()], 500);
+            }
         }
     }
 
@@ -548,7 +589,7 @@ class AdminApiController extends Controller
     public function importProducts(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:xlsx,xls,csv|max:10240',
+            'file' => 'required|file|max:20480',
         ]);
 
         try {
@@ -556,69 +597,65 @@ class AdminApiController extends Controller
             $extension = strtolower($file->getClientOriginalExtension());
             $realPath = $file->getRealPath();
 
-            if ($extension === 'csv' || str_contains($file->getMimeType() ?: '', 'csv')) {
-                $reader = new \PhpOffice\PhpSpreadsheet\Reader\Csv();
-                $spreadsheet = $reader->load($realPath);
-            } else {
-                if (!class_exists('ZipArchive')) {
-                    return response()->json([
-                        'error' => 'ZipArchive extension is disabled in PHP. Please enable extension=zip in php.ini or upload a .csv file.'
-                    ], 422);
-                }
-                $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($realPath);
-            }
-            $worksheet = $spreadsheet->getActiveSheet();
-            $rows = $worksheet->toArray(null, true, true, true);
+            $rows = [];
 
-            if (count($rows) < 2) {
-                return response()->json(['error' => 'The file appears to be empty or has no data rows.'], 422);
+            if ($extension === 'csv' || str_contains($file->getMimeType() ?: '', 'csv') || str_contains($file->getMimeType() ?: '', 'text/')) {
+                try {
+                    $reader = new \PhpOffice\PhpSpreadsheet\Reader\Csv();
+                    $spreadsheet = $reader->load($realPath);
+                    $worksheet = $spreadsheet->getActiveSheet();
+                    $rows = $worksheet->toArray(null, true, true, true);
+                } catch (\Exception $exCsv) {
+                    $rows = [];
+                    if (($handle = fopen($realPath, 'r')) !== false) {
+                        $lineIdx = 1;
+                        $cols = ['A','B','C','D','E','F','G','H','I','J'];
+                        while (($data = fgetcsv($handle, 2000, ',')) !== false) {
+                            $rowArr = [];
+                            foreach ($data as $cIdx => $val) {
+                                if (isset($cols[$cIdx])) {
+                                    $rowArr[$cols[$cIdx]] = $val;
+                                }
+                            }
+                            $rows[$lineIdx++] = $rowArr;
+                        }
+                        fclose($handle);
+                    }
+                }
+            } else {
+                if (class_exists('\PhpOffice\PhpSpreadsheet\IOFactory')) {
+                    $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($realPath);
+                    $worksheet = $spreadsheet->getActiveSheet();
+                    $rows = $worksheet->toArray(null, true, true, true);
+                }
+            }
+
+            if (empty($rows)) {
+                return response()->json(['error' => 'The file appears to be empty or could not be parsed.'], 422);
             }
 
             // Parse header row (first row)
             $headerRow = array_shift($rows);
             $headerMap = [];
-            foreach ($headerRow as $col => $value) {
-                if ($value !== null) {
-                    $headerMap[strtolower(trim($value))] = $col;
-                }
-            }
-
-            // Alias map for required fields matching template headers: Category, S.No / Code, Product Name, Unit, Rate (MRP), Offer Rate
-            $aliasMap = [
-                'Category' => ['category', 'category name', 'cat'],
-                'Product Name' => ['product name', 'product', 'name', 'item'],
-                'Unit' => ['unit', 'pack size', 'unit / pack size', 'size', 'contents'],
-                'Rate (MRP)' => ['rate (mrp)', 'mrp', 'rate', 'rate (₹)', 'price'],
-                'Offer Rate' => ['offer rate', 'selling price', 'offer price', 'offer rate (₹)', 'discounted price'],
-            ];
-
-            $missingColumns = [];
-            foreach ($aliasMap as $label => $aliases) {
-                $found = false;
-                foreach ($aliases as $alias) {
-                    if (isset($headerMap[strtolower(trim($alias))])) {
-                        $found = true;
-                        break;
+            if (is_array($headerRow)) {
+                foreach ($headerRow as $col => $value) {
+                    if ($value !== null && $value !== '') {
+                        $headerMap[strtolower(trim((string)$value))] = $col;
                     }
                 }
-                if (!$found) {
-                    $missingColumns[] = $label;
-                }
             }
 
-            if (!empty($missingColumns)) {
-                return response()->json([
-                    'error' => 'Missing required columns: ' . implode(', ', $missingColumns) . '. Required columns are: Category, Product Name, Unit, Rate (MRP), Offer Rate.'
-                ], 422);
-            }
-
-            // Helper function to find column value by key aliases
-            $getColVal = function($row, $headerMap, $aliases, $default = '') {
+            // Helper function to find column value by key aliases or positional column fallback
+            $getColVal = function($row, $headerMap, $aliases, $posFallbackKey = null, $default = '') {
                 foreach ($aliases as $alias) {
                     $key = strtolower(trim($alias));
                     if (isset($headerMap[$key]) && isset($row[$headerMap[$key]])) {
-                        return trim($row[$headerMap[$key]]);
+                        $v = trim((string)$row[$headerMap[$key]]);
+                        if ($v !== '') return $v;
                     }
+                }
+                if ($posFallbackKey && isset($row[$posFallbackKey])) {
+                    return trim((string)$row[$posFallbackKey]);
                 }
                 return $default;
             };
@@ -628,40 +665,46 @@ class AdminApiController extends Controller
             $skipped = 0;
             $errors = [];
 
-            // Pre-fill category cache from DB to prevent duplicate categories or undefined variable errors
+            // Pre-fill category cache from DB to prevent duplicate categories
             $categoryCache = [];
             foreach (Category::all() as $existingCat) {
                 $categoryCache[strtolower(trim($existingCat->name))] = $existingCat;
             }
 
             $categoryOrderCounter = 1;
+            $currentLastCategoryName = 'GENERAL PATAKAS';
 
             foreach ($rows as $rowIndex => $row) {
-                $rowNum = $rowIndex + 1; // 1-based for user-friendly error messages (header was row 1)
+                if (!is_array($row)) continue;
+                $rowNum = $rowIndex + 1;
 
-                $categoryName = $getColVal($row, $headerMap, ['category', 'category name', 'cat']);
-                $productCode  = $getColVal($row, $headerMap, ['s.no / code', 's.no', 'sno', 'product code', 'code', 's.no.']);
-                $productName  = $getColVal($row, $headerMap, ['product name', 'product', 'name', 'item']);
-                $packSize     = $getColVal($row, $headerMap, ['unit', 'pack size', 'unit / pack size', 'size', 'contents']);
-                $mrpVal       = $getColVal($row, $headerMap, ['rate (mrp)', 'mrp', 'rate', 'rate (₹)', 'price'], '0');
-                $sellingVal   = $getColVal($row, $headerMap, ['offer rate', 'selling price', 'offer price', 'offer rate (₹)', 'discounted price'], '0');
+                $categoryName = $getColVal($row, $headerMap, ['category', 'category name', 'cat', 'group', 'type', 'section'], 'A');
+                $productCode  = $getColVal($row, $headerMap, ['s.no / code', 's.no', 'sno', 'product code', 'code', 's.no.', 'no', '#', 'code / sno'], null);
+                $productName  = $getColVal($row, $headerMap, ['product name', 'product', 'name', 'item', 'particulars', 'description', 'details'], 'B');
+                $packSize     = $getColVal($row, $headerMap, ['unit', 'pack size', 'unit / pack size', 'size', 'contents', 'box', 'packing', 'pcs'], 'C', '1 Box');
+                $mrpVal       = $getColVal($row, $headerMap, ['rate (mrp)', 'mrp', 'rate', 'rate (₹)', 'price', 'list price', 'amount'], 'D', '0');
+                $sellingVal   = $getColVal($row, $headerMap, ['offer rate', 'selling price', 'offer price', 'offer rate (₹)', 'discounted price', 'net price', 'offer'], 'E', '0');
 
+                // Clean numeric values
                 $mrp = floatval(preg_replace('/[^0-9.]/', '', $mrpVal));
                 $sellingPrice = floatval(preg_replace('/[^0-9.]/', '', $sellingVal));
 
-                // Skip completely empty rows
-                if (empty($categoryName) && empty($productName)) {
-                    continue;
+                // If offer price is 0 but MRP > 0, calculate default 50% discount price
+                if ($sellingPrice <= 0 && $mrp > 0) {
+                    $sellingPrice = round($mrp * 0.5);
+                } elseif ($mrp <= 0 && $sellingPrice > 0) {
+                    $mrp = round($sellingPrice * 2);
                 }
 
-                // Validate row data
-                if (empty($categoryName)) {
-                    $errors[] = "Row {$rowNum}: Category is empty, skipped.";
-                    $skipped++;
-                    continue;
+                // If category name is empty, use current last category name or default
+                if (!empty($categoryName)) {
+                    $currentLastCategoryName = $categoryName;
+                } else {
+                    $categoryName = $currentLastCategoryName;
                 }
+
+                // Skip completely empty product rows
                 if (empty($productName)) {
-                    $errors[] = "Row {$rowNum}: Product Name is empty, skipped.";
                     $skipped++;
                     continue;
                 }
@@ -669,7 +712,7 @@ class AdminApiController extends Controller
                 // Find or create category safely
                 $catKey = strtolower(trim($categoryName));
                 if (!isset($categoryCache[$catKey])) {
-                    $baseSlug = \Illuminate\Support\Str::slug($categoryName) ?: 'category';
+                    $baseSlug = \Illuminate\Support\Str::slug($categoryName) ?: 'category-' . uniqid();
                     $existingBySlug = Category::where('slug', $baseSlug)->first();
                     if ($existingBySlug) {
                         $existingBySlug->update(['sort_order' => $categoryOrderCounter]);
@@ -687,7 +730,7 @@ class AdminApiController extends Controller
                 }
                 $category = $categoryCache[$catKey];
 
-                $excelRowPosition = $rowIndex + 1; // 1-based exact row order in Excel file
+                $excelRowPosition = $rowIndex + 1;
 
                 // Check if product already exists in same category with same name
                 $existingProduct = Product::where('name', $productName)
@@ -708,7 +751,7 @@ class AdminApiController extends Controller
                         'category_id' => $category->id,
                         'product_code' => ($productCode !== null && $productCode !== '') ? $productCode : null,
                         'name' => $productName,
-                        'pack_size' => $packSize ?: '-',
+                        'pack_size' => $packSize ?: '1 Box',
                         'mrp' => (float) $mrp,
                         'selling_price' => (float) $sellingPrice,
                         'sort_order' => $excelRowPosition,
@@ -724,6 +767,7 @@ class AdminApiController extends Controller
                 'updated' => $updated,
                 'skipped' => $skipped,
                 'errors' => $errors,
+                'message' => "Imported {$imported} new product(s), updated {$updated} existing product(s).",
             ]);
         } catch (\Exception $e) {
             Log::error('Product Import Error: ' . $e->getMessage());

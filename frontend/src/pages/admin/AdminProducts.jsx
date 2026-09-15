@@ -81,6 +81,30 @@ export default function AdminProducts({ noLayout = false }) {
     setModalOpen(true);
   };
 
+  const handleInsertRowBelow = (product) => {
+    const currentCode = parseInt(product.product_code || '0', 10);
+    const nextCode = !isNaN(currentCode) && currentCode > 0 ? String(currentCode + 1) : '';
+
+    setEditingProduct(null);
+    setFormData({
+      category_id: product.category_id,
+      product_code: nextCode,
+      name: '',
+      pack_size: '1 Box',
+      mrp: product.mrp || 100,
+      discount_percent: 50,
+      selling_price: product.selling_price || 50,
+      sort_order: (product.sort_order || 0) + 1,
+      status: 'active',
+      is_bestseller: false,
+      stock_quantity: 100,
+      min_stock_alert: 10,
+      manage_stock: 'yes',
+    });
+    setImageFile(null);
+    setModalOpen(true);
+  };
+
   const handleOpenEditModal = (product) => {
     setEditingProduct(product);
     const mrp = parseFloat(product.mrp) || 0;
@@ -663,6 +687,13 @@ export default function AdminProducts({ noLayout = false }) {
                         </button>
                       </td>
                       <td className="py-3 px-4 text-right space-x-2">
+                        <button
+                          onClick={() => handleInsertRowBelow(product)}
+                          className="bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all active:scale-95 shadow-xs"
+                          title="Insert a new row immediately below this product"
+                        >
+                          <i className="fa-solid fa-plus text-emerald-600 mr-1"></i> + Insert Row
+                        </button>
                         <button
                           onClick={() => handleOpenEditModal(product)}
                           className="bg-slate-50 hover:bg-slate-150 border border-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all active:scale-95"

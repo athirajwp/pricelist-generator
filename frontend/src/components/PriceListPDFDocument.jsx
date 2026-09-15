@@ -39,12 +39,15 @@ const styles = StyleSheet.create({
   coverTop: {
     textAlign: 'center',
     marginTop: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   invocationSymbol: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#fde047',
     fontWeight: 'bold',
-    marginBottom: 2,
+    marginRight: 4,
   },
   invocationText: {
     fontSize: 9,
@@ -316,7 +319,7 @@ const styles = StyleSheet.create({
   },
 });
 
-export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, getImageUrl }) => {
+export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, getImageUrl, colWidths }) => {
   const resolveUrl = (path) => {
     if (!path) return null;
     const url = getImageUrl(path);
@@ -331,7 +334,32 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
   const logoUrl = resolveUrl(editForm.store_logo);
   const upiQrUrl = resolveUrl(editForm.store_upi_qr);
   const upiQrUrl2 = resolveUrl(editForm.store_upi_qr_2);
-  const customFloatUrl = resolveUrl(editForm.custom_float_image);
+  const getFloatImgPropsPdf = (i) => {
+    const suffix = i === 1 ? '' : `_${i}`;
+    const rawImage = editForm[`custom_float_image${suffix}`] || '';
+    const url = resolveUrl(rawImage);
+    const rawX = editForm[`custom_float_x${suffix}`];
+    const rawY = editForm[`custom_float_y${suffix}`];
+    const rawScale = editForm[`custom_float_scale${suffix}`];
+    const rawShow = editForm[`show_custom_float_image${suffix}`];
+
+    const isSimpler = editForm.first_page_layout === 'simpler';
+
+    const defaultX = isSimpler
+      ? (i === 1 ? 72 : i === 2 ? 15 : i === 3 ? 45 : i === 4 ? 30 : 60)
+      : (i === 1 ? 15 : i === 2 ? 70 : i === 3 ? 45 : i === 4 ? 20 : 65);
+
+    const defaultY = isSimpler
+      ? (i === 1 ? 1.5 : i === 2 ? 1.5 : i === 3 ? 1.5 : i === 4 ? 5 : 5)
+      : (i === 1 ? 15 : i === 2 ? 25 : i === 3 ? 55 : i === 4 ? 70 : 80);
+
+    const x = rawX !== undefined ? Number(rawX) : defaultX;
+    const y = (rawY !== undefined && (i !== 1 || rawY !== 15)) ? Number(rawY) : defaultY;
+    const scale = rawScale !== undefined ? Number(rawScale) : 100;
+    const show = rawShow !== undefined ? (rawShow === 'false' ? false : Boolean(rawShow)) : true;
+
+    return { url, x, y, scale, show };
+  };
 
   const showSnoPdf = editForm.show_col_sno !== false;
   const showProductPdf = editForm.show_col_product !== false;
@@ -341,17 +369,29 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
   const showOfferPdf = editForm.show_col_offer !== false;
   const showReqPdf = editForm.show_col_req !== false;
 
-  const colSnoWidth = showSnoPdf ? '7%' : '0%';
-  const colReqWidth = showReqPdf ? '7%' : '0%';
-  const colPackWidth = showUnitPdf ? '14%' : '0%';
-  const colMrpWidth = showMrpPdf ? '13%' : '0%';
-  const colOfferWidth = showOfferPdf ? '15%' : '0%';
+  const totalCustomWidth =
+    (showSnoPdf ? (colWidths?.sno || 45) : 0) +
+    (showProductPdf ? (colWidths?.product || 220) : 0) +
+    (showTamilPdf ? (colWidths?.product_ta || 160) : 0) +
+    (showUnitPdf ? (colWidths?.unit || 95) : 0) +
+    (showMrpPdf ? (colWidths?.mrp || 80) : 0) +
+    (showOfferPdf ? (colWidths?.offer || 105) : 0) +
+    (showReqPdf ? (colWidths?.req || 45) : 0);
 
-  let fixedPct = (showSnoPdf ? 7 : 0) + (showReqPdf ? 7 : 0) + (showUnitPdf ? 14 : 0) + (showMrpPdf ? 13 : 0) + (showOfferPdf ? 15 : 0);
-  let remainPct = Math.max(20, 100 - fixedPct);
-  
-  const colNameWidth = showProductPdf ? (showTamilPdf ? `${Math.floor(remainPct / 2)}%` : `${remainPct}%`) : '0%';
-  const colTamilWidth = showTamilPdf ? `${Math.ceil(remainPct / 2)}%` : '0%';
+  const getColPct = (key, defaultPct) => {
+    if (colWidths && colWidths[key] && totalCustomWidth > 0) {
+      return `${((colWidths[key] / totalCustomWidth) * 100).toFixed(1)}%`;
+    }
+    return defaultPct;
+  };
+
+  const colSnoWidth = showSnoPdf ? getColPct('sno', '7%') : '0%';
+  const colReqWidth = showReqPdf ? getColPct('req', '7%') : '0%';
+  const colPackWidth = showUnitPdf ? getColPct('unit', '14%') : '0%';
+  const colMrpWidth = showMrpPdf ? getColPct('mrp', '13%') : '0%';
+  const colOfferWidth = showOfferPdf ? getColPct('offer', '15%') : '0%';
+  const colNameWidth = showProductPdf ? getColPct('product', showTamilPdf ? '22%' : '44%') : '0%';
+  const colTamilWidth = showTamilPdf ? getColPct('product_ta', '22%') : '0%';
 
   return (
     <Document title={`${editForm.store_name || 'PriceList'}_Catalogue`}>
@@ -359,19 +399,25 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
       {editForm.first_page_layout !== 'simpler' && (
         <Page size="A4" style={[styles.coverPage, editForm.store_cover_bg === 'none' ? { backgroundColor: '#ffffff' } : null]}>
           {coverBgUrl && <Image src={coverBgUrl} style={styles.coverBg} />}
-          {customFloatUrl && editForm.show_custom_float_image !== false && (
-            <Image
-              src={customFloatUrl}
-              style={{
-                position: 'absolute',
-                left: `${editForm.custom_float_x !== undefined ? editForm.custom_float_x : 15}%`,
-                top: `${editForm.custom_float_y !== undefined ? editForm.custom_float_y : 15}%`,
-                width: `${Math.round(200 * ((editForm.custom_float_scale || 100) / 100))}px`,
-                height: 'auto',
-                zIndex: 35,
-              }}
-            />
-          )}
+          {/* Custom Floating Images overlay on Cover Page (Slots 1 to 5) */}
+          {[1, 2, 3, 4, 5].map((i) => {
+            const p = getFloatImgPropsPdf(i);
+            if (!p.url || !p.show) return null;
+            return (
+              <Image
+                key={i}
+                src={p.url}
+                style={{
+                  position: 'absolute',
+                  left: `${p.x}%`,
+                  top: `${p.y}%`,
+                  width: `${Math.round(200 * (p.scale / 100))}px`,
+                  height: 'auto',
+                  zIndex: 35,
+                }}
+              />
+            );
+          })}
           <View style={styles.coverOverlay}>
             {/* Top Invocation */}
             <View style={styles.coverTop}>
@@ -479,6 +525,52 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
 
         return (
           <Page key={chunkIdx} size="A4" style={styles.page}>
+            {/* Custom Floating Images overlay on Page 1 for Simpler Layout (Slots 1 to 5) */}
+            {editForm.first_page_layout === 'simpler' && chunkIdx === 0 && (
+              <>
+                {[1, 2, 3, 4, 5].map((i) => {
+                  const p = getFloatImgPropsPdf(i);
+                  if (!p.url || !p.show) return null;
+                  return (
+                    <Image
+                      key={i}
+                      src={p.url}
+                      style={{
+                        position: 'absolute',
+                        left: `${p.x}%`,
+                        top: `${p.y}%`,
+                        width: `${Math.round(200 * (p.scale / 100))}px`,
+                        height: 'auto',
+                        zIndex: 35,
+                      }}
+                    />
+                  );
+                })}
+
+                {/* Movable & Resizable Offer / Discount Badge Overlay in PDF */}
+                {editForm.show_discount_badge !== false && (
+                  <View
+                    style={{
+                      position: 'absolute',
+                      left: `${editForm.discount_badge_x !== undefined ? editForm.discount_badge_x : 82}%`,
+                      top: `${editForm.discount_badge_y !== undefined ? editForm.discount_badge_y : 2.2}%`,
+                      width: Math.round(44 * ((editForm.discount_badge_scale || editForm.discount_scale || 100) / 100)),
+                      height: Math.round(44 * ((editForm.discount_badge_scale || editForm.discount_scale || 100) / 100)),
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      zIndex: 40,
+                    }}
+                  >
+                    <Text style={{ fontSize: Math.round(12 * ((editForm.discount_badge_scale || editForm.discount_scale || 100) / 100)), fontWeight: 'bold', color: '#064e3b' }}>
+                      {editForm.discount_percent || 50}%
+                    </Text>
+                    <Text style={{ fontSize: Math.round(7 * ((editForm.discount_badge_scale || editForm.discount_scale || 100) / 100)), fontWeight: 'bold', color: '#065f46', textTransform: 'uppercase' }}>
+                      OFF
+                    </Text>
+                  </View>
+                )}
+              </>
+            )}
             {/* Simpler Header Box on Page 1 when layout is simpler */}
             {editForm.first_page_layout === 'simpler' && chunkIdx === 0 ? (
               <View style={{ border: '2pt double #065f46', borderRadius: 4, padding: 6, marginBottom: 8, backgroundColor: '#ffffff' }}>
@@ -489,20 +581,39 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                   <View style={{ width: '22%', flexDirection: 'row', alignItems: 'center' }}>
-                    {deityUrl ? <Image src={deityUrl} style={{ width: 36, height: 36, objectFit: 'contain' }} /> : null}
+                    {deityUrl ? (
+                      <Image
+                        src={deityUrl}
+                        style={{
+                          width: Math.min(60, Math.max(20, 36 * ((editForm.simpler_deity_scale || editForm.deity_scale || 100) / 100))),
+                          height: Math.min(60, Math.max(20, 36 * ((editForm.simpler_deity_scale || editForm.deity_scale || 100) / 100))),
+                          objectFit: 'contain'
+                        }}
+                      />
+                    ) : null}
                   </View>
-                  <View style={{ width: '56%', textAlign: 'center' }}>
-                    <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#064e3b', textTransform: 'uppercase' }}>{editForm.store_name || 'MASS CRACKERS'}</Text>
-                    <Text style={{ fontSize: 7.5, color: '#0f172a', marginTop: 1 }}>{editForm.store_address}</Text>
-                    {editForm.store_email ? <Text style={{ fontSize: 7, color: '#065f46', marginTop: 1 }}>Email: {editForm.store_email}</Text> : null}
-                    <Text style={{ fontSize: 7, fontWeight: 'bold', color: '#064e3b', fontStyle: 'italic', marginTop: 1 }}>{editForm.store_sub_header_tag || '(ALL Types of Crackers available Whole Sales & Retail)'}</Text>
+                  <View style={{
+                    width: '56%',
+                    textAlign: 'center',
+                    transform: `translate(${editForm.shop_info_x || 0}pt, ${editForm.shop_info_y || 0}pt)`,
+                  }}>
+                    <Text style={{ fontSize: Math.round(13 * ((editForm.shop_info_scale || 100) / 100)), fontWeight: 'bold', color: '#064e3b', textTransform: 'uppercase' }}>{editForm.store_name || 'MASS CRACKERS'}</Text>
+                    <Text style={{ fontSize: Math.round(7.5 * ((editForm.shop_info_scale || 100) / 100)), color: '#0f172a', marginTop: 1 }}>{editForm.store_address}</Text>
+                    {editForm.store_email ? <Text style={{ fontSize: Math.round(7 * ((editForm.shop_info_scale || 100) / 100)), color: '#065f46', marginTop: 1 }}>Email: {editForm.store_email}</Text> : null}
+                    <Text style={{ fontSize: Math.round(7 * ((editForm.shop_info_scale || 100) / 100)), fontWeight: 'bold', color: '#064e3b', fontStyle: 'italic', marginTop: 1 }}>{editForm.store_sub_header_tag || '(ALL Types of Crackers available Whole Sales & Retail)'}</Text>
                   </View>
                   <View style={{ width: '22%', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }}>
-                    <View style={{ width: 30, height: 30, borderRadius: 15, border: '1pt solid #065f46', alignItems: 'center', justifyContent: 'center', marginRight: 4 }}>
-                      <Text style={{ fontSize: 9, fontWeight: 'bold', color: '#064e3b' }}>{editForm.discount_percent || 50}%</Text>
-                      <Text style={{ fontSize: 5, color: '#065f46' }}>Off</Text>
-                    </View>
-                    {deityUrl ? <Image src={deityUrl} style={{ width: 36, height: 36, objectFit: 'contain' }} /> : null}
+                    <View style={{ width: 30, height: 30, opacity: 0 }} />
+                    {deityUrl ? (
+                      <Image
+                        src={deityUrl}
+                        style={{
+                          width: Math.min(60, Math.max(20, 36 * ((editForm.simpler_deity_scale || editForm.deity_scale || 100) / 100))),
+                          height: Math.min(60, Math.max(20, 36 * ((editForm.simpler_deity_scale || editForm.deity_scale || 100) / 100))),
+                          objectFit: 'contain'
+                        }}
+                      />
+                    ) : null}
                   </View>
                 </View>
               </View>
@@ -836,13 +947,14 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
   );
 };
 
-export async function generateReactPDFBlob(editForm, productPageChunks, showMrp, getImageUrl) {
+export async function generateReactPDFBlob(editForm, productPageChunks, showMrp, getImageUrl, colWidths) {
   const doc = (
     <PriceListPDFDocument
       editForm={editForm}
       productPageChunks={productPageChunks}
       showMrp={showMrp}
       getImageUrl={getImageUrl}
+      colWidths={colWidths}
     />
   );
   return await pdf(doc).toBlob();
