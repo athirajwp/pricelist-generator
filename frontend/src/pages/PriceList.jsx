@@ -4372,12 +4372,12 @@ export default function PriceList({ defaultTab }) {
                 return (
                   <>
                     {/* Top Invocation Header Section */}
-                    <div className="relative text-center z-10 mt-0 flex items-center justify-center gap-1.5 font-extrabold text-xs sm:text-sm tracking-wide" style={invocationStyle}>
+                    <div className="relative text-center z-10 mt-0 flex flex-col items-center justify-center gap-0.5 font-extrabold text-xs sm:text-sm tracking-wide" style={invocationStyle}>
                       {editForm.store_invocation_symbol && (
-                        <span className="font-extrabold text-xs sm:text-sm">{editForm.store_invocation_symbol}</span>
+                        <div className="font-black text-sm sm:text-base leading-none">{editForm.store_invocation_symbol}</div>
                       )}
                       {editForm.store_invocation && (
-                        <span>{editForm.store_invocation}</span>
+                        <div className="leading-tight">{editForm.store_invocation}</div>
                       )}
                     </div>
 
@@ -4742,9 +4742,11 @@ export default function PriceList({ defaultTab }) {
                       {/* Top Row: GSTIN, Invocation, Phone */}
                       <div className="flex flex-wrap justify-between items-center text-[10px] sm:text-[11px] font-extrabold border-b border-emerald-800/40 pb-1 mb-2 gap-1 text-emerald-900">
                         <div>GSTIN No: {editForm.gstin || '33ABLFM8150D1ZD'}</div>
-                        <div className="text-center font-black">
-                          {editForm.store_invocation_symbol ? `${editForm.store_invocation_symbol} ` : ''}
-                          {editForm.store_invocation || 'Sri Sena Kasava Perumal Thunai'}
+                        <div className="text-center font-black flex flex-col items-center leading-tight">
+                          {editForm.store_invocation_symbol && (
+                            <span className="text-xs leading-none">{editForm.store_invocation_symbol}</span>
+                          )}
+                          <span>{editForm.store_invocation || 'Sri Sena Kasava Perumal Thunai'}</span>
                         </div>
                         <div>Call: {[editForm.store_phone, editForm.store_phone_2].filter(Boolean).join(', ')}</div>
                       </div>

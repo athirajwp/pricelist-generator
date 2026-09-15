@@ -351,10 +351,10 @@
                         {{ $editForm['store_gstin_label'] ?? 'GSTIN No:' }} {{ $editForm['gstin'] ?? '33ABLFM8150D1ZD' }}
                     </div>
                     <div style="display: table-cell; width: 34%; text-align: center;">
-                        <span style="text-decoration: underline;">
-                            {{ !empty($editForm['store_invocation_symbol']) ? $editForm['store_invocation_symbol'] . ' ' : '' }}
-                            {{ $editForm['store_invocation'] ?? 'Sri Sena Kasava Perumal Thunai' }}
-                        </span>
+                        @if(!empty($editForm['store_invocation_symbol']))
+                            <div style="font-size: 11px; font-weight: bold; line-height: 1.1;">{{ $editForm['store_invocation_symbol'] }}</div>
+                        @endif
+                        <div style="line-height: 1.1; font-weight: bold;">{{ $editForm['store_invocation'] ?? 'Sri Sena Kasava Perumal Thunai' }}</div>
                     </div>
                     <div style="display: table-cell; width: 33%; text-align: right;">
                         {{ $editForm['store_call_label'] ?? 'Call:' }} {{ implode(', ', array_filter([$editForm['store_phone'] ?? '', $editForm['store_phone_2'] ?? ''])) }}

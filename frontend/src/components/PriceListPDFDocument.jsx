@@ -39,20 +39,22 @@ const styles = StyleSheet.create({
   coverTop: {
     textAlign: 'center',
     marginTop: 5,
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
   },
   invocationSymbol: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#fde047',
     fontWeight: 'bold',
-    marginRight: 4,
+    marginBottom: 2,
+    textAlign: 'center',
   },
   invocationText: {
     fontSize: 9,
     color: '#ffffff',
     fontWeight: 'bold',
+    textAlign: 'center',
   },
   coverCenter: {
     textAlign: 'center',
@@ -576,7 +578,12 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
               <View style={{ border: '2pt double #065f46', borderRadius: 4, padding: 6, marginBottom: 8, backgroundColor: '#ffffff' }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#065f46', paddingBottom: 3, marginBottom: 4 }}>
                   <Text style={{ fontSize: 7, fontWeight: 'bold', color: '#064e3b' }}>GSTIN No: {editForm.gstin || '33ABLFM8150D1ZD'}</Text>
-                  <Text style={{ fontSize: 7, fontWeight: 'bold', color: '#064e3b' }}>{editForm.store_invocation_symbol ? editForm.store_invocation_symbol + ' ' : ''}{editForm.store_invocation || 'Sri Sena Kasava Perumal Thunai'}</Text>
+                  <View style={{ flexDirection: 'column', alignItems: 'center' }}>
+                    {editForm.store_invocation_symbol ? (
+                      <Text style={{ fontSize: 8, fontWeight: 'bold', color: '#064e3b', marginBottom: 1 }}>{editForm.store_invocation_symbol}</Text>
+                    ) : null}
+                    <Text style={{ fontSize: 7, fontWeight: 'bold', color: '#064e3b' }}>{editForm.store_invocation || 'Sri Sena Kasava Perumal Thunai'}</Text>
+                  </View>
                   <Text style={{ fontSize: 7, fontWeight: 'bold', color: '#064e3b' }}>Call: {[editForm.store_phone, editForm.store_phone_2].filter(Boolean).join(', ')}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
