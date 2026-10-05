@@ -156,12 +156,12 @@
             margin-top: 2px;
         }
         table.pricelist-table th {
-            background-color: #fef3c7;
-            color: #000000;
-            font-size: 10px;
+            background-color: {{ $editForm['table_header_bg_color'] ?? '#fef3c7' }};
+            color: {{ $editForm['table_header_text_color'] ?? '#000000' }};
+            font-size: {{ $editForm['table_header_font_size'] ?? 12.5 }}px;
             font-weight: 900;
             text-transform: uppercase;
-            padding: 4px {{ $settings['table_col_padding'] ?? '4' }}px;
+            padding: 6px {{ $settings['table_col_padding'] ?? '4' }}px;
             border: 1px solid #d97706;
             text-align: center;
             vertical-align: middle;
@@ -219,7 +219,28 @@
 </head>
 <body>
 
-@if(($editForm['first_page_layout'] ?? 'full') !== 'simpler')
+@if(($editForm['first_page_layout'] ?? 'full') === 'custom_image')
+    <!-- PAGE 1: CUSTOM IMAGE COVER -->
+    @php
+        $customCoverImg = !empty($editForm['custom_first_page_image']) ? $editForm['custom_first_page_image'] : (!empty($settings['custom_first_page_image']) ? $settings['custom_first_page_image'] : null);
+        $customCoverPath = null;
+        if (!empty($customCoverImg)) {
+            if (str_starts_with($customCoverImg, 'data:')) {
+                $customCoverPath = $customCoverImg;
+            } elseif (file_exists(public_path($customCoverImg))) {
+                $customCoverPath = public_path($customCoverImg);
+            } else {
+                $customCoverPath = $customCoverImg;
+            }
+        }
+        $fitMode = $editForm['custom_first_page_fit'] ?? 'cover';
+    @endphp
+    @if($customCoverPath)
+        <div class="page-sheet" style="padding: 0; margin: 0; background: #000000; overflow: hidden; page-break-after: always; height: 297mm; width: 210mm;">
+            <img src="{{ $customCoverPath }}" style="width: 100%; height: 100%; object-fit: {{ $fitMode }}; display: block;" alt="Cover Flyer"/>
+        </div>
+    @endif
+@elseif(($editForm['first_page_layout'] ?? 'full') !== 'simpler' && ($editForm['first_page_layout'] ?? 'full') !== 'none' && ($editForm['first_page_layout'] ?? 'full') !== 'hidden')
     <!-- PAGE 1: COVER PAGE -->
     <div class="page-sheet cover-sheet">
         @php
@@ -598,7 +619,7 @@
             @endif
 
             @if(!empty($editForm['important_note_1']) || !empty($editForm['important_note_2']))
-            <div style="margin-top: 10px; background: #fffbeb; border: 1.5px solid #fde047; border-radius: 10px; padding: 10px 14px; text-align: center;">
+            <div style="margin-top: 10px; background: {{ $editForm['important_note_bg_color'] ?? '#fffbeb' }}; border: 1.5px solid {{ $editForm['important_note_border_color'] ?? '#fde047' }}; border-radius: 10px; padding: 10px 14px; text-align: center;">
                 @if(!empty($editForm['important_note_1']))
                 <div style="color: #0f172a; font-size: 10.5px; font-weight: 900; line-height: 1.4; white-space: pre-wrap;">{!! formatMarkdownPdf($editForm['important_note_1']) !!}</div>
                 @endif
@@ -609,8 +630,13 @@
             @endif
             @endif
 
+            @php
+                $hasDedicatedCover = (($editForm['first_page_layout'] ?? 'full') !== 'simpler' && ($editForm['first_page_layout'] ?? 'full') !== 'none' && ($editForm['first_page_layout'] ?? 'full') !== 'hidden');
+                $currentPageNum = $chunkIdx + ($hasDedicatedCover ? 2 : 1);
+                $totalPagesNum = count($productPageChunks) + ($hasDedicatedCover ? 1 : 0) + (($settings['footer_position'] ?? 'below_table') === 'new_page' ? 1 : 0);
+            @endphp
             <div class="footer-note">
-                📄 Page {{ $chunkIdx + 2 }} of {{ count($productPageChunks) + 1 + (($settings['footer_position'] ?? 'below_table') === 'new_page' ? 1 : 0) }} &bull; {{ $editForm['store_name'] ?? 'MASS CRACKERS' }} &bull; 210mm × 297mm
+                📄 Page {{ $currentPageNum }} of {{ $totalPagesNum }} &bull; {{ $editForm['store_name'] ?? 'MASS CRACKERS' }} &bull; 210mm × 297mm
             </div>
         </div>
     @endforeach

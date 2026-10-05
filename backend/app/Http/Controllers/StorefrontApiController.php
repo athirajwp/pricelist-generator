@@ -343,8 +343,10 @@ class StorefrontApiController extends Controller
             }
         }
 
-        // TR-Based Chunking (Max 33 TR per page)
-        $MAX_TR_PER_PAGE = 33;
+        // TR-Based Chunking (Max TR per page)
+        $categoryTrCost = 2;
+        $MAX_TR_PER_PAGE = (int) $request->query('max_tr_per_page', Setting::get('max_tr_per_page', 33));
+
         $productPageChunks = [];
         $currentChunkProducts = [];
         $currentChunkTrCount = 0;
@@ -352,9 +354,20 @@ class StorefrontApiController extends Controller
 
         foreach ($allFilteredProducts as $product) {
             $needsNewCatHeader = $product['category_id'] !== $currentCatIdInChunk;
-            $trCostForThisProduct = ($needsNewCatHeader ? 1 : 0) + 1;
+            $trCostForThisProduct = ($needsNewCatHeader ? $categoryTrCost : 0) + 1;
 
-            if ($currentChunkTrCount + $trCostForThisProduct > $MAX_TR_PER_PAGE && count($currentChunkProducts) > 0) {
+            $shouldBreak = false;
+            if ($needsNewCatHeader && count($currentChunkProducts) > 0) {
+                $catProdsTotal = count(array_filter($allFilteredProducts, fn($p) => $p['category_id'] === $product['category_id']));
+                $minProdsToFit = min(2, $catProdsTotal);
+                if ($currentChunkTrCount + $categoryTrCost + $minProdsToFit > $MAX_TR_PER_PAGE) {
+                    $shouldBreak = true;
+                }
+            } elseif ($currentChunkTrCount + $trCostForThisProduct > $MAX_TR_PER_PAGE && count($currentChunkProducts) > 0) {
+                $shouldBreak = true;
+            }
+
+            if ($shouldBreak) {
                 $productPageChunks[] = $currentChunkProducts;
                 $currentChunkProducts = [];
                 $currentChunkTrCount = 0;
@@ -363,7 +376,7 @@ class StorefrontApiController extends Controller
 
             $currentChunkProducts[] = $product;
             if ($product['category_id'] !== $currentCatIdInChunk) {
-                $currentChunkTrCount += 1;
+                $currentChunkTrCount += $categoryTrCost;
                 $currentCatIdInChunk = $product['category_id'];
             }
             $currentChunkTrCount += 1;

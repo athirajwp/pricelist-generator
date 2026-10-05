@@ -48,12 +48,16 @@ body {
     display: none !important;
   }
 
-  /* 4. Force price-list-document inputs to be visible in print flow */
-  #price-list-document, #price-list-document * {
+  /* 4. Force price-list-document inputs to be visible in print flow (excluding print:hidden elements) */
+  #price-list-document {
     visibility: visible !important;
   }
 
-  #price-list-document input {
+  #price-list-document *:not([class*="no-print"]):not([class*="print:hidden"]) {
+    visibility: visible !important;
+  }
+
+  #price-list-document input:not([class*="no-print"]):not([class*="print:hidden"]) {
     display: inline-block !important;
     visibility: visible !important;
     opacity: 1 !important;
@@ -70,6 +74,26 @@ body {
     width: 100% !important;
     padding: 0 !important;
     margin: 0 !important;
+  }
+
+  .no-print,
+  .print\:hidden,
+  [class*="print:hidden"],
+  [class*="no-print"],
+  #price-list-document .no-print,
+  #price-list-document .print\:hidden,
+  #price-list-document [class*="print:hidden"],
+  #price-list-document [class*="no-print"],
+  #price-list-document input.print\:hidden,
+  #price-list-document input[class*="print:hidden"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    font-size: 0 !important;
+    color: transparent !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
   }
 
   #price-list-document {
@@ -94,7 +118,8 @@ body {
   }
 
   /* 5. A4 Page Sheet strict printing dimensions and page breaks */
-  .a4-page-sheet {
+  .a4-page-sheet,
+  [id^="a4-page"] {
     box-sizing: border-box !important;
     width: 210mm !important;
     height: 297mm !important;
@@ -102,7 +127,10 @@ body {
     max-height: 297mm !important;
     margin: 0 auto !important;
     box-shadow: none !important;
+    -webkit-box-shadow: none !important;
+    filter: none !important;
     border: none !important;
+    outline: none !important;
     border-radius: 0 !important;
     page-break-after: always !important;
     break-after: page !important;

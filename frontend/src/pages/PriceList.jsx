@@ -119,6 +119,9 @@ export default function PriceList({ defaultTab }) {
     store_upi_name_2: '',
     store_qr_1_title: 'GPay / Primary QR',
     store_qr_2_title: 'PhonePe / Secondary QR',
+    category_header_style: 'airplane_banner',
+    category_bg_color: '#00a859',
+    max_tr_per_page: 33,
     custom_float_image: '',
     custom_float_x: 15,
     custom_float_y: 15,
@@ -1322,7 +1325,7 @@ export default function PriceList({ defaultTab }) {
         body: postData,
       });
       const data = await res.json();
-      
+
       const createdProduct = data.product || {
         id: Date.now(),
         category_id: targetCatId,
@@ -2191,7 +2194,23 @@ export default function PriceList({ defaultTab }) {
   };
 
   const downloadPDF = () => {
+    // Inject a <style> that forcibly sets @page margin to 0
+    // This overrides Chrome's 'Default' margin setting in the print dialog
+    const styleEl = document.createElement('style');
+    styleEl.id = '__pdf-print-override';
+    styleEl.textContent = `
+      @page {
+        size: A4 portrait;
+        margin: 0mm !important;
+      }
+    `;
+    document.head.appendChild(styleEl);
     window.print();
+    // Remove override style after print dialog closes
+    setTimeout(() => {
+      const el = document.getElementById('__pdf-print-override');
+      if (el) el.remove();
+    }, 1000);
   };
 
   const themes = {
@@ -2284,10 +2303,15 @@ export default function PriceList({ defaultTab }) {
     });
   });
 
-  // 3. Exact TRs per A4 Page Sheet Chunking (supports Full Cover vs Simpler Header Layout)
+  // 3. Exact TRs per A4 Page Sheet Chunking (supports Full Cover vs Custom Image vs Simpler Header vs Hide 1st Page Layout)
   const isSimplerLayout = editForm.first_page_layout === 'simpler';
-  const MAX_TR_PER_PAGE = parseInt(editForm.max_tr_per_page || 30, 10);
+  const isNoCoverLayout = editForm.first_page_layout === 'none' || editForm.first_page_layout === 'hidden';
+  const isCustomPageLayout = editForm.first_page_layout === 'custom_image';
+  const hasDedicatedCoverPage = (editForm.first_page_layout || 'full') === 'full' || isCustomPageLayout;
+  const MAX_TR_PER_PAGE = parseInt(editForm.max_tr_per_page || 33, 10);
   const SIMPLER_HEADER_TR_COST = 11; // Simpler header box takes height equal to ~11 TR rows
+  // In table layout, each category banner is ~40-44px, which equals exactly 2 product rows (22px each)
+  const CATEGORY_TR_COST = 2;
 
   const productPageChunks = [];
   let currentChunkProducts = [];
@@ -2296,16 +2320,27 @@ export default function PriceList({ defaultTab }) {
 
   allFilteredProducts.forEach((product) => {
     const isFirstChunk = productPageChunks.length === 0;
-
-    // When starting page 1 under simpler layout, offset initial TR count by SIMPLER_HEADER_TR_COST for the header box
-    if (currentChunkProducts.length === 0 && isSimplerLayout && isFirstChunk) {
-      currentChunkTrCount = SIMPLER_HEADER_TR_COST;
-    }
+    // Page 1 under simpler layout reserves space for header box; all other pages get full MAX_TR_PER_PAGE
+    const pageMaxTr = (isSimplerLayout && isFirstChunk)
+      ? Math.max(10, MAX_TR_PER_PAGE - SIMPLER_HEADER_TR_COST)
+      : MAX_TR_PER_PAGE;
 
     const needsNewCatHeader = product.category_id !== currentCatIdInChunk;
-    const trCostForThisProduct = (needsNewCatHeader ? 1 : 0) + 1;
+    const trCostForThisProduct = (needsNewCatHeader ? CATEGORY_TR_COST : 0) + 1;
 
-    if (currentChunkTrCount + trCostForThisProduct > MAX_TR_PER_PAGE && currentChunkProducts.length > 0) {
+    // Orphan Prevention: Never place a category header at the bottom of a page unless at least 2 items fit
+    let shouldBreak = false;
+    if (needsNewCatHeader && currentChunkProducts.length > 0) {
+      const catProdsTotal = allFilteredProducts.filter((p) => p.category_id === product.category_id).length;
+      const minProdsToFit = Math.min(2, catProdsTotal);
+      if (currentChunkTrCount + CATEGORY_TR_COST + minProdsToFit > pageMaxTr) {
+        shouldBreak = true;
+      }
+    } else if (currentChunkTrCount + trCostForThisProduct > pageMaxTr && currentChunkProducts.length > 0) {
+      shouldBreak = true;
+    }
+
+    if (shouldBreak) {
       productPageChunks.push(currentChunkProducts);
       currentChunkProducts = [];
       currentChunkTrCount = 0;
@@ -2314,7 +2349,7 @@ export default function PriceList({ defaultTab }) {
 
     currentChunkProducts.push(product);
     if (product.category_id !== currentCatIdInChunk) {
-      currentChunkTrCount += 1;
+      currentChunkTrCount += CATEGORY_TR_COST;
       currentCatIdInChunk = product.category_id;
     }
     currentChunkTrCount += 1;
@@ -2331,9 +2366,8 @@ export default function PriceList({ defaultTab }) {
   const isFooterEnabled = editForm.show_footer !== false && editForm.footer_position !== 'disabled';
   const hasNewPageFooter = isFooterEnabled && editForm.footer_position === 'new_page';
 
-  const totalDocPages = isSimplerLayout
-    ? productPageChunks.length + (hasNewPageFooter ? 1 : 0)
-    : 1 + productPageChunks.length + (hasNewPageFooter ? 1 : 0);
+  const totalDocPages = (hasDedicatedCoverPage ? 1 : 0)
+    + productPageChunks.length + (hasNewPageFooter ? 1 : 0);
   const cardBgStyle = { backgroundColor: settings?.card_bg_color || '#FFFFFF' };
   const discountPercent = editForm.discount_percent !== undefined ? editForm.discount_percent : (settings?.discount_percent || 50);
 
@@ -2406,13 +2440,29 @@ export default function PriceList({ defaultTab }) {
             transition: none !important;
             animation: none !important;
           }
-          header, footer, nav, aside, button, select, textarea, [role="dialog"], .no-print, .print\\:hidden, .generator-control-panel {
+          header, footer, nav, aside, button, select, textarea, [role="dialog"], .no-print, [class*="print:hidden"], [aria-hidden="true"], .generator-control-panel {
             display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            font-size: 0 !important;
+            color: transparent !important;
           }
-          #price-list-document, #price-list-document * {
+          [class*="print:block"] {
+            display: block !important;
+          }
+          [class*="print:inline-block"] {
+            display: inline-block !important;
+          }
+          [class*="print:flex"] {
+            display: flex !important;
+          }
+          #price-list-document {
             visibility: visible !important;
           }
-          #price-list-document input {
+          #price-list-document *:not([class*="no-print"]):not([class*="print:hidden"]) {
+            visibility: visible !important;
+          }
+          #price-list-document input:not([class*="no-print"]):not([class*="print:hidden"]) {
             display: inline-block !important;
             visibility: visible !important;
             opacity: 1 !important;
@@ -2659,16 +2709,15 @@ export default function PriceList({ defaultTab }) {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   {/* Full Cover Page Option */}
                   <button
                     type="button"
                     onClick={() => handleInputChange('first_page_layout', 'full')}
-                    className={`p-3 rounded-xl border-2 text-left transition-all flex items-start gap-3 cursor-pointer ${
-                      (editForm.first_page_layout || 'full') === 'full'
+                    className={`p-3 rounded-xl border-2 text-left transition-all flex items-start gap-3 cursor-pointer ${(editForm.first_page_layout || 'full') === 'full'
                         ? 'bg-white border-emerald-600 shadow-md ring-2 ring-emerald-400'
                         : 'bg-white/70 border-slate-200 hover:bg-emerald-50/50'
-                    }`}
+                      }`}
                   >
                     <div className="w-10 h-14 bg-gradient-to-b from-red-600 to-red-800 rounded-lg shrink-0 flex flex-col items-center justify-center text-white text-[9px] font-black border border-red-400 p-1 shadow-xs">
                       <i className="fa-solid fa-sparkles mb-0.5 text-yellow-300"></i>
@@ -2677,13 +2726,40 @@ export default function PriceList({ defaultTab }) {
                     </div>
                     <div>
                       <div className="font-extrabold text-xs text-slate-900 flex items-center gap-1.5">
-                        Full Cover Page
+                        Full Cover
                         {(editForm.first_page_layout || 'full') === 'full' && (
                           <i className="fa-solid fa-circle-check text-emerald-600 text-xs"></i>
                         )}
                       </div>
                       <p className="text-[10px] text-slate-500 font-medium leading-snug mt-0.5">
-                        Dedicated 210mm x 297mm full-page festive cover sheet with background & cover image.
+                        Dedicated festive cover page with background & details.
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Custom Uploaded Cover Image Option */}
+                  <button
+                    type="button"
+                    onClick={() => handleInputChange('first_page_layout', 'custom_image')}
+                    className={`p-3 rounded-xl border-2 text-left transition-all flex items-start gap-3 cursor-pointer ${editForm.first_page_layout === 'custom_image'
+                        ? 'bg-white border-emerald-600 shadow-md ring-2 ring-emerald-400'
+                        : 'bg-white/70 border-slate-200 hover:bg-emerald-50/50'
+                      }`}
+                  >
+                    <div className="w-10 h-14 bg-gradient-to-b from-indigo-600 to-purple-800 rounded-lg shrink-0 flex flex-col items-center justify-center text-white text-[9px] font-black border border-indigo-400 p-1 shadow-xs">
+                      <i className="fa-solid fa-file-image mb-0.5 text-amber-300"></i>
+                      <span>CUSTOM</span>
+                      <span className="text-[7px]">IMAGE</span>
+                    </div>
+                    <div>
+                      <div className="font-extrabold text-xs text-slate-900 flex items-center gap-1.5">
+                        Custom Image
+                        {editForm.first_page_layout === 'custom_image' && (
+                          <i className="fa-solid fa-circle-check text-emerald-600 text-xs"></i>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-500 font-medium leading-snug mt-0.5">
+                        Upload your custom A4 flyer image/poster as Page 1.
                       </p>
                     </div>
                   </button>
@@ -2692,11 +2768,10 @@ export default function PriceList({ defaultTab }) {
                   <button
                     type="button"
                     onClick={() => handleInputChange('first_page_layout', 'simpler')}
-                    className={`p-3 rounded-xl border-2 text-left transition-all flex items-start gap-3 cursor-pointer ${
-                      editForm.first_page_layout === 'simpler'
+                    className={`p-3 rounded-xl border-2 text-left transition-all flex items-start gap-3 cursor-pointer ${editForm.first_page_layout === 'simpler'
                         ? 'bg-white border-emerald-600 shadow-md ring-2 ring-emerald-400'
                         : 'bg-white/70 border-slate-200 hover:bg-emerald-50/50'
-                    }`}
+                      }`}
                   >
                     <div className="w-10 h-14 bg-white rounded-lg shrink-0 flex flex-col items-center justify-between text-emerald-800 text-[7px] font-black border-2 border-emerald-700 p-0.5 shadow-xs">
                       <div className="w-full bg-emerald-700 text-white text-[6px] text-center font-bold">GSTIN</div>
@@ -2705,17 +2780,124 @@ export default function PriceList({ defaultTab }) {
                     </div>
                     <div>
                       <div className="font-extrabold text-xs text-slate-900 flex items-center gap-1.5">
-                        Simpler Version (Classic)
+                        Simpler Header
                         {editForm.first_page_layout === 'simpler' && (
                           <i className="fa-solid fa-circle-check text-emerald-600 text-xs"></i>
                         )}
                       </div>
                       <p className="text-[10px] text-slate-500 font-medium leading-snug mt-0.5">
-                        Compact green double-bordered header with GSTIN & Deity icons. Product table starts right on Page 1.
+                        Compact header box on Page 1 above product table.
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Hide 1st Page Option */}
+                  <button
+                    type="button"
+                    onClick={() => handleInputChange('first_page_layout', 'none')}
+                    className={`p-3 rounded-xl border-2 text-left transition-all flex items-start gap-3 cursor-pointer ${editForm.first_page_layout === 'none'
+                        ? 'bg-white border-emerald-600 shadow-md ring-2 ring-emerald-400'
+                        : 'bg-white/70 border-slate-200 hover:bg-emerald-50/50'
+                      }`}
+                  >
+                    <div className="w-10 h-14 bg-slate-100 rounded-lg shrink-0 flex flex-col items-center justify-center text-slate-500 text-[9px] font-black border-2 border-dashed border-slate-300 p-1 shadow-xs">
+                      <i className="fa-solid fa-eye-slash mb-0.5 text-rose-500"></i>
+                      <span>HIDE</span>
+                      <span className="text-[7px]">PAGE 1</span>
+                    </div>
+                    <div>
+                      <div className="font-extrabold text-xs text-slate-900 flex items-center gap-1.5">
+                        Hide 1st Page
+                        {editForm.first_page_layout === 'none' && (
+                          <i className="fa-solid fa-circle-check text-emerald-600 text-xs"></i>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-500 font-medium leading-snug mt-0.5">
+                        Omit 1st cover page completely. Document starts directly on product table.
                       </p>
                     </div>
                   </button>
                 </div>
+
+                {/* Custom 1st Page Image Uploader Controls (Visible when custom_image mode is selected) */}
+                {editForm.first_page_layout === 'custom_image' && (
+                  <div className="mt-3 bg-white border border-indigo-200 rounded-xl p-3.5 space-y-3 shadow-2xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-indigo-900 uppercase tracking-wide flex items-center gap-1.5">
+                        <i className="fa-solid fa-file-image text-indigo-600"></i> Upload Custom 1st Page Image
+                      </span>
+                      {editForm.custom_first_page_image && (
+                        <button
+                          type="button"
+                          onClick={() => handleInputChange('custom_first_page_image', '')}
+                          className="text-[10px] text-rose-600 hover:text-rose-700 font-bold underline cursor-pointer"
+                        >
+                          Remove Image
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      {editForm.custom_first_page_image ? (
+                        <div className="w-16 h-20 bg-slate-900 rounded-lg overflow-hidden shrink-0 border border-slate-300 shadow-xs relative group">
+                          <img
+                            src={getImageUrl(editForm.custom_first_page_image)}
+                            alt="Custom Page 1 Preview"
+                            className="w-full h-full"
+                            style={{ objectFit: editForm.custom_first_page_fit || 'cover' }}
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-16 h-20 bg-slate-100 rounded-lg border-2 border-dashed border-slate-300 shrink-0 flex items-center justify-center text-slate-400 text-xl">
+                          <i className="fa-solid fa-image"></i>
+                        </div>
+                      )}
+
+                      <div className="flex-1 space-y-1.5">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (event) => {
+                                handleInputChange('custom_first_page_image', event.target.result);
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="block w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer border border-indigo-200 rounded-xl bg-slate-50 p-1"
+                        />
+                        <div className="flex items-center gap-3 text-[10px] font-bold text-slate-600">
+                          <span>Image Display Mode:</span>
+                          <label className="flex items-center gap-1 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="custom_first_page_fit"
+                              value="cover"
+                              checked={(editForm.custom_first_page_fit || 'cover') === 'cover'}
+                              onChange={() => handleInputChange('custom_first_page_fit', 'cover')}
+                              className="accent-indigo-600"
+                            />
+                            Fill Page (Cover)
+                          </label>
+                          <label className="flex items-center gap-1 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="custom_first_page_fit"
+                              value="contain"
+                              checked={editForm.custom_first_page_fit === 'contain'}
+                              onChange={() => handleInputChange('custom_first_page_fit', 'contain')}
+                              className="accent-indigo-600"
+                            />
+                            Fit Ratio (Contain)
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* 1. SHOP IDENTITY & INVOCATION SECTION */}
@@ -3030,11 +3212,10 @@ export default function PriceList({ defaultTab }) {
                                 handleInputChange('simpler_deity_scale', preset.val);
                                 handleInputChange('deity_scale', preset.val);
                               }}
-                              className={`flex-1 py-1 text-[9.5px] font-extrabold rounded-lg border transition-all cursor-pointer ${
-                                (editForm.simpler_deity_scale || editForm.deity_scale || 100) === preset.val
+                              className={`flex-1 py-1 text-[9.5px] font-extrabold rounded-lg border transition-all cursor-pointer ${(editForm.simpler_deity_scale || editForm.deity_scale || 100) === preset.val
                                   ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
                                   : 'bg-white text-slate-700 border-slate-200 hover:bg-emerald-50'
-                              }`}
+                                }`}
                             >
                               {preset.label}
                             </button>
@@ -3110,12 +3291,11 @@ export default function PriceList({ defaultTab }) {
                             key={item.id}
                             type="button"
                             onClick={() => handleInputChange('store_cover_bg', item.id)}
-                            className={`p-1 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
-                              (editForm.store_cover_bg || '/images/cover_bg_orange_burst.jpg') === item.id ||
-                              (['/images/cover_bg.jpg', '/images/cover_bg_1.jpg'].includes(editForm.store_cover_bg) && item.id === '/images/cover_bg_orange_burst.jpg')
+                            className={`p-1 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${(editForm.store_cover_bg || '/images/cover_bg_orange_burst.jpg') === item.id ||
+                                (['/images/cover_bg.jpg', '/images/cover_bg_1.jpg'].includes(editForm.store_cover_bg) && item.id === '/images/cover_bg_orange_burst.jpg')
                                 ? 'border-amber-600 bg-amber-200 shadow-xs scale-105'
                                 : 'border-slate-200 bg-white hover:bg-amber-100'
-                            }`}
+                              }`}
                           >
                             <div className={`w-full h-7 rounded-lg ${item.bg} overflow-hidden shadow-2xs relative flex items-center justify-center`}>
                               {item.id === 'none' ? (
@@ -3354,6 +3534,168 @@ export default function PriceList({ defaultTab }) {
                         </div>
                       </div>
                     </div>
+
+                    {/* Card D: Table Header & Important Note Card Colors */}
+                    <div className="bg-amber-50/60 p-4 rounded-2xl border border-amber-200 space-y-3">
+                      <label className="block text-slate-800 font-black text-xs flex items-center justify-between border-b border-amber-200 pb-1.5">
+                        <span className="flex items-center gap-1.5 text-slate-900">
+                          <i className="fa-solid fa-table-cells text-amber-600"></i>
+                          Table Header & Note Card Colors
+                        </span>
+                        <span className="text-[10px] text-amber-700 font-bold">Custom Pickers</span>
+                      </label>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        {/* Table Header Background Color */}
+                        <div className="bg-white p-2.5 rounded-xl border border-amber-200 space-y-1.5 shadow-2xs">
+                          <div className="flex justify-between items-center text-[11px] font-bold text-slate-800">
+                            <span>Table Header BG</span>
+                            <span className="text-[9px] font-mono text-slate-500">{editForm.table_header_bg_color || '#fef3c7'}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="color"
+                              value={editForm.table_header_bg_color || '#fef3c7'}
+                              onChange={(e) => handleInputChange('table_header_bg_color', e.target.value)}
+                              className="w-7 h-7 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
+                            />
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {['#fef3c7', '#fde047', '#fed7aa', '#d1fae5', '#e0e7ff', '#fecdd3', '#ffffff', '#1e293b'].map((c) => (
+                                <button
+                                  key={c}
+                                  type="button"
+                                  onClick={() => handleInputChange('table_header_bg_color', c)}
+                                  className="w-5 h-5 rounded-full border border-slate-300 shadow-2xs hover:scale-110 transition-transform cursor-pointer shrink-0"
+                                  style={{ backgroundColor: c, width: '20px', height: '20px' }}
+                                  title={c}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Table Header Text Color */}
+                        <div className="bg-white p-2.5 rounded-xl border border-amber-200 space-y-1.5 shadow-2xs">
+                          <div className="flex justify-between items-center text-[11px] font-bold text-slate-800">
+                            <span>Table Header Text</span>
+                            <span className="text-[9px] font-mono text-slate-500">{editForm.table_header_text_color || '#000000'}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="color"
+                              value={editForm.table_header_text_color || '#000000'}
+                              onChange={(e) => handleInputChange('table_header_text_color', e.target.value)}
+                              className="w-7 h-7 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
+                            />
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {['#000000', '#78350f', '#991b1b', '#065f46', '#1e1b4b', '#ffffff'].map((c) => (
+                                <button
+                                  key={c}
+                                  type="button"
+                                  onClick={() => handleInputChange('table_header_text_color', c)}
+                                  className="w-5 h-5 rounded-full border border-slate-300 shadow-2xs hover:scale-110 transition-transform cursor-pointer shrink-0"
+                                  style={{ backgroundColor: c, width: '20px', height: '20px' }}
+                                  title={c}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Table Header Text Size */}
+                        <div className="bg-white p-2.5 rounded-xl border border-amber-200 space-y-1.5 shadow-2xs">
+                          <div className="flex justify-between items-center text-[11px] font-bold text-slate-800">
+                            <span>Table Header Text Size</span>
+                            <span className="text-[9.5px] font-mono text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded font-bold">
+                              {editForm.table_header_font_size || 12.5}px
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="range"
+                              min="9"
+                              max="16"
+                              step="0.5"
+                              value={editForm.table_header_font_size || 12.5}
+                              onChange={(e) => handleInputChange('table_header_font_size', parseFloat(e.target.value))}
+                              className="w-full accent-amber-600 h-1.5 bg-slate-200 rounded-lg cursor-pointer"
+                            />
+                            <div className="flex gap-1 shrink-0">
+                              {[10, 11.5, 12.5, 14].map((sz) => (
+                                <button
+                                  key={sz}
+                                  type="button"
+                                  onClick={() => handleInputChange('table_header_font_size', sz)}
+                                  className={`px-1.5 py-0.5 text-[9.5px] rounded font-bold border transition-colors cursor-pointer ${
+                                    (editForm.table_header_font_size || 12.5) === sz
+                                      ? 'bg-amber-600 text-white border-amber-600'
+                                      : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
+                                  }`}
+                                >
+                                  {sz}px
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Important Note Box Background Color */}
+                        <div className="bg-white p-2.5 rounded-xl border border-amber-200 space-y-1.5 shadow-2xs">
+                          <div className="flex justify-between items-center text-[11px] font-bold text-slate-800">
+                            <span>Important Note Card BG</span>
+                            <span className="text-[9px] font-mono text-slate-500">{editForm.important_note_bg_color || '#fffbeb'}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="color"
+                              value={editForm.important_note_bg_color || '#fffbeb'}
+                              onChange={(e) => handleInputChange('important_note_bg_color', e.target.value)}
+                              className="w-7 h-7 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
+                            />
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {['#fffbeb', '#fef2f2', '#ecfdf5', '#eef2ff', '#fff7ed', '#ffffff', '#1e293b'].map((c) => (
+                                <button
+                                  key={c}
+                                  type="button"
+                                  onClick={() => handleInputChange('important_note_bg_color', c)}
+                                  className="w-5 h-5 rounded-full border border-slate-300 shadow-2xs hover:scale-110 transition-transform cursor-pointer shrink-0"
+                                  style={{ backgroundColor: c, width: '20px', height: '20px' }}
+                                  title={c}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Important Note Box Border Color */}
+                        <div className="bg-white p-2.5 rounded-xl border border-amber-200 space-y-1.5 shadow-2xs">
+                          <div className="flex justify-between items-center text-[11px] font-bold text-slate-800">
+                            <span>Important Note Border</span>
+                            <span className="text-[9px] font-mono text-slate-500">{editForm.important_note_border_color || '#fde047'}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="color"
+                              value={editForm.important_note_border_color || '#fde047'}
+                              onChange={(e) => handleInputChange('important_note_border_color', e.target.value)}
+                              className="w-7 h-7 rounded-lg cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
+                            />
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {['#fde047', '#f59e0b', '#ef4444', '#10b981', '#6366f1', '#cbd5e1', '#000000'].map((c) => (
+                                <button
+                                  key={c}
+                                  type="button"
+                                  onClick={() => handleInputChange('important_note_border_color', c)}
+                                  className="w-5 h-5 rounded-full border border-slate-300 shadow-2xs hover:scale-110 transition-transform cursor-pointer shrink-0"
+                                  style={{ backgroundColor: c, width: '20px', height: '20px' }}
+                                  title={c}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -3541,13 +3883,12 @@ export default function PriceList({ defaultTab }) {
                             key={slotIdx}
                             type="button"
                             onClick={() => setActiveFloatSlot(slotIdx)}
-                            className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all flex items-center gap-1 cursor-pointer shrink-0 border ${
-                              isActive
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all flex items-center gap-1 cursor-pointer shrink-0 border ${isActive
                                 ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
                                 : hasImg
-                                ? 'bg-sky-50 text-sky-800 border-sky-300 hover:bg-sky-100'
-                                : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
-                            }`}
+                                  ? 'bg-sky-50 text-sky-800 border-sky-300 hover:bg-sky-100'
+                                  : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+                              }`}
                           >
                             <span>Img #{slotIdx}</span>
                             {hasImg && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>}
@@ -3752,15 +4093,56 @@ export default function PriceList({ defaultTab }) {
                     <span>Print & Table Layout Settings</span>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs items-center">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs items-center">
+                    <div>
+                      <label className="block text-slate-700 font-extrabold mb-1 flex items-center justify-between">
+                        <span>Category Header Style</span>
+                        <span className="text-emerald-700 font-black text-[9px] bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-200">
+                          {editForm.category_header_style === 'airplane_banner' ? '✈️ Airplane' : '🏷️ Classic'}
+                        </span>
+                      </label>
+                      <select
+                        value={editForm.category_header_style || 'airplane_banner'}
+                        onChange={(e) => handleInputChange('category_header_style', e.target.value)}
+                        className="w-full bg-white border border-emerald-400 rounded-xl px-3 py-2 text-slate-900 font-black focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-2xs"
+                      >
+                        <option value="airplane_banner">✈️ Airplane Towing Banner (New Design)</option>
+                        <option value="classic_bar">🏷️ Classic Full-Width Bar</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-700 font-extrabold mb-1">Banner Color</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={editForm.category_bg_color || '#00a859'}
+                          onChange={(e) => handleInputChange('category_bg_color', e.target.value)}
+                          className="w-9 h-9 rounded-xl border border-amber-300 cursor-pointer p-0.5 bg-white shrink-0"
+                          title="Choose Category Banner Color"
+                        />
+                        <div className="flex items-center gap-1 overflow-x-auto py-0.5">
+                          {['#00a859', '#dc2626', '#2563eb', '#d97706', '#7c3aed', '#0f172a'].map((c) => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => handleInputChange('category_bg_color', c)}
+                              className={`w-6 h-6 rounded-full border-2 cursor-pointer transition-transform hover:scale-110 ${editForm.category_bg_color === c ? 'border-amber-500 scale-110 shadow-xs' : 'border-white'}`}
+                              style={{ backgroundColor: c }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
                     <div>
                       <label className="block text-slate-700 font-extrabold mb-1">Rows Per A4 Page (TR Count)</label>
                       <input
                         type="number"
                         min="10"
-                        max="50"
-                        value={editForm.max_tr_per_page || 30}
-                        onChange={(e) => handleInputChange('max_tr_per_page', parseInt(e.target.value) || 30)}
+                        max="60"
+                        value={editForm.max_tr_per_page || 33}
+                        onChange={(e) => handleInputChange('max_tr_per_page', parseInt(e.target.value) || 33)}
                         className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 text-amber-900"
                       />
                     </div>
@@ -3784,7 +4166,7 @@ export default function PriceList({ defaultTab }) {
                           className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg font-black text-[11px] transition-all cursor-pointer border ${editForm.show_footer !== false && editForm.footer_position !== 'disabled'
                             ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700'
                             : 'bg-slate-200 text-slate-700 border-slate-300 hover:bg-slate-300'
-                          }`}
+                            }`}
                         >
                           <i className={`fa-solid ${editForm.show_footer !== false && editForm.footer_position !== 'disabled' ? 'fa-toggle-on text-xs' : 'fa-toggle-off text-xs'}`}></i>
                           <span>{editForm.show_footer !== false && editForm.footer_position !== 'disabled' ? 'Enabled' : 'Disabled'}</span>
@@ -3905,8 +4287,8 @@ export default function PriceList({ defaultTab }) {
 
           {/* Useful Document Controls Dashboard Bar */}
           <div className="bg-slate-50/90 border border-slate-200 rounded-2xl p-3.5 space-y-3.5 shadow-2xs">
-            {/* Top Row: 5 Perfectly Aligned Input Columns */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs font-semibold items-end">
+            {/* Top Row: 6 Perfectly Aligned Input Columns */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 text-xs font-semibold items-end">
               {/* 1. Cover Image Quick Status */}
               <div>
                 <label className="block text-slate-700 mb-1 font-extrabold flex items-center justify-between text-[11px]">
@@ -3939,26 +4321,44 @@ export default function PriceList({ defaultTab }) {
                 </div>
               </div>
 
-              {/* 2. Rows Per Page (TR Count) */}
+              {/* 2. Category Header Design Selector */}
+              <div>
+                <label className="block text-slate-700 mb-1 font-extrabold flex items-center justify-between text-[11px]">
+                  <span>Category Design</span>
+                  <span className="text-emerald-700 font-black text-[9px] bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-200">
+                    {editForm.category_header_style === 'airplane_banner' ? '✈️ Airplane' : '🏷️ Classic'}
+                  </span>
+                </label>
+                <select
+                  value={editForm.category_header_style || 'airplane_banner'}
+                  onChange={(e) => handleInputChange('category_header_style', e.target.value)}
+                  className="w-full bg-white border border-emerald-300 rounded-xl px-2.5 py-1 text-xs font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer h-[42px] transition-all shadow-2xs"
+                >
+                  <option value="airplane_banner">✈️ Airplane Towing Banner (New Design)</option>
+                  <option value="classic_bar">🏷️ Classic Full-Width Bar</option>
+                </select>
+              </div>
+
+              {/* 3. Rows Per Page (TR Count) */}
               <div>
                 <label className="block text-slate-700 mb-1 font-extrabold flex items-center justify-between text-[11px]">
                   <span>Rows / Page</span>
-                  <span className="text-amber-700 font-black text-[10px] bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">{editForm.max_tr_per_page || 30} TRs</span>
+                  <span className="text-amber-700 font-black text-[10px] bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">{editForm.max_tr_per_page || 33} TRs</span>
                 </label>
                 <div className="relative">
                   <input
                     type="number"
                     min={10}
                     max={60}
-                    value={editForm.max_tr_per_page || 30}
-                    onChange={(e) => handleInputChange('max_tr_per_page', parseInt(e.target.value, 10) || 30)}
+                    value={editForm.max_tr_per_page || 33}
+                    onChange={(e) => handleInputChange('max_tr_per_page', parseInt(e.target.value, 10) || 33)}
                     className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1 text-xs font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 h-[42px] transition-all shadow-2xs pr-10"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 pointer-events-none">TRs</span>
                 </div>
               </div>
 
-              {/* 3. Row Height */}
+              {/* 4. Row Height */}
               <div>
                 <label className="block text-slate-700 mb-1 font-extrabold flex items-center justify-between text-[11px]">
                   <span>Row Height</span>
@@ -3977,7 +4377,7 @@ export default function PriceList({ defaultTab }) {
                 </div>
               </div>
 
-              {/* 4. Discount Offer % */}
+              {/* 5. Discount Offer % */}
               <div>
                 <label className="block text-slate-700 mb-1 font-extrabold flex items-center justify-between text-[11px]">
                   <span>Discount Offer</span>
@@ -3996,7 +4396,7 @@ export default function PriceList({ defaultTab }) {
                 </div>
               </div>
 
-              {/* 5. Footer Position & Enable Toggle */}
+              {/* 6. Footer Position & Enable Toggle */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-slate-700 font-extrabold text-[11px]">
@@ -4005,11 +4405,10 @@ export default function PriceList({ defaultTab }) {
                   <button
                     type="button"
                     onClick={() => handleInputChange('show_footer', editForm.show_footer === false ? true : false)}
-                    className={`text-[10px] font-black px-2 py-0.5 rounded transition-all cursor-pointer ${
-                      editForm.show_footer !== false && editForm.footer_position !== 'disabled'
+                    className={`text-[10px] font-black px-2 py-0.5 rounded transition-all cursor-pointer ${editForm.show_footer !== false && editForm.footer_position !== 'disabled'
                         ? 'bg-emerald-600 text-white'
                         : 'bg-slate-200 text-slate-700'
-                    }`}
+                      }`}
                   >
                     {editForm.show_footer !== false && editForm.footer_position !== 'disabled' ? 'ON' : 'OFF'}
                   </button>
@@ -4291,352 +4690,439 @@ export default function PriceList({ defaultTab }) {
           className="w-full flex flex-col items-center gap-8 print:block print:space-y-0 print:w-[210mm] mx-auto"
         >
 
-          {/* A4 PAGE 1: DEDICATED FULL FESTIVE COVER SHEET (210mm x 297mm) */}
-          {!isSimplerLayout && (
+          {/* A4 PAGE 1: DEDICATED COVER SHEET OR CUSTOM IMAGE COVER SHEET (210mm x 297mm) */}
+          {hasDedicatedCoverPage && (
             <div className="w-full max-w-[210mm] print:w-[210mm]">
-
-
-            <div
-              id="a4-page-1-container"
-              className={`a4-page-sheet w-[210mm] h-[297mm] max-h-[297mm] overflow-hidden ${editForm.store_cover_bg === 'none' ? 'text-slate-900 bg-white' : 'text-white'} transition-all duration-300 relative shadow-2xl flex flex-col justify-between p-6 sm:p-8 pb-4 select-none mx-auto break-after-page bg-cover bg-center bg-no-repeat box-border`}
-              style={{ backgroundImage: editForm.store_cover_bg === 'none' ? 'none' : `url(${editForm.store_cover_bg ? getImageUrl(editForm.store_cover_bg) : '/images/cover_bg.jpg'})`, pageBreakAfter: 'always' }}
-            >
-              {/* Custom Draggable Floating Images overlay on Page 1 (Slots 1 to 5) */}
-              {[1, 2, 3, 4, 5].map((i) => {
-                const props = getFloatImgProps(i);
-                if (!props.image || !props.show) return null;
-                return (
-                  <div
-                    key={i}
-                    onMouseDown={(e) => handleFloatImgMouseDown(i, e)}
-                    onTouchStart={(e) => handleFloatImgMouseDown(i, e)}
-                    className="absolute z-40 group cursor-grab active:cursor-grabbing border-2 border-transparent hover:border-sky-400 hover:border-dashed rounded-xl p-1 transition-all select-none"
-                    style={{
-                      left: `${props.x}%`,
-                      top: `${props.y}%`,
-                      transform: `scale(${props.scale / 100})`,
-                      transformOrigin: 'top left',
-                    }}
-                  >
-                    <img
-                      src={getImageUrl(props.image)}
-                      alt={`Custom Floating Image ${i}`}
-                      className="max-w-[300px] max-h-[300px] object-contain drop-shadow-2xl pointer-events-none"
-                    />
-                    {/* Position badge / Drag Move Indicator */}
-                    <div className="absolute -top-7 left-0 bg-slate-950/90 text-amber-300 font-black text-[10px] px-2 py-0.5 rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 whitespace-nowrap print:hidden pointer-events-none">
-                      <i className="fa-solid fa-arrows-up-down-left-right text-sky-400"></i>
-                      <span>Image #{i} (X: {props.x}%, Y: {props.y}%) • Size: {props.scale}%</span>
-                    </div>
-
-                    {/* Corner Resize Handle */}
-                    <div
-                      onMouseDown={(e) => handleFloatImgResizeMouseDown(i, e)}
-                      onTouchStart={(e) => handleFloatImgResizeMouseDown(i, e)}
-                      className="absolute -bottom-2 -right-2 w-6 h-6 bg-sky-500 hover:bg-sky-600 active:scale-125 rounded-full border-2 border-white cursor-nwse-resize shadow-xl z-50 flex items-center justify-center text-[10px] text-white print:hidden transition-transform"
-                      title="Drag corner to resize image size like Canva"
-                    >
-                      <i className="fa-solid fa-up-right-and-down-left-from-center pointer-events-none"></i>
-                    </div>
-                  </div>
-                );
-              })}
-
-              {/* Dynamic Cover Text Styling */}
-              {(() => {
-                const strokeC = editForm.text_stroke_color || '#000000';
-                const deityStrokeC = editForm.deity_stroke_color !== undefined ? editForm.deity_stroke_color : '#FFFFFF';
-                const deityFilterStyle = deityStrokeC === 'transparent' || !deityStrokeC
-                  ? 'drop-shadow(0 12px 24px rgba(0, 0, 0, 0.6))'
-                  : `drop-shadow(-2px -2px 0 ${deityStrokeC}) drop-shadow(2px -2px 0 ${deityStrokeC}) drop-shadow(-2px 2px 0 ${deityStrokeC}) drop-shadow(2px 2px 0 ${deityStrokeC}) drop-shadow(0 12px 24px rgba(0, 0, 0, 0.6))`;
-
-                const titleStyle = {
-                  fontSize: '2.8rem',
-                  letterSpacing: '0.15em',
-                  lineHeight: '1.35',
-                  fontFamily: getStoreNameFontFamily(),
-                  color: editForm.store_title_color || undefined,
-                  textShadow: `-2px -2px 0 ${strokeC}, 2px -2px 0 ${strokeC}, -2px 2px 0 ${strokeC}, 2px 2px 0 ${strokeC}, 0 4px 8px rgba(0,0,0,0.5)`
-                };
-
-                const invocationStyle = {
-                  color: editForm.store_invocation_color || undefined,
-                  textShadow: `-1.5px -1.5px 0 ${strokeC}, 1.5px -1.5px 0 ${strokeC}, -1.5px 1.5px 0 ${strokeC}, 1.5px 1.5px 0 ${strokeC}, 0 2px 4px rgba(0,0,0,0.5)`
-                };
-
-                const taglineStyle = {
-                  color: editForm.store_tagline_color || undefined,
-                  textShadow: `-1.5px -1.5px 0 ${strokeC}, 1.5px -1.5px 0 ${strokeC}, -1.5px 1.5px 0 ${strokeC}, 1.5px 1.5px 0 ${strokeC}, 0 2px 4px rgba(0,0,0,0.5)`
-                };
-
-                return (
-                  <>
-                    {/* Top Invocation Header Section */}
-                    <div className="relative text-center z-10 mt-0 flex flex-col items-center justify-center gap-0.5 font-extrabold text-xs sm:text-sm tracking-wide" style={invocationStyle}>
-                      {editForm.store_invocation_symbol && (
-                        <div className="font-black text-sm sm:text-base leading-none">{editForm.store_invocation_symbol}</div>
-                      )}
-                      {editForm.store_invocation && (
-                        <div className="leading-tight">{editForm.store_invocation}</div>
-                      )}
-                    </div>
-
-                    {/* Main Brand & Logo Motif Center Section */}
-                    <div className="relative z-10 text-center space-y-6 mt-6 mb-2 flex justify-center">
-                      <div
-                        onMouseDown={handleShopInfoMouseDown}
-                        onTouchStart={handleShopInfoMouseDown}
-                        className="relative group cursor-grab active:cursor-grabbing border-2 border-transparent hover:border-sky-400 hover:border-dashed rounded-xl p-2 transition-all select-none inline-block"
-                        style={{
-                          transform: `translate(${editForm.shop_info_x || 0}px, ${editForm.shop_info_y || 0}px) scale(${(editForm.shop_info_scale || 100) / 100})`,
-                          transformOrigin: 'center center',
+              {isCustomPageLayout ? (
+                /* Custom Uploaded Cover Image Page */
+                <div
+                  id="a4-page-1-container"
+                  className="a4-page-sheet w-[210mm] h-[297mm] max-h-[297mm] overflow-hidden text-slate-900 transition-all duration-300 relative flex flex-col justify-center items-center select-none mx-auto break-after-page bg-black box-border group"
+                  style={{ pageBreakAfter: 'always' }}
+                >
+                  {editForm.custom_first_page_image ? (
+                    <>
+                      <img
+                        src={getImageUrl(editForm.custom_first_page_image)}
+                        alt="Custom 1st Page Cover"
+                        className="absolute inset-0 w-full h-full"
+                        style={{ objectFit: editForm.custom_first_page_fit || 'cover' }}
+                      />
+                      {/* Hover Overlay Controls in Editor Mode */}
+                      <div className="absolute top-4 right-4 hidden group-hover:flex items-center gap-2 bg-slate-900/90 backdrop-blur-md text-white p-2 rounded-2xl shadow-2xl border border-slate-700 z-50 print:hidden transition-all">
+                        <label className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-3 py-1.5 rounded-xl cursor-pointer shadow flex items-center gap-1.5 transition-all active:scale-95">
+                          <i className="fa-solid fa-cloud-arrow-up text-xs"></i> Change Image
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onload = (event) => {
+                                  handleInputChange('custom_first_page_image', event.target.result);
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                            className="hidden"
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => handleInputChange('custom_first_page_fit', editForm.custom_first_page_fit === 'contain' ? 'cover' : 'contain')}
+                          className="bg-slate-700 hover:bg-slate-600 text-white font-extrabold text-xs px-2.5 py-1.5 rounded-xl shadow transition-all cursor-pointer"
+                          title="Toggle Image Fit (Cover vs Contain)"
+                        >
+                          Fit: {editForm.custom_first_page_fit || 'cover'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleInputChange('custom_first_page_image', '')}
+                          className="bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs px-2.5 py-1.5 rounded-xl shadow transition-all cursor-pointer"
+                          title="Remove Custom 1st Page Image"
+                        >
+                          <i className="fa-solid fa-trash-can"></i>
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    /* Dropzone Placeholder when no custom image uploaded yet */
+                    <label className="w-[190mm] h-[270mm] border-4 border-dashed border-amber-400/80 hover:border-amber-300 bg-slate-800/90 hover:bg-slate-800 rounded-3xl flex flex-col items-center justify-center p-8 text-center cursor-pointer transition-all space-y-4 text-white group/drop z-30">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                              handleInputChange('custom_first_page_image', event.target.result);
+                            };
+                            reader.readAsDataURL(file);
+                          }
                         }}
+                        className="hidden"
+                      />
+                      <div className="w-20 h-20 rounded-3xl bg-amber-500 text-slate-950 flex items-center justify-center text-3xl shadow-xl group-hover/drop:scale-110 transition-transform">
+                        <i className="fa-solid fa-file-image"></i>
+                      </div>
+                      <div className="space-y-1">
+                        <h3 className="text-xl font-black tracking-wide text-amber-300">Upload Custom 1st Page Cover Image</h3>
+                        <p className="text-xs text-slate-300 font-semibold max-w-sm">
+                          Click here or drag & drop a high-resolution A4 image/flyer poster (JPG, PNG, WEBP) to use as your Cover Page.
+                        </p>
+                      </div>
+                      <span className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-5 py-2.5 rounded-2xl uppercase tracking-wider shadow-lg transition-all active:scale-95 flex items-center gap-2">
+                        <i className="fa-solid fa-upload"></i> Browse Image File
+                      </span>
+                    </label>
+                  )}
+                </div>
+              ) : (
+                /* Full Dedicated Cover Page */
+                <div
+                  id="a4-page-1-container"
+                  className={`a4-page-sheet w-[210mm] h-[297mm] max-h-[297mm] overflow-hidden ${editForm.store_cover_bg === 'none' ? 'text-slate-900 bg-white' : 'text-white'} transition-all duration-300 relative flex flex-col justify-between p-6 sm:p-8 pb-4 select-none mx-auto break-after-page bg-cover bg-center bg-no-repeat box-border`}
+                  style={{ backgroundImage: editForm.store_cover_bg === 'none' ? 'none' : `url(${editForm.store_cover_bg ? getImageUrl(editForm.store_cover_bg) : '/images/cover_bg.jpg'})`, pageBreakAfter: 'always' }}
+                >
+                {/* Custom Draggable Floating Images overlay on Page 1 (Slots 1 to 5) */}
+                {[1, 2, 3, 4, 5].map((i) => {
+                  const props = getFloatImgProps(i);
+                  if (!props.image || !props.show) return null;
+                  return (
+                    <div
+                      key={i}
+                      onMouseDown={(e) => handleFloatImgMouseDown(i, e)}
+                      onTouchStart={(e) => handleFloatImgMouseDown(i, e)}
+                      className="absolute z-40 group cursor-grab active:cursor-grabbing border-2 border-transparent hover:border-sky-400 hover:border-dashed rounded-xl p-1 transition-all select-none"
+                      style={{
+                        left: `${props.x}%`,
+                        top: `${props.y}%`,
+                        transform: `scale(${props.scale / 100})`,
+                        transformOrigin: 'top left',
+                      }}
+                    >
+                      <img
+                        src={getImageUrl(props.image)}
+                        alt={`Custom Floating Image ${i}`}
+                        className="max-w-[300px] max-h-[300px] object-contain drop-shadow-2xl pointer-events-none"
+                      />
+                      {/* Position badge / Drag Move Indicator */}
+                      <div className="absolute -top-7 left-0 bg-slate-950/90 text-amber-300 font-black text-[10px] px-2 py-0.5 rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 whitespace-nowrap print:hidden pointer-events-none">
+                        <i className="fa-solid fa-arrows-up-down-left-right text-sky-400"></i>
+                        <span>Image #{i} (X: {props.x}%, Y: {props.y}%) • Size: {props.scale}%</span>
+                      </div>
+
+                      {/* Corner Resize Handle */}
+                      <div
+                        onMouseDown={(e) => handleFloatImgResizeMouseDown(i, e)}
+                        onTouchStart={(e) => handleFloatImgResizeMouseDown(i, e)}
+                        className="absolute -bottom-2 -right-2 w-6 h-6 bg-sky-500 hover:bg-sky-600 active:scale-125 rounded-full border-2 border-white cursor-nwse-resize shadow-xl z-50 flex items-center justify-center text-[10px] text-white print:hidden transition-transform"
+                        title="Drag corner to resize image size like Canva"
                       >
-                        {/* Brand Title & Tagline */}
-                        <div className="flex flex-col items-center space-y-4 sm:space-y-5">
-                          <h1
-                            className="font-black text-white uppercase relative z-10"
-                            style={titleStyle}
-                          >
-                            {editForm.store_name}
-                          </h1>
-                          <p
-                            className="text-xl sm:text-2xl font-bold tracking-wide pt-1 pb-1"
-                            style={taglineStyle}
-                          >
-                            "{editForm.store_tagline}"
-                          </p>
+                        <i className="fa-solid fa-up-right-and-down-left-from-center pointer-events-none"></i>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Dynamic Cover Text Styling */}
+                {(() => {
+                  const strokeC = editForm.text_stroke_color || '#000000';
+                  const deityStrokeC = editForm.deity_stroke_color !== undefined ? editForm.deity_stroke_color : '#FFFFFF';
+                  const deityFilterStyle = deityStrokeC === 'transparent' || !deityStrokeC
+                    ? 'drop-shadow(0 12px 24px rgba(0, 0, 0, 0.6))'
+                    : `drop-shadow(-2px -2px 0 ${deityStrokeC}) drop-shadow(2px -2px 0 ${deityStrokeC}) drop-shadow(-2px 2px 0 ${deityStrokeC}) drop-shadow(2px 2px 0 ${deityStrokeC}) drop-shadow(0 12px 24px rgba(0, 0, 0, 0.6))`;
+
+                  const titleStyle = {
+                    fontSize: '2.8rem',
+                    letterSpacing: '0.15em',
+                    lineHeight: '1.35',
+                    fontFamily: getStoreNameFontFamily(),
+                    color: editForm.store_title_color || undefined,
+                    textShadow: `-2px -2px 0 ${strokeC}, 2px -2px 0 ${strokeC}, -2px 2px 0 ${strokeC}, 2px 2px 0 ${strokeC}, 0 4px 8px rgba(0,0,0,0.5)`
+                  };
+
+                  const invocationStyle = {
+                    color: editForm.store_invocation_color || undefined,
+                    textShadow: `-1.5px -1.5px 0 ${strokeC}, 1.5px -1.5px 0 ${strokeC}, -1.5px 1.5px 0 ${strokeC}, 1.5px 1.5px 0 ${strokeC}, 0 2px 4px rgba(0,0,0,0.5)`
+                  };
+
+                  const taglineStyle = {
+                    color: editForm.store_tagline_color || undefined,
+                    textShadow: `-1.5px -1.5px 0 ${strokeC}, 1.5px -1.5px 0 ${strokeC}, -1.5px 1.5px 0 ${strokeC}, 1.5px 1.5px 0 ${strokeC}, 0 2px 4px rgba(0,0,0,0.5)`
+                  };
+
+                  return (
+                    <>
+                      {/* Top Invocation Header Section */}
+                      <div className="relative text-center z-10 mt-0 flex flex-col items-center justify-center gap-0.5 font-extrabold text-xs sm:text-sm tracking-wide" style={invocationStyle}>
+                        {editForm.store_invocation_symbol && (
+                          <div className="font-black text-sm sm:text-base leading-none">{editForm.store_invocation_symbol}</div>
+                        )}
+                        {editForm.store_invocation && (
+                          <div className="leading-tight">{editForm.store_invocation}</div>
+                        )}
+                      </div>
+
+                      {/* Main Brand & Logo Motif Center Section */}
+                      <div className="relative z-10 text-center space-y-6 mt-6 mb-2 flex justify-center">
+                        <div
+                          onMouseDown={handleShopInfoMouseDown}
+                          onTouchStart={handleShopInfoMouseDown}
+                          className="relative group cursor-grab active:cursor-grabbing border-2 border-transparent hover:border-sky-400 hover:border-dashed rounded-xl p-2 transition-all select-none inline-block"
+                          style={{
+                            transform: `translate(${editForm.shop_info_x || 0}px, ${editForm.shop_info_y || 0}px) scale(${(editForm.shop_info_scale || 100) / 100})`,
+                            transformOrigin: 'center center',
+                          }}
+                        >
+                          {/* Brand Title & Tagline */}
+                          <div className="flex flex-col items-center space-y-4 sm:space-y-5">
+                            <h1
+                              className="font-black text-white uppercase relative z-10"
+                              style={titleStyle}
+                            >
+                              {editForm.store_name}
+                            </h1>
+                            <p
+                              className="text-xl sm:text-2xl font-bold tracking-wide pt-1 pb-1"
+                              style={taglineStyle}
+                            >
+                              "{editForm.store_tagline}"
+                            </p>
+                            <div
+                              className="inline-block text-slate-950 font-black text-2xl sm:text-3xl uppercase tracking-wider pt-2"
+                              style={{ textShadow: '-2px -2px 0 #ffffff, 2px -2px 0 #ffffff, -2px 2px 0 #ffffff, 2px 2px 0 #ffffff, 0 4px 8px rgba(0,0,0,0.4)', color: editForm.store_badge_color || undefined }}
+                            >
+                              PRICE LIST - {editForm.store_year}
+                            </div>
+                          </div>
+
+                          {/* Drag Move Tooltip Badge */}
+                          <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-950/90 text-amber-300 font-black text-[10px] px-2 py-0.5 rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 whitespace-nowrap print:hidden pointer-events-none z-50">
+                            <i className="fa-solid fa-arrows-up-down-left-right text-sky-400"></i>
+                            <span>Shop Name (X: {editForm.shop_info_x || 0}px, Y: {editForm.shop_info_y || 0}px)</span>
+                          </div>
+
+                          {/* Canva Corner Drag Resize Handle */}
                           <div
-                            className="inline-block text-slate-950 font-black text-2xl sm:text-3xl uppercase tracking-wider pt-2"
-                            style={{ textShadow: '-2px -2px 0 #ffffff, 2px -2px 0 #ffffff, -2px 2px 0 #ffffff, 2px 2px 0 #ffffff, 0 4px 8px rgba(0,0,0,0.4)', color: editForm.store_badge_color || undefined }}
+                            onMouseDown={(e) => handleElementResizeStart('shop_info', editForm.shop_info_scale || 100, e)}
+                            onTouchStart={(e) => handleElementResizeStart('shop_info', editForm.shop_info_scale || 100, e)}
+                            className="absolute -bottom-1.5 -right-1.5 w-5 h-5 bg-sky-500 hover:bg-sky-600 active:scale-125 rounded-full border-2 border-white cursor-nwse-resize shadow-xl z-50 flex items-center justify-center text-[9px] text-white print:hidden transition-transform"
+                            title="Drag corner to resize Shop Name & Address"
                           >
-                            PRICE LIST - {editForm.store_year}
+                            <i className="fa-solid fa-up-right-and-down-left-from-center pointer-events-none"></i>
                           </div>
                         </div>
+                      </div>
 
-                        {/* Drag Move Tooltip Badge */}
-                        <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-950/90 text-amber-300 font-black text-[10px] px-2 py-0.5 rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 whitespace-nowrap print:hidden pointer-events-none z-50">
-                          <i className="fa-solid fa-arrows-up-down-left-right text-sky-400"></i>
-                          <span>Shop Name (X: {editForm.shop_info_x || 0}px, Y: {editForm.shop_info_y || 0}px)</span>
+                      {/* Center Cover Image Section */}
+                      {getDeityImageUrl() && (
+                        <div className="relative z-10 flex-1 min-h-0 my-auto flex justify-center items-center py-1 overflow-hidden">
+                          <div
+                            className="relative group border border-transparent hover:border-sky-400 hover:border-dashed rounded-2xl p-1.5 transition-all flex items-center justify-center"
+                            style={{
+                              transform: `scale(${(editForm.deity_scale || 100) / 100})`,
+                              transformOrigin: 'center center',
+                            }}
+                          >
+                            <img
+                              src={getDeityImageUrl()}
+                              alt="Cover Image"
+                              className="max-h-[540px] sm:max-h-[630px] w-auto object-contain relative z-10 pointer-events-auto"
+                              style={{
+                                filter: deityFilterStyle
+                              }}
+                            />
+                            {/* Canva Resize Handle */}
+                            <div
+                              onMouseDown={(e) => handleElementResizeStart('deity', editForm.deity_scale || 100, e)}
+                              className="absolute bottom-2 right-2 w-5 h-5 bg-sky-500 hover:bg-sky-600 rounded-full border-2 border-white cursor-se-resize shadow-lg opacity-0 group-hover:opacity-100 z-30 transition-opacity print:hidden flex items-center justify-center text-[9px] text-white"
+                              title="Drag corner to resize God Image like Canva"
+                            >
+                              <i className="fa-solid fa-up-right-and-down-left-from-center"></i>
+                            </div>
+                          </div>
                         </div>
+                      )}
+                    </>
+                  );
+                })()}
 
-                        {/* Canva Corner Drag Resize Handle */}
+                {/* For Order Full-Width Banner Card (Spans Start to End Flush Across Sheet - Compact & High-Legibility) */}
+                <div className="relative z-10 w-full mx-0 mt-auto mb-0">
+                  <div className="bg-white text-slate-950 p-2.5 sm:p-3 rounded-2xl shadow-2xl border-2 border-amber-400 grid grid-cols-1 sm:grid-cols-12 gap-2 items-center px-3 sm:px-4">
+                    {/* Left: Store Logo (Direct clean logo without circle ring with Canva Resize Handle) */}
+                    <div className="sm:col-span-3 flex justify-center sm:justify-start items-center">
+                      <div
+                        className="relative group border border-transparent hover:border-sky-400 hover:border-dashed rounded-lg p-1 transition-all"
+                        style={{
+                          transform: `scale(${(editForm.logo_scale || 100) / 100})`,
+                          transformOrigin: 'left center',
+                        }}
+                      >
+                        {editForm.store_logo || settings?.store_logo ? (
+                          <img
+                            src={getImageUrl(editForm.store_logo || settings?.store_logo)}
+                            alt={editForm.store_name}
+                            className="max-h-16 sm:max-h-20 max-w-[130px] sm:max-w-[160px] object-contain drop-shadow-xs"
+                          />
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-amber-600 font-black text-lg">
+                            <i className="fa-solid fa-fire text-xl text-red-600"></i>
+                            <span>{editForm.store_name}</span>
+                          </div>
+                        )}
+                        {/* Canva Resize Handle */}
                         <div
-                          onMouseDown={(e) => handleElementResizeStart('shop_info', editForm.shop_info_scale || 100, e)}
-                          onTouchStart={(e) => handleElementResizeStart('shop_info', editForm.shop_info_scale || 100, e)}
-                          className="absolute -bottom-1.5 -right-1.5 w-5 h-5 bg-sky-500 hover:bg-sky-600 active:scale-125 rounded-full border-2 border-white cursor-nwse-resize shadow-xl z-50 flex items-center justify-center text-[9px] text-white print:hidden transition-transform"
-                          title="Drag corner to resize Shop Name & Address"
+                          onMouseDown={(e) => handleElementResizeStart('logo', editForm.logo_scale || 100, e)}
+                          className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-sky-500 hover:bg-sky-600 rounded-full border-2 border-white cursor-se-resize shadow-md opacity-0 group-hover:opacity-100 z-30 transition-opacity print:hidden flex items-center justify-center text-[8px] text-white"
+                          title="Drag corner to resize Logo like Canva"
                         >
-                          <i className="fa-solid fa-up-right-and-down-left-from-center pointer-events-none"></i>
+                          <i className="fa-solid fa-up-right-and-down-left-from-center"></i>
                         </div>
                       </div>
                     </div>
 
-                    {/* Center Cover Image Section */}
-                    {getDeityImageUrl() && (
-                      <div className="relative z-10 flex-1 min-h-0 my-auto flex justify-center items-center py-1 overflow-hidden">
+                    {/* Center: Contact Details (Website, 4 Phone Numbers, GPay with Canva Resize Handle) */}
+                    <div className={`${editForm.show_discount_badge !== false ? 'sm:col-span-6' : 'sm:col-span-9'} flex flex-col items-center sm:items-start text-center sm:text-left`}>
+                      <div
+                        className="relative group border border-transparent hover:border-sky-400 hover:border-dashed rounded-lg p-1 transition-all space-y-1 sm:space-y-1.5"
+                        style={{
+                          transform: `scale(${(editForm.contact_scale || 100) / 100})`,
+                          transformOrigin: 'left center',
+                        }}
+                      >
+                        {editForm.store_email && (
+                          <div className="flex items-center gap-2 text-slate-950 text-xs sm:text-sm font-black tracking-wide">
+                            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-black text-white flex items-center justify-center text-[10px] sm:text-xs shrink-0 shadow-xs">
+                              <i className="fa-solid fa-globe"></i>
+                            </div>
+                            <span className="truncate">{editForm.store_email}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 text-slate-950 text-xs sm:text-sm font-black tracking-wide">
+                          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] sm:text-xs shrink-0 shadow-xs">
+                            <i className="fa-solid fa-phone"></i>
+                          </div>
+                          <span className="leading-snug">
+                            {[editForm.store_phone, editForm.store_phone_2, editForm.store_phone_3, editForm.store_phone_4].filter(Boolean).join(' , ')}
+                          </span>
+                        </div>
+                        {(editForm.store_gpay || editForm.store_phone_3) && (
+                          <div className="flex items-center gap-2 text-slate-950 text-xs sm:text-sm font-black tracking-wide">
+                            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-sky-500 text-white flex items-center justify-center text-[9px] sm:text-[10px] font-black shrink-0 shadow-xs">
+                              GPay
+                            </div>
+                            <span className="font-mono">{editForm.store_gpay || editForm.store_phone_3}</span>
+                          </div>
+                        )}
+                        {/* Canva Resize Handle */}
                         <div
-                          className="relative group border border-transparent hover:border-sky-400 hover:border-dashed rounded-2xl p-1.5 transition-all flex items-center justify-center"
+                          onMouseDown={(e) => handleElementResizeStart('contact', editForm.contact_scale || 100, e)}
+                          className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-sky-500 hover:bg-sky-600 rounded-full border-2 border-white cursor-se-resize shadow-md opacity-0 group-hover:opacity-100 z-30 transition-opacity print:hidden flex items-center justify-center text-[8px] text-white"
+                          title="Drag corner to resize Contact Details like Canva"
+                        >
+                          <i className="fa-solid fa-up-right-and-down-left-from-center"></i>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: Dynamic Mega Sale Discount Offer Badge & Rocket (Optional with Canva Resize Handle) */}
+                    {editForm.show_discount_badge !== false && (
+                      <div className="sm:col-span-3 flex justify-center sm:justify-end items-center">
+                        <div
+                          className="relative group border border-transparent hover:border-sky-400 hover:border-dashed rounded-lg p-1 transition-all"
                           style={{
-                            transform: `scale(${(editForm.deity_scale || 100) / 100})`,
-                            transformOrigin: 'center center',
+                            transform: `scale(${(editForm.discount_scale || 100) / 100})`,
+                            transformOrigin: 'right center',
                           }}
                         >
-                          <img
-                            src={getDeityImageUrl()}
-                            alt="Cover Image"
-                            className="max-h-[540px] sm:max-h-[630px] w-auto object-contain relative z-10 pointer-events-auto"
-                            style={{
-                              filter: deityFilterStyle
-                            }}
-                          />
+                          <div className="flex items-center gap-2 sm:gap-3">
+                            <div className="flex flex-col items-center justify-center text-center">
+                              {/* 3D MEGA SALE Header */}
+                              <div
+                                className="text-amber-500 font-black text-base sm:text-lg uppercase tracking-wider leading-none"
+                                style={{ textShadow: '-1.5px -1.5px 0 #78350f, 1.5px -1.5px 0 #78350f, -1.5px 1.5px 0 #78350f, 1.5px 1.5px 0 #78350f, 0 2px 4px rgba(0,0,0,0.3)' }}
+                              >
+                                MEGA SALE
+                              </div>
+                              {/* Dynamic Offer Percentage Value */}
+                              <div
+                                className="text-3xl sm:text-4xl font-black my-0.5 leading-none transition-colors duration-300"
+                                style={{
+                                  color: getThemeAccentColor(editForm.store_cover_bg).hex,
+                                  textShadow: '-2px -2px 0 #ffffff, 2px -2px 0 #ffffff, -2px 2px 0 #ffffff, 2px 2px 0 #ffffff, 0 3px 6px rgba(0,0,0,0.4)'
+                                }}
+                              >
+                                {discountPercent}%
+                              </div>
+                              {/* DISCOUNT Badge */}
+                              <div
+                                className="text-white text-[9px] sm:text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md shadow tracking-widest transition-colors duration-300"
+                                style={{
+                                  backgroundColor: getThemeAccentColor(editForm.store_cover_bg).hex
+                                }}
+                              >
+                                DISCOUNT
+                              </div>
+                            </div>
+                            {/* Skyrocket Clipart */}
+                            <div className="text-2xl sm:text-3xl">
+                              🚀
+                            </div>
+                          </div>
                           {/* Canva Resize Handle */}
                           <div
-                            onMouseDown={(e) => handleElementResizeStart('deity', editForm.deity_scale || 100, e)}
-                            className="absolute bottom-2 right-2 w-5 h-5 bg-sky-500 hover:bg-sky-600 rounded-full border-2 border-white cursor-se-resize shadow-lg opacity-0 group-hover:opacity-100 z-30 transition-opacity print:hidden flex items-center justify-center text-[9px] text-white"
-                            title="Drag corner to resize God Image like Canva"
+                            onMouseDown={(e) => handleElementResizeStart('discount', editForm.discount_scale || 100, e)}
+                            className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-sky-500 hover:bg-sky-600 rounded-full border-2 border-white cursor-se-resize shadow-md opacity-0 group-hover:opacity-100 z-30 transition-opacity print:hidden flex items-center justify-center text-[8px] text-white"
+                            title="Drag corner to resize Discount Box like Canva"
                           >
                             <i className="fa-solid fa-up-right-and-down-left-from-center"></i>
                           </div>
                         </div>
                       </div>
                     )}
-                  </>
-                );
-              })()}
 
-              {/* For Order Full-Width Banner Card (Spans Start to End Flush Across Sheet - Compact & High-Legibility) */}
-              <div className="relative z-10 w-full mx-0 mt-auto mb-0">
-                <div className="bg-white text-slate-950 p-2.5 sm:p-3 rounded-2xl shadow-2xl border-2 border-amber-400 grid grid-cols-1 sm:grid-cols-12 gap-2 items-center px-3 sm:px-4">
-                  {/* Left: Store Logo (Direct clean logo without circle ring with Canva Resize Handle) */}
-                  <div className="sm:col-span-3 flex justify-center sm:justify-start items-center">
-                    <div
-                      className="relative group border border-transparent hover:border-sky-400 hover:border-dashed rounded-lg p-1 transition-all"
-                      style={{
-                        transform: `scale(${(editForm.logo_scale || 100) / 100})`,
-                        transformOrigin: 'left center',
-                      }}
-                    >
-                      {editForm.store_logo || settings?.store_logo ? (
-                        <img
-                          src={getImageUrl(editForm.store_logo || settings?.store_logo)}
-                          alt={editForm.store_name}
-                          className="max-h-16 sm:max-h-20 max-w-[130px] sm:max-w-[160px] object-contain drop-shadow-xs"
-                        />
-                      ) : (
-                        <div className="flex items-center gap-1.5 text-amber-600 font-black text-lg">
-                          <i className="fa-solid fa-fire text-xl text-red-600"></i>
-                          <span>{editForm.store_name}</span>
-                        </div>
-                      )}
-                      {/* Canva Resize Handle */}
+                    {/* Bottom Centered Address Row with Canva Resize Handle */}
+                    <div className="sm:col-span-12 flex items-center justify-center pt-1.5 border-t border-slate-200 text-center w-full mt-0.5">
                       <div
-                        onMouseDown={(e) => handleElementResizeStart('logo', editForm.logo_scale || 100, e)}
-                        className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-sky-500 hover:bg-sky-600 rounded-full border-2 border-white cursor-se-resize shadow-md opacity-0 group-hover:opacity-100 z-30 transition-opacity print:hidden flex items-center justify-center text-[8px] text-white"
-                        title="Drag corner to resize Logo like Canva"
-                      >
-                        <i className="fa-solid fa-up-right-and-down-left-from-center"></i>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Center: Contact Details (Website, 4 Phone Numbers, GPay with Canva Resize Handle) */}
-                  <div className={`${editForm.show_discount_badge !== false ? 'sm:col-span-6' : 'sm:col-span-9'} flex flex-col items-center sm:items-start text-center sm:text-left`}>
-                    <div
-                      className="relative group border border-transparent hover:border-sky-400 hover:border-dashed rounded-lg p-1 transition-all space-y-1 sm:space-y-1.5"
-                      style={{
-                        transform: `scale(${(editForm.contact_scale || 100) / 100})`,
-                        transformOrigin: 'left center',
-                      }}
-                    >
-                      {editForm.store_email && (
-                        <div className="flex items-center gap-2 text-slate-950 text-xs sm:text-sm font-black tracking-wide">
-                          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-black text-white flex items-center justify-center text-[10px] sm:text-xs shrink-0 shadow-xs">
-                            <i className="fa-solid fa-globe"></i>
-                          </div>
-                          <span className="truncate">{editForm.store_email}</span>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2 text-slate-950 text-xs sm:text-sm font-black tracking-wide">
-                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] sm:text-xs shrink-0 shadow-xs">
-                          <i className="fa-solid fa-phone"></i>
-                        </div>
-                        <span className="leading-snug">
-                          {[editForm.store_phone, editForm.store_phone_2, editForm.store_phone_3, editForm.store_phone_4].filter(Boolean).join(' , ')}
-                        </span>
-                      </div>
-                      {(editForm.store_gpay || editForm.store_phone_3) && (
-                        <div className="flex items-center gap-2 text-slate-950 text-xs sm:text-sm font-black tracking-wide">
-                          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-sky-500 text-white flex items-center justify-center text-[9px] sm:text-[10px] font-black shrink-0 shadow-xs">
-                            GPay
-                          </div>
-                          <span className="font-mono">{editForm.store_gpay || editForm.store_phone_3}</span>
-                        </div>
-                      )}
-                      {/* Canva Resize Handle */}
-                      <div
-                        onMouseDown={(e) => handleElementResizeStart('contact', editForm.contact_scale || 100, e)}
-                        className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-sky-500 hover:bg-sky-600 rounded-full border-2 border-white cursor-se-resize shadow-md opacity-0 group-hover:opacity-100 z-30 transition-opacity print:hidden flex items-center justify-center text-[8px] text-white"
-                        title="Drag corner to resize Contact Details like Canva"
-                      >
-                        <i className="fa-solid fa-up-right-and-down-left-from-center"></i>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right: Dynamic Mega Sale Discount Offer Badge & Rocket (Optional with Canva Resize Handle) */}
-                  {editForm.show_discount_badge !== false && (
-                    <div className="sm:col-span-3 flex justify-center sm:justify-end items-center">
-                      <div
-                        className="relative group border border-transparent hover:border-sky-400 hover:border-dashed rounded-lg p-1 transition-all"
+                        className="relative group border border-transparent hover:border-sky-400 hover:border-dashed rounded-lg p-1 transition-all flex items-center justify-center gap-1.5 text-slate-950 text-[11px] sm:text-xs font-black"
                         style={{
-                          transform: `scale(${(editForm.discount_scale || 100) / 100})`,
-                          transformOrigin: 'right center',
+                          transform: `scale(${(editForm.address_scale || 100) / 100})`,
+                          transformOrigin: 'center center',
                         }}
                       >
-                        <div className="flex items-center gap-2 sm:gap-3">
-                          <div className="flex flex-col items-center justify-center text-center">
-                            {/* 3D MEGA SALE Header */}
-                            <div
-                              className="text-amber-500 font-black text-base sm:text-lg uppercase tracking-wider leading-none"
-                              style={{ textShadow: '-1.5px -1.5px 0 #78350f, 1.5px -1.5px 0 #78350f, -1.5px 1.5px 0 #78350f, 1.5px 1.5px 0 #78350f, 0 2px 4px rgba(0,0,0,0.3)' }}
-                            >
-                              MEGA SALE
-                            </div>
-                            {/* Dynamic Offer Percentage Value */}
-                            <div
-                              className="text-3xl sm:text-4xl font-black my-0.5 leading-none transition-colors duration-300"
-                              style={{
-                                color: getThemeAccentColor(editForm.store_cover_bg).hex,
-                                textShadow: '-2px -2px 0 #ffffff, 2px -2px 0 #ffffff, -2px 2px 0 #ffffff, 2px 2px 0 #ffffff, 0 3px 6px rgba(0,0,0,0.4)'
-                              }}
-                            >
-                              {discountPercent}%
-                            </div>
-                            {/* DISCOUNT Badge */}
-                            <div
-                              className="text-white text-[9px] sm:text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md shadow tracking-widest transition-colors duration-300"
-                              style={{
-                                backgroundColor: getThemeAccentColor(editForm.store_cover_bg).hex
-                              }}
-                            >
-                              DISCOUNT
-                            </div>
-                          </div>
-                          {/* Skyrocket Clipart */}
-                          <div className="text-2xl sm:text-3xl">
-                            🚀
-                          </div>
+                        <div
+                          className="w-4.5 h-4.5 rounded-full text-white flex items-center justify-center text-[9px] shrink-0 shadow-xs transition-colors duration-300"
+                          style={{
+                            backgroundColor: getThemeAccentColor(editForm.store_cover_bg).hex
+                          }}
+                        >
+                          <i className="fa-solid fa-location-dot"></i>
                         </div>
+                        <span>{editForm.store_address || 'Virudhunagar to Sivakasi Main Road, Sivakasi'}</span>
                         {/* Canva Resize Handle */}
                         <div
-                          onMouseDown={(e) => handleElementResizeStart('discount', editForm.discount_scale || 100, e)}
+                          onMouseDown={(e) => handleElementResizeStart('address', editForm.address_scale || 100, e)}
                           className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-sky-500 hover:bg-sky-600 rounded-full border-2 border-white cursor-se-resize shadow-md opacity-0 group-hover:opacity-100 z-30 transition-opacity print:hidden flex items-center justify-center text-[8px] text-white"
-                          title="Drag corner to resize Discount Box like Canva"
+                          title="Drag corner to resize Address Row like Canva"
                         >
                           <i className="fa-solid fa-up-right-and-down-left-from-center"></i>
                         </div>
                       </div>
                     </div>
-                  )}
-
-                  {/* Bottom Centered Address Row with Canva Resize Handle */}
-                  <div className="sm:col-span-12 flex items-center justify-center pt-1.5 border-t border-slate-200 text-center w-full mt-0.5">
-                    <div
-                      className="relative group border border-transparent hover:border-sky-400 hover:border-dashed rounded-lg p-1 transition-all flex items-center justify-center gap-1.5 text-slate-950 text-[11px] sm:text-xs font-black"
-                      style={{
-                        transform: `scale(${(editForm.address_scale || 100) / 100})`,
-                        transformOrigin: 'center center',
-                      }}
-                    >
-                      <div
-                        className="w-4.5 h-4.5 rounded-full text-white flex items-center justify-center text-[9px] shrink-0 shadow-xs transition-colors duration-300"
-                        style={{
-                          backgroundColor: getThemeAccentColor(editForm.store_cover_bg).hex
-                        }}
-                      >
-                        <i className="fa-solid fa-location-dot"></i>
-                      </div>
-                      <span>{editForm.store_address || 'Virudhunagar to Sivakasi Main Road, Sivakasi'}</span>
-                      {/* Canva Resize Handle */}
-                      <div
-                        onMouseDown={(e) => handleElementResizeStart('address', editForm.address_scale || 100, e)}
-                        className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-sky-500 hover:bg-sky-600 rounded-full border-2 border-white cursor-se-resize shadow-md opacity-0 group-hover:opacity-100 z-30 transition-opacity print:hidden flex items-center justify-center text-[8px] text-white"
-                        title="Drag corner to resize Address Row like Canva"
-                      >
-                        <i className="fa-solid fa-up-right-and-down-left-from-center"></i>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-            </div>
-          )}
+            )}
+          </div>
+        )}
 
           {/* A4 PRODUCT REGISTRY PAGES (210mm x 297mm) */}
           {productPageChunks.map((chunkProducts, chunkIdx) => {
-            const docPageIndex = isSimplerLayout ? chunkIdx + 1 : chunkIdx + 2;
+            const docPageIndex = hasDedicatedCoverPage ? chunkIdx + 2 : chunkIdx + 1;
 
             // Group chunk products by category for this page
             const chunkCategories = [];
@@ -4652,7 +5138,7 @@ export default function PriceList({ defaultTab }) {
             return (
               <div key={chunkIdx} className="w-full max-w-[210mm] print:w-[210mm]">
                 <div
-                  id={(isSimplerLayout && chunkIdx === 0) ? "a4-page-1-container" : undefined}
+                  id={(!hasDedicatedCoverPage && chunkIdx === 0) ? "a4-page-1-container" : undefined}
                   className={`a4-page-sheet w-[210mm] h-[297mm] max-h-[297mm] overflow-hidden text-slate-900 transition-all duration-300 relative shadow-2xl flex flex-col justify-between p-4 sm:p-5 select-none mx-auto break-after-page bg-cover bg-center bg-no-repeat box-border`}
                   style={{ backgroundImage: editForm.store_cover_bg === 'none' ? 'none' : `url(${editForm.store_cover_bg ? getImageUrl(editForm.store_cover_bg) : '/images/cover_bg.jpg'})`, pageBreakAfter: 'always' }}
                 >
@@ -4856,29 +5342,45 @@ export default function PriceList({ defaultTab }) {
                             {showReq && <col style={{ width: getColPctWidth('req') }} />}
                           </colgroup>
                           <thead>
-                            <tr className={`${theme.tableHeader} font-black text-black uppercase tracking-wider text-[11px] min-h-[34px]`}>
+                            <tr
+                              className="font-black uppercase tracking-wider text-[12px] min-h-[38px]"
+                              style={{
+                                backgroundColor: editForm.table_header_bg_color || '#fef3c7',
+                                backgroundImage: 'none',
+                                color: editForm.table_header_text_color || '#000000',
+                              }}
+                            >
                               {/* S.No Header */}
                               {showSno && (
                                 <th
-                                  className="py-0.5 text-center border border-slate-400 relative select-none group p-0 align-middle"
+                                  className="border border-slate-400 relative select-none group p-0 align-middle"
                                   style={{
                                     width: getColPctWidth('sno'),
                                     paddingLeft: `${editForm.table_col_padding || 4}px`,
                                     paddingRight: `${editForm.table_col_padding || 4}px`,
+                                    backgroundColor: editForm.table_header_bg_color || '#fef3c7',
+                                    backgroundImage: 'none',
+                                    color: editForm.table_header_text_color || '#000000',
                                   }}
                                 >
-                                  <span className="hidden print:block w-full text-center font-black uppercase text-[10px] leading-tight py-0.5 break-words">
-                                    {editForm.header_sno || 'S.No'}
-                                  </span>
-                                  <textarea
-                                    rows={2}
-                                    value={editForm.header_sno || 'S.No'}
-                                    onChange={(e) => handleInputChange('header_sno', e.target.value)}
-                                    onFocus={(e) => e.target.select()}
-                                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
-                                    title="Click to edit header"
-                                    className="print:hidden w-full h-full bg-transparent border-0 text-center font-black uppercase text-[10px] leading-tight resize-none whitespace-pre-wrap break-words overflow-hidden focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-0.5 cursor-text hover:bg-black/5 transition-colors focus:outline-none py-1"
-                                  />
+                                  <div className="flex items-center justify-center w-full min-h-[38px] py-1">
+                                    <span
+                                      className="hidden print:block w-full text-center font-black uppercase text-[12px] leading-tight break-words"
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                    >
+                                      {editForm.header_sno || 'S.No'}
+                                    </span>
+                                    <textarea
+                                      rows={2}
+                                      value={editForm.header_sno || 'S.No'}
+                                      onChange={(e) => handleInputChange('header_sno', e.target.value)}
+                                      onFocus={(e) => e.target.select()}
+                                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
+                                      title="Click to edit header"
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                      className="print:hidden w-full bg-transparent border-0 text-center font-black uppercase text-[12px] leading-tight resize-none whitespace-pre-wrap break-words focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-0.5 cursor-text hover:bg-black/5 transition-colors focus:outline-none my-auto py-0.5"
+                                    />
+                                  </div>
                                   {lastActiveCol !== 'sno' && (
                                     <div
                                       className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize hover:bg-amber-600/80 active:bg-amber-700 z-30 transition-colors print:hidden flex items-center justify-center"
@@ -4895,25 +5397,34 @@ export default function PriceList({ defaultTab }) {
                               {/* Product Header (English) */}
                               {showProduct && (
                                 <th
-                                  className="py-0.5 border border-slate-400 relative select-none group p-0 align-middle"
+                                  className="border border-slate-400 relative select-none group p-0 align-middle"
                                   style={{
                                     width: getColPctWidth('product'),
                                     paddingLeft: `${editForm.table_col_padding || 4}px`,
                                     paddingRight: `${editForm.table_col_padding || 4}px`,
+                                    backgroundColor: editForm.table_header_bg_color || '#fef3c7',
+                                    backgroundImage: 'none',
+                                    color: editForm.table_header_text_color || '#000000',
                                   }}
                                 >
-                                  <span className="hidden print:block w-full text-left font-black uppercase text-[10px] leading-tight py-0.5 break-words px-1">
-                                    {editForm.header_product || (showTamilName ? 'PRODUCT NAME (ENG)' : 'PRODUCT')}
-                                  </span>
-                                  <textarea
-                                    rows={2}
-                                    value={editForm.header_product || (showTamilName ? 'PRODUCT NAME (ENG)' : 'PRODUCT')}
-                                    onChange={(e) => handleInputChange('header_product', e.target.value)}
-                                    onFocus={(e) => e.target.select()}
-                                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
-                                    title="Click to edit header"
-                                    className="print:hidden w-full h-full bg-transparent border-0 text-left font-black uppercase text-[10px] leading-tight resize-none whitespace-pre-wrap break-words overflow-hidden focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none py-1"
-                                  />
+                                  <div className="flex items-center justify-start w-full min-h-[38px] py-1 px-1">
+                                    <span
+                                      className="hidden print:block w-full text-left font-black uppercase text-[12px] leading-tight break-words"
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                    >
+                                      {editForm.header_product || (showTamilName ? 'PRODUCT NAME (ENG)' : 'PRODUCT')}
+                                    </span>
+                                    <textarea
+                                      rows={2}
+                                      value={editForm.header_product || (showTamilName ? 'PRODUCT NAME (ENG)' : 'PRODUCT')}
+                                      onChange={(e) => handleInputChange('header_product', e.target.value)}
+                                      onFocus={(e) => e.target.select()}
+                                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
+                                      title="Click to edit header"
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                      className="print:hidden w-full bg-transparent border-0 text-left font-black uppercase text-[12px] leading-tight resize-none whitespace-pre-wrap break-words focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none my-auto py-0.5"
+                                    />
+                                  </div>
                                   {lastActiveCol !== 'product' && (
                                     <div
                                       className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize hover:bg-amber-600/80 active:bg-amber-700 z-30 transition-colors print:hidden flex items-center justify-center"
@@ -4930,25 +5441,34 @@ export default function PriceList({ defaultTab }) {
                               {/* Tamil Product Header */}
                               {showTamilName && (
                                 <th
-                                  className="py-0.5 border border-slate-400 relative select-none group p-0 align-middle"
+                                  className="border border-slate-400 relative select-none group p-0 align-middle"
                                   style={{
                                     width: getColPctWidth('product_ta'),
                                     paddingLeft: `${editForm.table_col_padding || 4}px`,
                                     paddingRight: `${editForm.table_col_padding || 4}px`,
+                                    backgroundColor: editForm.table_header_bg_color || '#fef3c7',
+                                    backgroundImage: 'none',
+                                    color: editForm.table_header_text_color || '#000000',
                                   }}
                                 >
-                                  <span className="hidden print:block w-full text-left font-black uppercase text-[10px] leading-tight py-0.5 break-words px-1">
-                                    {editForm.header_product_ta || 'பொருள் பெயர் (TAMIL)'}
-                                  </span>
-                                  <textarea
-                                    rows={2}
-                                    value={editForm.header_product_ta || 'பொருள் பெயர் (TAMIL)'}
-                                    onChange={(e) => handleInputChange('header_product_ta', e.target.value)}
-                                    onFocus={(e) => e.target.select()}
-                                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
-                                    title="Click to edit Tamil header"
-                                    className="print:hidden w-full h-full bg-transparent border-0 text-left font-black uppercase text-[10px] leading-tight resize-none whitespace-pre-wrap break-words overflow-hidden focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none py-1"
-                                  />
+                                  <div className="flex items-center justify-start w-full min-h-[38px] py-1 px-1">
+                                    <span
+                                      className="hidden print:block w-full text-left font-black uppercase text-[12px] leading-tight break-words"
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                    >
+                                      {editForm.header_product_ta || 'பொருள் பெயர் (TAMIL)'}
+                                    </span>
+                                    <textarea
+                                      rows={2}
+                                      value={editForm.header_product_ta || 'பொருள் பெயர் (TAMIL)'}
+                                      onChange={(e) => handleInputChange('header_product_ta', e.target.value)}
+                                      onFocus={(e) => e.target.select()}
+                                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
+                                      title="Click to edit Tamil header"
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                      className="print:hidden w-full bg-transparent border-0 text-left font-black uppercase text-[12px] leading-tight resize-none whitespace-pre-wrap break-words focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none my-auto py-0.5"
+                                    />
+                                  </div>
                                   {lastActiveCol !== 'product_ta' && (
                                     <div
                                       className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize hover:bg-amber-600/80 active:bg-amber-700 z-30 transition-colors print:hidden flex items-center justify-center"
@@ -4965,25 +5485,34 @@ export default function PriceList({ defaultTab }) {
                               {/* Unit Header */}
                               {showUnit && (
                                 <th
-                                  className="py-0.5 text-center border border-slate-400 relative select-none group p-0 align-middle"
+                                  className="border border-slate-400 relative select-none group p-0 align-middle"
                                   style={{
                                     width: getColPctWidth('unit'),
                                     paddingLeft: `${editForm.table_col_padding || 4}px`,
                                     paddingRight: `${editForm.table_col_padding || 4}px`,
+                                    backgroundColor: editForm.table_header_bg_color || '#fef3c7',
+                                    backgroundImage: 'none',
+                                    color: editForm.table_header_text_color || '#000000',
                                   }}
                                 >
-                                  <span className="hidden print:block w-full text-center font-black uppercase text-[10px] leading-tight py-0.5 break-words">
-                                    {editForm.header_unit || 'UNIT'}
-                                  </span>
-                                  <textarea
-                                    rows={2}
-                                    value={editForm.header_unit || 'UNIT'}
-                                    onChange={(e) => handleInputChange('header_unit', e.target.value)}
-                                    onFocus={(e) => e.target.select()}
-                                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
-                                    title="Click to edit header"
-                                    className="print:hidden w-full h-full bg-transparent border-0 text-center font-black uppercase text-[10px] leading-tight resize-none whitespace-pre-wrap break-words overflow-hidden focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-0.5 cursor-text hover:bg-black/5 transition-colors focus:outline-none py-1"
-                                  />
+                                  <div className="flex items-center justify-center w-full min-h-[38px] py-1">
+                                    <span
+                                      className="hidden print:block w-full text-center font-black uppercase text-[12px] leading-tight break-words"
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                    >
+                                      {editForm.header_unit || 'UNIT'}
+                                    </span>
+                                    <textarea
+                                      rows={2}
+                                      value={editForm.header_unit || 'UNIT'}
+                                      onChange={(e) => handleInputChange('header_unit', e.target.value)}
+                                      onFocus={(e) => e.target.select()}
+                                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
+                                      title="Click to edit header"
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                      className="print:hidden w-full bg-transparent border-0 text-center font-black uppercase text-[12px] leading-tight resize-none whitespace-pre-wrap break-words focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-0.5 cursor-text hover:bg-black/5 transition-colors focus:outline-none my-auto py-0.5"
+                                    />
+                                  </div>
                                   {lastActiveCol !== 'unit' && (
                                     <div
                                       className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize hover:bg-amber-600/80 active:bg-amber-700 z-30 transition-colors print:hidden flex items-center justify-center"
@@ -5000,25 +5529,34 @@ export default function PriceList({ defaultTab }) {
                               {/* Rate (MRP) Header */}
                               {showMrpCol && (
                                 <th
-                                  className="py-0.5 text-right border border-slate-400 relative select-none group p-0 align-middle"
+                                  className="border border-slate-400 relative select-none group p-0 align-middle"
                                   style={{
                                     width: getColPctWidth('mrp'),
                                     paddingLeft: `${editForm.table_col_padding || 4}px`,
                                     paddingRight: `${editForm.table_col_padding || 4}px`,
+                                    backgroundColor: editForm.table_header_bg_color || '#fef3c7',
+                                    backgroundImage: 'none',
+                                    color: editForm.table_header_text_color || '#000000',
                                   }}
                                 >
-                                  <span className="hidden print:block w-full text-right font-black uppercase text-[10px] leading-tight py-0.5 break-words px-1">
-                                    {editForm.header_mrp || 'RATE (₹)'}
-                                  </span>
-                                  <textarea
-                                    rows={2}
-                                    value={editForm.header_mrp || 'Rate (₹)'}
-                                    onChange={(e) => handleInputChange('header_mrp', e.target.value)}
-                                    onFocus={(e) => e.target.select()}
-                                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
-                                    title="Click to edit header"
-                                    className="print:hidden w-full h-full bg-transparent border-0 text-right font-black uppercase text-[10px] leading-tight resize-none whitespace-pre-wrap break-words overflow-hidden focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none py-1"
-                                  />
+                                  <div className="flex items-center justify-end w-full min-h-[38px] py-1 px-1">
+                                    <span
+                                      className="hidden print:block w-full text-right font-black uppercase text-[12px] leading-tight break-words"
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                    >
+                                      {editForm.header_mrp || 'RATE (₹)'}
+                                    </span>
+                                    <textarea
+                                      rows={2}
+                                      value={editForm.header_mrp || 'Rate (₹)'}
+                                      onChange={(e) => handleInputChange('header_mrp', e.target.value)}
+                                      onFocus={(e) => e.target.select()}
+                                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
+                                      title="Click to edit header"
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                      className="print:hidden w-full bg-transparent border-0 text-right font-black uppercase text-[12px] leading-tight resize-none whitespace-pre-wrap break-words focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none my-auto py-0.5"
+                                    />
+                                  </div>
                                   {lastActiveCol !== 'mrp' && (
                                     <div
                                       className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize hover:bg-amber-600/80 active:bg-amber-700 z-30 transition-colors print:hidden flex items-center justify-center"
@@ -5035,25 +5573,34 @@ export default function PriceList({ defaultTab }) {
                               {/* Offer Rate Header */}
                               {showOffer && (
                                 <th
-                                  className="py-0.5 text-right border border-slate-400 relative select-none group p-0 align-middle"
+                                  className="border border-slate-400 relative select-none group p-0 align-middle"
                                   style={{
                                     width: getColPctWidth('offer'),
                                     paddingLeft: `${editForm.table_col_padding || 4}px`,
                                     paddingRight: `${editForm.table_col_padding || 4}px`,
+                                    backgroundColor: editForm.table_header_bg_color || '#fef3c7',
+                                    backgroundImage: 'none',
+                                    color: editForm.table_header_text_color || '#000000',
                                   }}
                                 >
-                                  <span className="hidden print:block w-full text-right font-black uppercase text-[10px] leading-tight py-0.5 break-words px-1">
-                                    {editForm.header_offer || `${discountPercent}% OFFER RATE (₹)`}
-                                  </span>
-                                  <textarea
-                                    rows={2}
-                                    value={editForm.header_offer || `${discountPercent}% Offer Rate (₹)`}
-                                    onChange={(e) => handleInputChange('header_offer', e.target.value)}
-                                    onFocus={(e) => e.target.select()}
-                                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
-                                    title="Click to edit header"
-                                    className="print:hidden w-full h-full bg-transparent border-0 text-right font-black uppercase text-[10px] leading-tight resize-none whitespace-pre-wrap break-words overflow-hidden focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none py-1"
-                                  />
+                                  <div className="flex items-center justify-end w-full min-h-[38px] py-1 px-1">
+                                    <span
+                                      className="hidden print:block w-full text-right font-black uppercase text-[12px] leading-tight break-words"
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                    >
+                                      {editForm.header_offer || `${discountPercent}% OFFER RATE (₹)`}
+                                    </span>
+                                    <textarea
+                                      rows={2}
+                                      value={editForm.header_offer || `${discountPercent}% Offer Rate (₹)`}
+                                      onChange={(e) => handleInputChange('header_offer', e.target.value)}
+                                      onFocus={(e) => e.target.select()}
+                                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
+                                      title="Click to edit header"
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                      className="print:hidden w-full bg-transparent border-0 text-right font-black uppercase text-[12px] leading-tight resize-none whitespace-pre-wrap break-words focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none my-auto py-0.5"
+                                    />
+                                  </div>
                                   {lastActiveCol !== 'offer' && (
                                     <div
                                       className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize hover:bg-amber-600/80 active:bg-amber-700 z-30 transition-colors print:hidden flex items-center justify-center"
@@ -5070,25 +5617,34 @@ export default function PriceList({ defaultTab }) {
                               {/* Req Header */}
                               {showReq && (
                                 <th
-                                  className="py-0.5 text-center border border-slate-400 relative select-none group p-0 align-middle"
+                                  className="border border-slate-400 relative select-none group p-0 align-middle"
                                   style={{
                                     width: getColPctWidth('req'),
                                     paddingLeft: `${editForm.table_col_padding || 4}px`,
                                     paddingRight: `${editForm.table_col_padding || 4}px`,
+                                    backgroundColor: editForm.table_header_bg_color || '#fef3c7',
+                                    backgroundImage: 'none',
+                                    color: editForm.table_header_text_color || '#000000',
                                   }}
                                 >
-                                  <span className="hidden print:block w-full text-center font-black uppercase text-[10px] leading-tight py-0.5 break-words">
-                                    {editForm.header_req || 'REQ'}
-                                  </span>
-                                  <textarea
-                                    rows={2}
-                                    value={editForm.header_req || 'Req'}
-                                    onChange={(e) => handleInputChange('header_req', e.target.value)}
-                                    onFocus={(e) => e.target.select()}
-                                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
-                                    title="Click to edit header"
-                                    className="print:hidden w-full h-full bg-transparent border-0 text-center font-black uppercase text-[10px] leading-tight resize-none whitespace-pre-wrap break-words overflow-hidden focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-0.5 cursor-text hover:bg-black/5 transition-colors focus:outline-none py-1"
-                                  />
+                                  <div className="flex items-center justify-center w-full min-h-[38px] py-1">
+                                    <span
+                                      className="hidden print:block w-full text-center font-black uppercase text-[12px] leading-tight break-words"
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                    >
+                                      {editForm.header_req || 'REQ'}
+                                    </span>
+                                    <textarea
+                                      rows={2}
+                                      value={editForm.header_req || 'Req'}
+                                      onChange={(e) => handleInputChange('header_req', e.target.value)}
+                                      onFocus={(e) => e.target.select()}
+                                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
+                                      title="Click to edit header"
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                      className="print:hidden w-full bg-transparent border-0 text-center font-black uppercase text-[12px] leading-tight resize-none whitespace-pre-wrap break-words focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-0.5 cursor-text hover:bg-black/5 transition-colors focus:outline-none my-auto py-0.5"
+                                    />
+                                  </div>
                                   <div
                                     className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize hover:bg-amber-600/80 active:bg-amber-700 z-30 transition-colors print:hidden flex items-center justify-center"
                                     onMouseDown={(e) => handleColumnResizeStart('req', e)}
@@ -5104,31 +5660,123 @@ export default function PriceList({ defaultTab }) {
                           <tbody className="font-bold text-slate-900 text-[11px]">
                             {chunkCategories.map((category) => (
                               <React.Fragment key={category.id}>
-                                {/* Category Header Bar */}
-                                <tr className={`${theme.categoryBar} h-[24px]`}>
-                                  <td colSpan={activeColCount || 1} className="py-0.5 text-center text-[11px] font-black tracking-wider uppercase border border-slate-400 p-0 relative group/cat" style={{ paddingLeft: `${editForm.table_col_padding || 4}px`, paddingRight: `${editForm.table_col_padding || 4}px` }}>
-                                    <input
-                                      type="text"
-                                      value={category.name}
-                                      onChange={(e) => handleInlineCategoryChange(category.id, e.target.value)}
-                                      onBlur={(e) => handleInlineCategorySave(category.id, e.target.value)}
-                                      onFocus={(e) => e.target.select()}
-                                      title="Click to edit category name inline like Excel"
-                                      className="w-full bg-transparent border-0 text-center text-[11px] font-black tracking-wider uppercase focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none"
-                                    />
-                                    {/* Category Actions: Add Row (End) */}
-                                    <div className="absolute right-1 top-1/2 -translate-y-1/2 hidden group-hover/cat:flex items-center gap-1 z-30 print:hidden">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleAddRowAtCategoryEnd(category.id)}
-                                        className="px-2 py-0.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-[9.5px] font-extrabold shadow-xs flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
-                                        title="Add new row at the end of this category"
-                                      >
-                                        <i className="fa-solid fa-plus text-[8.5px]"></i> Add Row (End)
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
+                                {/* Category Header Bar (Supports Airplane Towing Banner, Ribbon Badge, Minimal Line & Classic Bar) */}
+                                {(() => {
+                                  const catStyle = editForm.category_header_style || 'airplane_banner';
+                                  const catBg = editForm.category_bg_color || '#00a859';
+
+                                  if (catStyle === 'airplane_banner') {
+                                    return (
+                                      <tr className="min-h-[36px]">
+                                        <td colSpan={activeColCount || 1} className="py-0.5 px-1 border border-slate-400 p-0 relative group/cat bg-white text-center">
+                                          <div className="flex items-center justify-center w-full select-none py-0.5">
+                                            <div className="inline-flex items-center shadow-2xs">
+                                              {/* Green Pill Banner Body - sized to text */}
+                                              <div
+                                                className="rounded-l-full py-1 px-4 flex items-center justify-center relative shrink-0 min-h-[26px]"
+                                                style={{ backgroundColor: catBg }}
+                                              >
+                                                <div className="relative inline-grid items-center justify-center min-w-[80px] max-w-full">
+                                                  {/* Invisible text span to dynamically resize input container to fit long category text without cut-off */}
+                                                  <span className="invisible px-2 text-[11px] sm:text-xs font-bold tracking-wider uppercase whitespace-nowrap col-start-1 row-start-1 select-none pointer-events-none">
+                                                    {category.name || 'CATEGORY'}
+                                                  </span>
+                                                  {/* Interactive input (Screen mode) */}
+                                                  <input
+                                                    type="text"
+                                                    value={category.name}
+                                                    onChange={(e) => handleInlineCategoryChange(category.id, e.target.value)}
+                                                    onBlur={(e) => handleInlineCategorySave(category.id, e.target.value)}
+                                                    onFocus={(e) => e.target.select()}
+                                                    title="Click to edit category name inline like Excel"
+                                                    className="col-start-1 row-start-1 w-full bg-transparent border-0 text-center text-[11px] sm:text-xs font-bold tracking-wider uppercase text-white placeholder-white/80 focus:bg-white/20 focus:ring-2 focus:ring-white/50 rounded px-2 cursor-text hover:bg-black/10 transition-all focus:outline-none print:hidden"
+                                                    style={{ color: '#ffffff', textShadow: 'none', WebkitTextStroke: '0px' }}
+                                                  />
+                                                  {/* Print mode text span (Clean single element for Print/PDF) */}
+                                                  <span
+                                                    className="hidden print:inline-block col-start-1 row-start-1 text-center text-[11px] sm:text-xs font-bold tracking-wider uppercase text-white px-2 whitespace-nowrap"
+                                                    style={{ color: '#ffffff', textShadow: 'none', WebkitTextStroke: '0px' }}
+                                                  >
+                                                    {category.name}
+                                                  </span>
+                                                </div>
+                                              </div>
+
+                                              {/* Pointed Arrow Tail SVG */}
+                                              <div className="shrink-0 flex items-center -ml-[1px]">
+                                                <svg width="12" height="26" viewBox="0 0 12 26">
+                                                  <path d="M 0 0 L 9 10 C 12 13, 12 13, 9 16 L 0 26 Z" fill={catBg} />
+                                                </svg>
+                                              </div>
+
+                                              {/* Wind Lines SVG */}
+                                              <div className="shrink-0 flex items-center">
+                                                <svg width="16" height="26" viewBox="0 0 12 15">
+                                                  <path d="M 1 4.5 L 8 4.5 C 10.5 4.5, 10.5 2, 8.5 2" stroke={catBg} strokeWidth="1" fill="none" strokeLinecap="round" />
+                                                  <path d="M 1 7.5 L 10 7.5" stroke={catBg} strokeWidth="1" fill="none" strokeLinecap="round" />
+                                                  <path d="M 1 10.5 L 8 10.5 C 10.5 10.5, 10.5 13, 8.5 13" stroke={catBg} strokeWidth="1" fill="none" strokeLinecap="round" />
+                                                </svg>
+                                              </div>
+
+                                              {/* Airplane Silhouette SVG (2x size) */}
+                                              <div className="shrink-0 flex items-center pl-0.5">
+                                                <svg width="56" height="52" viewBox="0 0 100 100">
+                                                  {/* Tow line attached to tail */}
+                                                  <line x1="0" y1="50" x2="20" y2="50" stroke={catBg} strokeWidth="5" strokeLinecap="round" />
+                                                  {/* Airplane Silhouette */}
+                                                  <path
+                                                    d="M 20 50 L 18 36 L 27 38 L 32 46 L 46 45 L 41 12 C 42 7, 52 7, 57 12 L 65 45 C 78 45, 90 47, 94 50 C 90 53, 78 55, 65 55 L 57 88 C 52 93, 42 93, 41 88 L 46 55 L 32 54 L 27 62 L 18 64 Z"
+                                                    fill={catBg}
+                                                  />
+                                                </svg>
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          {/* Category Actions: Add Row (End) */}
+                                          <div className="absolute right-2 top-1/2 -translate-y-1/2 hidden group-hover/cat:flex items-center gap-1 z-30 print:hidden">
+                                            <button
+                                              type="button"
+                                              onClick={() => handleAddRowAtCategoryEnd(category.id)}
+                                              className="px-2 py-0.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-[9.5px] font-extrabold shadow-xs flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
+                                              title="Add new row at the end of this category"
+                                            >
+                                              <i className="fa-solid fa-plus text-[8.5px]"></i> Add Row (End)
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    );
+                                  }
+
+                                  // Default / Classic Bar
+                                  return (
+                                    <tr className={`${theme.categoryBar} h-[24px]`}>
+                                      <td colSpan={activeColCount || 1} className="py-0.5 text-center text-[11px] font-black tracking-wider uppercase border border-slate-400 p-0 relative group/cat" style={{ paddingLeft: `${editForm.table_col_padding || 4}px`, paddingRight: `${editForm.table_col_padding || 4}px` }}>
+                                        <input
+                                          type="text"
+                                          value={category.name}
+                                          onChange={(e) => handleInlineCategoryChange(category.id, e.target.value)}
+                                          onBlur={(e) => handleInlineCategorySave(category.id, e.target.value)}
+                                          onFocus={(e) => e.target.select()}
+                                          title="Click to edit category name inline like Excel"
+                                          className="w-full bg-transparent border-0 text-center text-[11px] font-black tracking-wider uppercase focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none"
+                                        />
+                                        {/* Category Actions: Add Row (End) */}
+                                        <div className="absolute right-1 top-1/2 -translate-y-1/2 hidden group-hover/cat:flex items-center gap-1 z-30 print:hidden">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleAddRowAtCategoryEnd(category.id)}
+                                            className="px-2 py-0.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-[9.5px] font-extrabold shadow-xs flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
+                                            title="Add new row at the end of this category"
+                                          >
+                                            <i className="fa-solid fa-plus text-[8.5px]"></i> Add Row (End)
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })()}
 
                                 {/* Category Product Rows */}
                                 {category.products.map((product, idx) => {
@@ -5144,9 +5792,8 @@ export default function PriceList({ defaultTab }) {
                                       onDragOver={(e) => handleRowDragOver(e, category.id, product.id)}
                                       onDragLeave={(e) => handleRowDragLeave(e, product.id)}
                                       onDrop={(e) => handleRowDrop(e, category.id, product.id)}
-                                      className={`hover:bg-amber-50/50 transition-all text-black font-extrabold group/row relative ${
-                                        isDragOver ? 'bg-emerald-100/90 outline-2 outline-emerald-500 z-30 shadow-md' : ''
-                                      }`}
+                                      className={`hover:bg-amber-50/50 transition-all text-black font-extrabold group/row relative ${isDragOver ? 'bg-emerald-100/90 outline-2 outline-emerald-500 z-30 shadow-md' : ''
+                                        }`}
                                       style={{ height: `${editForm.table_row_height || 22}px` }}
                                     >
                                       {/* S.No / Code Cell */}
@@ -5520,14 +6167,26 @@ export default function PriceList({ defaultTab }) {
 
                           {/* Tamil Festive Greeting Message Notice Banner */}
                           {editForm.store_notice && (
-                            <div className="mt-1.5 p-2 rounded-lg border-2 border-amber-400 bg-amber-50/70 text-center font-bold text-[10px] leading-snug text-amber-950">
+                            <div
+                              className="mt-1.5 p-2 rounded-lg border-2 text-center font-bold text-[10px] leading-snug"
+                              style={{
+                                backgroundColor: editForm.important_note_bg_color || '#fffbeb',
+                                borderColor: editForm.important_note_border_color || '#fde047',
+                              }}
+                            >
                               {renderFormattedText(editForm.store_notice)}
                             </div>
                           )}
 
                           {/* Bottom Tamil Important Notes Box matching reference screenshot */}
                           {(editForm.important_note_1 || editForm.important_note_2) && (
-                            <div className="mt-3 bg-amber-50/90 border-2 border-amber-300 rounded-xl p-3.5 text-center shadow-xs space-y-1.5">
+                            <div
+                              className="mt-3 border-2 rounded-xl p-3.5 text-center shadow-xs space-y-1.5"
+                              style={{
+                                backgroundColor: editForm.important_note_bg_color || '#fffbeb',
+                                borderColor: editForm.important_note_border_color || '#fde047',
+                              }}
+                            >
                               {editForm.important_note_1 && (
                                 renderFormattedText(
                                   editForm.important_note_1,
@@ -6142,11 +6801,10 @@ export default function PriceList({ defaultTab }) {
                         return (
                           <div
                             key={proj.id}
-                            className={`p-4 rounded-2xl border-2 transition-all flex flex-col justify-between space-y-3 ${
-                              isActive
+                            className={`p-4 rounded-2xl border-2 transition-all flex flex-col justify-between space-y-3 ${isActive
                                 ? 'bg-amber-50/80 border-amber-500 shadow-md ring-2 ring-amber-400/50'
                                 : 'bg-white border-slate-200 hover:border-amber-300 hover:shadow-md'
-                            }`}
+                              }`}
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div>
@@ -6181,11 +6839,10 @@ export default function PriceList({ defaultTab }) {
                               <button
                                 type="button"
                                 onClick={() => handleOpenProject(proj)}
-                                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                                  isActive
+                                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${isActive
                                     ? 'bg-amber-500 text-slate-950 shadow-xs'
                                     : 'bg-slate-900 hover:bg-slate-800 text-white'
-                                }`}
+                                  }`}
                               >
                                 <i className="fa-solid fa-folder-open text-xs"></i>
                                 {isActive ? 'Currently Active' : 'Open Project'}

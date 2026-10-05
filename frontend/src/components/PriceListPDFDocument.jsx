@@ -1,5 +1,5 @@
 import React from 'react';
-import { Document, Page, Text, View, Image, StyleSheet, pdf } from '@react-pdf/renderer';
+import { Document, Page, Text, View, Image, StyleSheet, pdf, Svg, Path, Line, Circle } from '@react-pdf/renderer';
 import { sortProductsByCode, sortCategoriesByProductCode } from '../utils/productSorter';
 
 const styles = StyleSheet.create({
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   thText: {
     color: '#ffffff',
     fontWeight: 'bold',
-    fontSize: 7.5,
+    fontSize: 9,
     lineHeight: 1.15,
     textAlign: 'center',
   },
@@ -398,92 +398,103 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
   return (
     <Document title={`${editForm.store_name || 'PriceList'}_Catalogue`}>
       {/* Cover Page */}
-      {editForm.first_page_layout !== 'simpler' && (
-        <Page size="A4" style={[styles.coverPage, editForm.store_cover_bg === 'none' ? { backgroundColor: '#ffffff' } : null]}>
-          {coverBgUrl && <Image src={coverBgUrl} style={styles.coverBg} />}
-          {/* Custom Floating Images overlay on Cover Page (Slots 1 to 5) */}
-          {[1, 2, 3, 4, 5].map((i) => {
-            const p = getFloatImgPropsPdf(i);
-            if (!p.url || !p.show) return null;
-            return (
+      {editForm.first_page_layout !== 'simpler' && editForm.first_page_layout !== 'none' && editForm.first_page_layout !== 'hidden' && (
+        editForm.first_page_layout === 'custom_image' ? (
+          <Page size="A4" style={{ padding: 0, margin: 0, position: 'relative', height: '100%', width: '100%', backgroundColor: '#000000' }}>
+            {editForm.custom_first_page_image ? (
               <Image
-                key={i}
-                src={p.url}
-                style={{
-                  position: 'absolute',
-                  left: `${p.x}%`,
-                  top: `${p.y}%`,
-                  width: `${Math.round(200 * (p.scale / 100))}px`,
-                  height: 'auto',
-                  zIndex: 35,
-                }}
+                src={resolveUrl(editForm.custom_first_page_image)}
+                style={{ width: '100%', height: '100%', objectFit: editForm.custom_first_page_fit || 'cover' }}
               />
-            );
-          })}
-          <View style={styles.coverOverlay}>
-            {/* Top Invocation */}
-            <View style={styles.coverTop}>
-              {editForm.store_invocation_symbol ? (
-                <Text style={[styles.invocationSymbol, editForm.store_invocation_color ? { color: editForm.store_invocation_color } : null]}>{editForm.store_invocation_symbol}</Text>
-              ) : null}
-              {editForm.store_invocation ? (
-                <Text style={[styles.invocationText, editForm.store_invocation_color ? { color: editForm.store_invocation_color } : null]}>{editForm.store_invocation}</Text>
-              ) : null}
-            </View>
-
-            {/* Center Brand */}
-            <View style={styles.coverCenter}>
-              <Text style={[styles.storeName, editForm.store_title_color ? { color: editForm.store_title_color } : null]}>{editForm.store_name || 'MASS CRACKERS'}</Text>
-              {editForm.store_tagline ? (
-                <Text style={[styles.storeTagline, editForm.store_tagline_color ? { color: editForm.store_tagline_color } : null]}>"{editForm.store_tagline}"</Text>
-              ) : null}
-              <Text style={[styles.priceListBadge, editForm.store_badge_color ? { color: editForm.store_badge_color } : null]}>PRICE LIST - {editForm.store_year || '2026'}</Text>
-            </View>
-
-            {/* Center Deity Motif Image */}
-            {deityUrl ? (
-              <View style={styles.deityImageContainer}>
-                <Image src={deityUrl} style={[styles.deityImg, { maxHeight: 390 * ((editForm.deity_scale || 100) / 100), maxWidth: 390 * ((editForm.deity_scale || 100) / 100) }]} />
+            ) : null}
+          </Page>
+        ) : (
+          <Page size="A4" style={[styles.coverPage, editForm.store_cover_bg === 'none' ? { backgroundColor: '#ffffff' } : null]}>
+            {coverBgUrl && <Image src={coverBgUrl} style={styles.coverBg} />}
+            {/* Custom Floating Images overlay on Cover Page (Slots 1 to 5) */}
+            {[1, 2, 3, 4, 5].map((i) => {
+              const p = getFloatImgPropsPdf(i);
+              if (!p.url || !p.show) return null;
+              return (
+                <Image
+                  key={i}
+                  src={p.url}
+                  style={{
+                    position: 'absolute',
+                    left: `${p.x}%`,
+                    top: `${p.y}%`,
+                    width: `${Math.round(200 * (p.scale / 100))}px`,
+                    height: 'auto',
+                    zIndex: 35,
+                  }}
+                />
+              );
+            })}
+            <View style={styles.coverOverlay}>
+              {/* Top Invocation */}
+              <View style={styles.coverTop}>
+                {editForm.store_invocation_symbol ? (
+                  <Text style={[styles.invocationSymbol, editForm.store_invocation_color ? { color: editForm.store_invocation_color } : null]}>{editForm.store_invocation_symbol}</Text>
+                ) : null}
+                {editForm.store_invocation ? (
+                  <Text style={[styles.invocationText, editForm.store_invocation_color ? { color: editForm.store_invocation_color } : null]}>{editForm.store_invocation}</Text>
+                ) : null}
               </View>
-            ) : (
-              <View style={{ flex: 1 }} />
-            )}
 
-            {/* Bottom Order Banner */}
-            <View style={{ width: '100%' }}>
-              <View style={styles.coverBanner}>
-                <View style={styles.coverBannerLeft}>
-                  {logoUrl ? (
-                    <Image src={logoUrl} style={[styles.coverLogo, { height: 45 * ((editForm.logo_scale || 100) / 100), width: 85 * ((editForm.logo_scale || 100) / 100) }]} />
-                  ) : (
-                    <Text style={{ fontSize: 12 * ((editForm.logo_scale || 100) / 100), fontWeight: 'bold', color: '#991b1b' }}>{editForm.store_name}</Text>
+              {/* Center Brand */}
+              <View style={styles.coverCenter}>
+                <Text style={[styles.storeName, editForm.store_title_color ? { color: editForm.store_title_color } : null]}>{editForm.store_name || 'MASS CRACKERS'}</Text>
+                {editForm.store_tagline ? (
+                  <Text style={[styles.storeTagline, editForm.store_tagline_color ? { color: editForm.store_tagline_color } : null]}>"{editForm.store_tagline}"</Text>
+                ) : null}
+                <Text style={[styles.priceListBadge, editForm.store_badge_color ? { color: editForm.store_badge_color } : null]}>PRICE LIST - {editForm.store_year || '2026'}</Text>
+              </View>
+
+              {/* Center Deity Motif Image */}
+              {deityUrl ? (
+                <View style={styles.deityImageContainer}>
+                  <Image src={deityUrl} style={[styles.deityImg, { maxHeight: 390 * ((editForm.deity_scale || 100) / 100), maxWidth: 390 * ((editForm.deity_scale || 100) / 100) }]} />
+                </View>
+              ) : (
+                <View style={{ flex: 1 }} />
+              )}
+
+              {/* Bottom Order Banner */}
+              <View style={{ width: '100%' }}>
+                <View style={styles.coverBanner}>
+                  <View style={styles.coverBannerLeft}>
+                    {logoUrl ? (
+                      <Image src={logoUrl} style={[styles.coverLogo, { height: 45 * ((editForm.logo_scale || 100) / 100), width: 85 * ((editForm.logo_scale || 100) / 100) }]} />
+                    ) : (
+                      <Text style={{ fontSize: 12 * ((editForm.logo_scale || 100) / 100), fontWeight: 'bold', color: '#991b1b' }}>{editForm.store_name}</Text>
+                    )}
+                  </View>
+                  <View style={styles.coverBannerCenter}>
+                    {editForm.store_email ? (
+                      <Text style={[styles.contactItem, { fontSize: 8 * ((editForm.contact_scale || 100) / 100) }]}>🌐 {editForm.store_email}</Text>
+                    ) : null}
+                    <Text style={[styles.contactItem, { fontSize: 8 * ((editForm.contact_scale || 100) / 100) }]}>
+                      📞 {[editForm.store_phone, editForm.store_phone_2].filter(Boolean).join(', ')}
+                    </Text>
+                    {editForm.store_gpay ? (
+                      <Text style={[styles.contactItem, { fontSize: 8 * ((editForm.contact_scale || 100) / 100) }]}>💳 GPay: {editForm.store_gpay}</Text>
+                    ) : null}
+                  </View>
+                  {editForm.show_discount_badge !== false && (
+                    <View style={styles.coverBannerRight}>
+                      <Text style={[styles.megaSaleText, { fontSize: 9 * ((editForm.discount_scale || 100) / 100) }]}>MEGA SALE</Text>
+                      <Text style={[styles.discountVal, { fontSize: 22 * ((editForm.discount_scale || 100) / 100) }]}>{editForm.discount_percent || 50}%</Text>
+                      <Text style={[styles.discountBadge, { fontSize: 7 * ((editForm.discount_scale || 100) / 100) }]}>DISCOUNT</Text>
+                    </View>
                   )}
                 </View>
-                <View style={styles.coverBannerCenter}>
-                  {editForm.store_email ? (
-                    <Text style={[styles.contactItem, { fontSize: 8 * ((editForm.contact_scale || 100) / 100) }]}>🌐 {editForm.store_email}</Text>
-                  ) : null}
-                  <Text style={[styles.contactItem, { fontSize: 8 * ((editForm.contact_scale || 100) / 100) }]}>
-                    📞 {[editForm.store_phone, editForm.store_phone_2].filter(Boolean).join(', ')}
-                  </Text>
-                  {editForm.store_gpay ? (
-                    <Text style={[styles.contactItem, { fontSize: 8 * ((editForm.contact_scale || 100) / 100) }]}>💳 GPay: {editForm.store_gpay}</Text>
-                  ) : null}
-                </View>
-                {editForm.show_discount_badge !== false && (
-                  <View style={styles.coverBannerRight}>
-                    <Text style={[styles.megaSaleText, { fontSize: 9 * ((editForm.discount_scale || 100) / 100) }]}>MEGA SALE</Text>
-                    <Text style={[styles.discountVal, { fontSize: 22 * ((editForm.discount_scale || 100) / 100) }]}>{editForm.discount_percent || 50}%</Text>
-                    <Text style={[styles.discountBadge, { fontSize: 7 * ((editForm.discount_scale || 100) / 100) }]}>DISCOUNT</Text>
-                  </View>
-                )}
+                {editForm.store_address ? (
+                  <Text style={[styles.addressRow, { fontSize: 8 * ((editForm.address_scale || 100) / 100) }]}>📍 {editForm.store_address}</Text>
+                ) : null}
               </View>
-              {editForm.store_address ? (
-                <Text style={[styles.addressRow, { fontSize: 8 * ((editForm.address_scale || 100) / 100) }]}>📍 {editForm.store_address}</Text>
-              ) : null}
             </View>
-          </View>
-        </Page>
+          </Page>
+        )
       )}
 
       {/* Catalogue Product Table Pages */}
@@ -641,22 +652,60 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
             {/* Table */}
             <View style={styles.table}>
               {/* Header Row */}
-              <View style={[styles.tableRow, styles.tableHeaderRow]}>
-                {showSnoPdf && <Text style={[styles.colSno, styles.thText]}>{editForm.header_sno || 'S.No'}</Text>}
-                {showProductPdf && <Text style={[{ width: colNameWidth, textAlign: 'left', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, paddingLeft: 4 }, styles.thText]}>{editForm.header_product || (showTamilPdf ? 'Product Name (ENG)' : 'Product Name')}</Text>}
-                {showTamilPdf && <Text style={[{ width: colTamilWidth, textAlign: 'left', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, paddingLeft: 4 }, styles.thText]}>{editForm.header_product_ta || 'பொருள் பெயர் (TAMIL)'}</Text>}
-                {showUnitPdf && <Text style={[{ width: colPackWidth, textAlign: 'center', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2 }, styles.thText]}>{editForm.header_unit || 'Unit'}</Text>}
-                {showMrpPdf && <Text style={[{ width: colMrpWidth, textAlign: 'right', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2 }, styles.thText]}>{editForm.header_mrp || 'Rate (₹)'}</Text>}
-                {showOfferPdf && <Text style={[{ width: colOfferWidth, textAlign: 'right', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2 }, styles.thText]}>{editForm.header_offer || `${editForm.discount_percent || 50}% Rate`}</Text>}
-                {showReqPdf && <Text style={[styles.colReq, styles.thText]}>{editForm.header_req || 'Req'}</Text>}
+              <View style={[styles.tableRow, styles.tableHeaderRow, { backgroundColor: editForm.table_header_bg_color || '#fef3c7' }]}>
+                {showSnoPdf && <Text style={[styles.colSno, styles.thText, { color: editForm.table_header_text_color || '#000000', fontSize: editForm.table_header_font_size ? parseFloat(editForm.table_header_font_size) * 0.75 : 9 }]}>{editForm.header_sno || 'S.No'}</Text>}
+                {showProductPdf && <Text style={[{ width: colNameWidth, textAlign: 'left', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, paddingLeft: 4 }, styles.thText, { color: editForm.table_header_text_color || '#000000', fontSize: editForm.table_header_font_size ? parseFloat(editForm.table_header_font_size) * 0.75 : 9 }]}>{editForm.header_product || (showTamilPdf ? 'Product Name (ENG)' : 'Product Name')}</Text>}
+                {showTamilPdf && <Text style={[{ width: colTamilWidth, textAlign: 'left', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, paddingLeft: 4 }, styles.thText, { color: editForm.table_header_text_color || '#000000', fontSize: editForm.table_header_font_size ? parseFloat(editForm.table_header_font_size) * 0.75 : 9 }]}>{editForm.header_product_ta || 'பொருள் பெயர் (TAMIL)'}</Text>}
+                {showUnitPdf && <Text style={[{ width: colPackWidth, textAlign: 'center', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2 }, styles.thText, { color: editForm.table_header_text_color || '#000000', fontSize: editForm.table_header_font_size ? parseFloat(editForm.table_header_font_size) * 0.75 : 9 }]}>{editForm.header_unit || 'Unit'}</Text>}
+                {showMrpPdf && <Text style={[{ width: colMrpWidth, textAlign: 'right', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2 }, styles.thText, { color: editForm.table_header_text_color || '#000000', fontSize: editForm.table_header_font_size ? parseFloat(editForm.table_header_font_size) * 0.75 : 9 }]}>{editForm.header_mrp || 'Rate (₹)'}</Text>}
+                {showOfferPdf && <Text style={[{ width: colOfferWidth, textAlign: 'right', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2 }, styles.thText, { color: editForm.table_header_text_color || '#000000', fontSize: editForm.table_header_font_size ? parseFloat(editForm.table_header_font_size) * 0.75 : 9 }]}>{editForm.header_offer || `${editForm.discount_percent || 50}% Rate`}</Text>}
+                {showReqPdf && <Text style={[styles.colReq, styles.thText, { color: editForm.table_header_text_color || '#000000', fontSize: editForm.table_header_font_size ? parseFloat(editForm.table_header_font_size) * 0.75 : 9 }]}>{editForm.header_req || 'Req'}</Text>}
               </View>
 
               {/* Category Rows & Products */}
-              {sortedChunkCategories.map((category) => (
-                <React.Fragment key={category.id}>
-                  <View style={styles.tableRow}>
-                    <Text style={styles.catRow}>{category.name}</Text>
-                  </View>
+              {sortedChunkCategories.map((category) => {
+                const catStyle = editForm.category_header_style || 'airplane_banner';
+                const catBg = editForm.category_bg_color || '#00a859';
+
+                return (
+                  <React.Fragment key={category.id}>
+                    {catStyle === 'airplane_banner' ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: 28, marginVertical: 2, paddingVertical: 2 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          {/* Pill Body */}
+                          <View style={{ backgroundColor: catBg, borderTopLeftRadius: 9, borderBottomLeftRadius: 9, minHeight: 18, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 2 }}>
+                            <Text style={{ color: '#ffffff', fontSize: 8, fontWeight: 'bold', textTransform: 'uppercase' }}>{category.name}</Text>
+                          </View>
+
+                          {/* Pointed Arrow Tail */}
+                          <Svg width={9} height={18}>
+                            <Path d="M 0 0 L 7 7 C 9 9, 9 9, 7 11 L 0 18 Z" fill={catBg} />
+                          </Svg>
+
+                          {/* Wind Lines */}
+                          <Svg width={14} height={18} viewBox="0 0 12 15">
+                            <Path d="M 1 4.5 L 8 4.5 C 10.5 4.5, 10.5 2, 8.5 2" stroke={catBg} strokeWidth={1} fill="none" strokeLinecap="round" />
+                            <Path d="M 1 7.5 L 10 7.5" stroke={catBg} strokeWidth={1} fill="none" strokeLinecap="round" />
+                            <Path d="M 1 10.5 L 8 10.5 C 10.5 10.5, 10.5 13, 8.5 13" stroke={catBg} strokeWidth={1} fill="none" strokeLinecap="round" />
+                          </Svg>
+
+                          {/* Airplane Silhouette (2x size) */}
+                          <Svg width={40} height={36} viewBox="0 0 100 100">
+                            {/* Tow line attached to tail */}
+                            <Line x1={0} y1={50} x2={20} y2={50} stroke={catBg} strokeWidth={5} strokeLinecap="round" />
+                            {/* Airplane Silhouette */}
+                            <Path
+                              d="M 20 50 L 18 36 L 27 38 L 32 46 L 46 45 L 41 12 C 42 7, 52 7, 57 12 L 65 45 C 78 45, 90 47, 94 50 C 90 53, 78 55, 65 55 L 57 88 C 52 93, 42 93, 41 88 L 46 55 L 32 54 L 27 62 L 18 64 Z"
+                              fill={catBg}
+                            />
+                          </Svg>
+                        </View>
+                      </View>
+                    ) : (
+                      <View style={styles.tableRow}>
+                        <Text style={[styles.catRow, { backgroundColor: catBg }]}>{category.name}</Text>
+                      </View>
+                    )}
                   {category.products.map((product, pIdx) => {
                     const currentCode = product.product_code !== null && product.product_code !== undefined ? product.product_code : (globalSno + pIdx);
 
@@ -673,8 +722,9 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
                     );
                   })}
                 </React.Fragment>
-              ))}
-            </View>
+              );
+            })}
+          </View>
 
             {/* Payment Info Section on Last Page */}
             {editForm.show_footer !== false && editForm.footer_position !== 'disabled' && (editForm.footer_position || 'below_table') === 'below_table' && chunkIdx === productPageChunks.length - 1 && (() => {
