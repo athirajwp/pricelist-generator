@@ -1,6 +1,64 @@
 import React from 'react';
 import { Document, Page, Text, View, Image, StyleSheet, pdf, Svg, Path, Line, Circle } from '@react-pdf/renderer';
 import { sortProductsByCode, sortCategoriesByProductCode } from '../utils/productSorter';
+import { getCategoryRowBg } from '../utils/colorUtils';
+
+const renderTermsContentPDF = (content, fontSize = 6, textColor = '#334155') => {
+  if (!content) return null;
+  const lines = content.split('\n');
+
+  return (
+    <View style={{ flexDirection: 'column', gap: 1 }}>
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+        if (!trimmed) return null;
+
+        const leadingSpaces = line.search(/\S/);
+        const isIndented = leadingSpaces >= 2 || line.startsWith('\t');
+
+        const isBulletSymbol = /^[\u2022\u2023\u25E6\u2043\u2219\-\*•]/;
+        const startsWithBullet = isBulletSymbol.test(trimmed);
+        const startsWithNumber = /^\d+[\.\)]/.test(trimmed);
+
+        let bulletText = '';
+        let mainText = trimmed;
+
+        if (startsWithBullet) {
+          bulletText = '•';
+          mainText = trimmed.replace(isBulletSymbol, '').trim();
+        } else if (startsWithNumber) {
+          const match = trimmed.match(/^(\d+[\.\)])\s*(.*)/);
+          if (match) {
+            bulletText = match[1];
+            mainText = match[2];
+          }
+        } else if (isIndented) {
+          bulletText = '•';
+          mainText = trimmed;
+        }
+
+        if (bulletText) {
+          return (
+            <View key={idx} style={{ flexDirection: 'row', paddingLeft: isIndented ? 12 : 0, marginBottom: 1.5, alignItems: 'flex-start' }}>
+              <Text style={{ fontSize: fontSize, color: textColor, fontWeight: 'bold', minWidth: isIndented ? 10 : (startsWithNumber ? 14 : 10), marginRight: 2 }}>
+                {bulletText}
+              </Text>
+              <Text style={{ fontSize: fontSize, color: textColor, flex: 1, lineHeight: 1.25 }}>
+                {mainText}
+              </Text>
+            </View>
+          );
+        }
+
+        return (
+          <Text key={idx} style={{ fontSize: fontSize, color: textColor, lineHeight: 1.25, paddingLeft: isIndented ? 12 : 0, marginBottom: 1.5 }}>
+            {line}
+          </Text>
+        );
+      })}
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   page: {
@@ -665,7 +723,9 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
               {/* Category Rows & Products */}
               {sortedChunkCategories.map((category) => {
                 const catStyle = editForm.category_header_style || 'airplane_banner';
-                const catBg = editForm.category_bg_color || '#00a859';
+                const catBg = category.color || category.bg_color || editForm.category_bg_color || '#00a859';
+                const rowBgMode = editForm.category_row_bg_mode || 'alternating';
+                const rowBgIntensity = editForm.category_row_bg_intensity !== undefined ? editForm.category_row_bg_intensity : 12;
 
                 return (
                   <React.Fragment key={category.id}>
@@ -708,9 +768,10 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
                     )}
                   {category.products.map((product, pIdx) => {
                     const currentCode = product.product_code !== null && product.product_code !== undefined ? product.product_code : (globalSno + pIdx);
+                    const rowBg = getCategoryRowBg(catBg, pIdx, rowBgMode, rowBgIntensity);
 
                     return (
-                      <View key={product.id || pIdx} style={[styles.tableRow, { backgroundColor: pIdx % 2 === 1 ? '#f8fafc' : '#ffffff' }]}>
+                      <View key={product.id || pIdx} style={[styles.tableRow, { backgroundColor: rowBg }]}>
                         {showSnoPdf && <Text style={styles.colSno}>{currentCode}</Text>}
                         {showProductPdf && <Text style={{ width: colNameWidth, textAlign: 'left', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, paddingLeft: 4, fontSize: 8, fontWeight: 'bold' }}>{product.name}</Text>}
                         {showTamilPdf && <Text style={{ width: colTamilWidth, textAlign: 'left', borderRightWidth: 1, borderRightColor: '#cbd5e1', padding: 2, paddingLeft: 4, fontSize: 8, fontWeight: 'bold' }}>{product.name_ta || ''}</Text>}
@@ -849,6 +910,33 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
                 </View>
               );
             })()}
+
+            {/* Terms & Conditions Section */}
+            {editForm.show_terms !== false && (editForm.terms_content || editForm.terms_title) && (
+              <View style={{
+                marginTop: 4,
+                padding: 5,
+                borderWidth: 1,
+                borderColor: editForm.terms_border_color || '#fde047',
+                borderRadius: 4,
+                backgroundColor: editForm.terms_bg_color || '#fffbeb'
+              }}>
+                <Text style={{
+                  fontSize: editForm.terms_title_font_size ? editForm.terms_title_font_size * 0.6 : 7,
+                  fontWeight: 'bold',
+                  color: editForm.terms_title_color || '#78350f',
+                  marginBottom: 3,
+                  textTransform: 'uppercase'
+                }}>
+                  {editForm.terms_title || 'TERMS & CONDITIONS'}
+                </Text>
+                {renderTermsContentPDF(
+                  editForm.terms_content || '1. Goods once sold will not be taken back or exchanged.\n2. Transport charges extra as applicable.\n3. Minimum order value applies for parcel dispatch.',
+                  editForm.terms_text_font_size ? editForm.terms_text_font_size * 0.6 : 6,
+                  editForm.terms_text_color || '#1e293b'
+                )}
+              </View>
+            )}
 
             {/* Footer */}
             <View style={styles.footer}>
@@ -992,6 +1080,33 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
                 </View>
               );
             })()}
+
+            {/* Terms & Conditions Section */}
+            {editForm.show_terms !== false && (editForm.terms_content || editForm.terms_title) && (
+              <View style={{
+                marginTop: 6,
+                padding: 6,
+                borderWidth: 1,
+                borderColor: editForm.terms_border_color || '#fde047',
+                borderRadius: 4,
+                backgroundColor: editForm.terms_bg_color || '#fffbeb'
+              }}>
+                <Text style={{
+                  fontSize: editForm.terms_title_font_size ? editForm.terms_title_font_size * 0.65 : 8,
+                  fontWeight: 'bold',
+                  color: editForm.terms_title_color || '#78350f',
+                  marginBottom: 4,
+                  textTransform: 'uppercase'
+                }}>
+                  {editForm.terms_title || 'TERMS & CONDITIONS'}
+                </Text>
+                {renderTermsContentPDF(
+                  editForm.terms_content || '1. Goods once sold will not be taken back or exchanged.\n2. Transport charges extra as applicable.\n3. Minimum order value applies for parcel dispatch.',
+                  editForm.terms_text_font_size ? editForm.terms_text_font_size * 0.65 : 7,
+                  editForm.terms_text_color || '#1e293b'
+                )}
+              </View>
+            )}
           </View>
 
           <View style={styles.footer}>
