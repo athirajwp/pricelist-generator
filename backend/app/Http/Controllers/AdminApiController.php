@@ -1499,7 +1499,8 @@ class AdminApiController extends Controller
             'store_badge_color', 'footer_position', 'max_tr_per_page',
             'show_col_sno', 'show_col_product', 'show_col_unit', 'show_col_mrp',
             'show_col_offer', 'show_col_req', 'show_discount_badge', 'logo_scale', 'contact_scale',
-            'custom_float_image', 'custom_float_x', 'custom_float_y', 'custom_float_scale', 'show_custom_float_image'
+            'custom_float_image', 'custom_float_x', 'custom_float_y', 'custom_float_scale', 'show_custom_float_image',
+            'table_header_align', 'table_header_font_family', 'table_header_bg_color', 'table_header_text_color', 'table_header_font_size'
         ];
         foreach ($extraKeys as $optKey) {
             if ($request->has($optKey)) {

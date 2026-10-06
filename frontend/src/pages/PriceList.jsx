@@ -9,6 +9,20 @@ import { getCategoryRowBg } from '../utils/colorUtils';
 import { batchTranslateCategoriesToTamil, translateEnglishToTamil } from '../utils/translator';
 import { compressImageToTargetSize } from '../utils/imageCompressor';
 import { loadProjectsFromStorage, saveProjectsToStorage, saveSingleProjectToStorage, deleteProjectFromStorage } from '../utils/projectStorage';
+const FONT_FAMILY_MAP = {
+  'sans-serif': 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  'inter': '"Inter", system-ui, sans-serif',
+  'poppins': '"Poppins", system-ui, sans-serif',
+  'outfit': '"Outfit", system-ui, sans-serif',
+  'montserrat': '"Montserrat", system-ui, sans-serif',
+  'roboto': '"Roboto", system-ui, sans-serif',
+  'serif': 'Georgia, Cambria, "Times New Roman", Times, serif',
+  'monospace': 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+};
+
+const getFontFamilyStyle = (fontKey) => {
+  return FONT_FAMILY_MAP[fontKey] || FONT_FAMILY_MAP['sans-serif'];
+};
 
 export default function PriceList({ defaultTab }) {
   const location = useLocation();
@@ -29,6 +43,8 @@ export default function PriceList({ defaultTab }) {
 
   // Right-click Terms Context Menu state
   const [termsContextMenu, setTermsContextMenu] = useState(null);
+  // Right-click Table Header Context Menu state
+  const [headerContextMenu, setHeaderContextMenu] = useState(null);
 
   const handleTermsContextMenu = (e, sectionIndex = 0) => {
     e.preventDefault();
@@ -36,14 +52,29 @@ export default function PriceList({ defaultTab }) {
     const clickX = e.clientX;
     const clickY = e.clientY;
     const menuWidth = 340;
-    const menuHeight = 460;
+    const menuHeight = 520;
     const x = Math.min(clickX, window.innerWidth - menuWidth - 10);
     const y = Math.min(clickY, window.innerHeight - menuHeight - 10);
     setTermsContextMenu({ x: Math.max(10, x), y: Math.max(10, y), index: sectionIndex });
   };
 
+  const handleHeaderContextMenu = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const clickX = e.clientX;
+    const clickY = e.clientY;
+    const menuWidth = 340;
+    const menuHeight = 440;
+    const x = Math.min(clickX, window.innerWidth - menuWidth - 10);
+    const y = Math.min(clickY, window.innerHeight - menuHeight - 10);
+    setHeaderContextMenu({ x: Math.max(10, x), y: Math.max(10, y) });
+  };
+
   useEffect(() => {
-    const handleClickOutside = () => setTermsContextMenu(null);
+    const handleClickOutside = () => {
+      setTermsContextMenu(null);
+      setHeaderContextMenu(null);
+    };
     window.addEventListener('click', handleClickOutside);
     return () => window.removeEventListener('click', handleClickOutside);
   }, []);
@@ -1283,12 +1314,20 @@ export default function PriceList({ defaultTab }) {
     handleAddTermsSection('shipping');
   };
 
-  const renderTermsContentDOM = (content, textColor = '#1e293b', fontSize = 10.5) => {
+  const renderTermsContentDOM = (content, textColor = '#1e293b', fontSize = 10.5, textAlign = 'left', fontFamily = 'sans-serif') => {
     if (!content) return null;
     const lines = content.split('\n');
 
     return (
-      <div className="space-y-0.5 font-bold leading-relaxed" style={{ color: textColor, fontSize: `${fontSize}px` }}>
+      <div
+        className="space-y-0.5 font-bold leading-relaxed"
+        style={{
+          color: textColor,
+          fontSize: `${fontSize}px`,
+          textAlign: textAlign || 'left',
+          fontFamily: getFontFamilyStyle(fontFamily),
+        }}
+      >
         {lines.map((line, idx) => {
           const trimmed = line.trim();
           if (!trimmed) return null;
@@ -1319,11 +1358,21 @@ export default function PriceList({ defaultTab }) {
 
           if (bulletText) {
             return (
-              <div key={idx} className="flex items-start" style={{ paddingLeft: isIndented ? '1.25rem' : '0' }}>
+              <div
+                key={idx}
+                className={`flex items-start ${
+                  textAlign === 'center'
+                    ? 'justify-center text-center'
+                    : textAlign === 'right'
+                    ? 'justify-end text-right'
+                    : 'justify-start text-left'
+                }`}
+                style={{ paddingLeft: isIndented ? '1.25rem' : '0' }}
+              >
                 <span className="font-extrabold shrink-0 mr-1.5" style={{ minWidth: isIndented ? '0.75rem' : (startsWithNumber ? '1.2rem' : '0.75rem') }}>
                   {bulletText}
                 </span>
-                <span className="flex-1">{mainText}</span>
+                <span>{mainText}</span>
               </div>
             );
           }
@@ -6021,13 +6070,15 @@ export default function PriceList({ defaultTab }) {
                             {showOffer && <col style={{ width: getColPctWidth('offer') }} />}
                             {showReq && <col style={{ width: getColPctWidth('req') }} />}
                           </colgroup>
-                          <thead>
+                          <thead onContextMenu={(e) => handleHeaderContextMenu(e)} title="Right-click to style table headers (alignment, font family, size, colors)">
                             <tr
-                              className="font-black uppercase tracking-wider text-[12px] min-h-[38px]"
+                              className="font-black uppercase tracking-wider text-[12px] min-h-[38px] cursor-context-menu hover:ring-2 hover:ring-red-400 transition-all"
                               style={{
                                 backgroundColor: editForm.table_header_bg_color || '#fef3c7',
                                 backgroundImage: 'none',
                                 color: editForm.table_header_text_color || '#000000',
+                                textAlign: editForm.table_header_align || 'center',
+                                fontFamily: getFontFamilyStyle(editForm.table_header_font_family),
                               }}
                             >
                               {/* S.No Header */}
@@ -6041,12 +6092,14 @@ export default function PriceList({ defaultTab }) {
                                     backgroundColor: editForm.table_header_bg_color || '#fef3c7',
                                     backgroundImage: 'none',
                                     color: editForm.table_header_text_color || '#000000',
+                                    textAlign: editForm.table_header_align || 'center',
+                                    fontFamily: getFontFamilyStyle(editForm.table_header_font_family),
                                   }}
                                 >
                                   <div className="flex items-center justify-center w-full min-h-[38px] py-1">
                                     <span
                                       className="hidden print:block w-full text-center font-black uppercase text-[12px] leading-tight break-words"
-                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px`, textAlign: editForm.table_header_align || 'center', fontFamily: getFontFamilyStyle(editForm.table_header_font_family) }}
                                     >
                                       {editForm.header_sno || 'S.No'}
                                     </span>
@@ -6056,8 +6109,8 @@ export default function PriceList({ defaultTab }) {
                                       onChange={(e) => handleInputChange('header_sno', e.target.value)}
                                       onFocus={(e) => e.target.select()}
                                       onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
-                                      title="Click to edit header"
-                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                      title="Click to edit header (Right-click to style)"
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px`, textAlign: editForm.table_header_align || 'center', fontFamily: getFontFamilyStyle(editForm.table_header_font_family) }}
                                       className="print:hidden w-full bg-transparent border-0 text-center font-black uppercase text-[12px] leading-tight resize-none whitespace-pre-wrap break-words focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-0.5 cursor-text hover:bg-black/5 transition-colors focus:outline-none my-auto py-0.5"
                                     />
                                   </div>
@@ -6085,12 +6138,14 @@ export default function PriceList({ defaultTab }) {
                                     backgroundColor: editForm.table_header_bg_color || '#fef3c7',
                                     backgroundImage: 'none',
                                     color: editForm.table_header_text_color || '#000000',
+                                    textAlign: editForm.table_header_align || 'left',
+                                    fontFamily: getFontFamilyStyle(editForm.table_header_font_family),
                                   }}
                                 >
                                   <div className="flex items-center justify-start w-full min-h-[38px] py-1 px-1">
                                     <span
                                       className="hidden print:block w-full text-left font-black uppercase text-[12px] leading-tight break-words"
-                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px`, textAlign: editForm.table_header_align || 'left', fontFamily: getFontFamilyStyle(editForm.table_header_font_family) }}
                                     >
                                       {editForm.header_product || (showTamilName ? 'PRODUCT NAME (ENG)' : 'PRODUCT')}
                                     </span>
@@ -6100,8 +6155,8 @@ export default function PriceList({ defaultTab }) {
                                       onChange={(e) => handleInputChange('header_product', e.target.value)}
                                       onFocus={(e) => e.target.select()}
                                       onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
-                                      title="Click to edit header"
-                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                      title="Click to edit header (Right-click to style)"
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px`, textAlign: editForm.table_header_align || 'left', fontFamily: getFontFamilyStyle(editForm.table_header_font_family) }}
                                       className="print:hidden w-full bg-transparent border-0 text-left font-black uppercase text-[12px] leading-tight resize-none whitespace-pre-wrap break-words focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none my-auto py-0.5"
                                     />
                                   </div>
@@ -6129,12 +6184,14 @@ export default function PriceList({ defaultTab }) {
                                     backgroundColor: editForm.table_header_bg_color || '#fef3c7',
                                     backgroundImage: 'none',
                                     color: editForm.table_header_text_color || '#000000',
+                                    textAlign: editForm.table_header_align || 'left',
+                                    fontFamily: getFontFamilyStyle(editForm.table_header_font_family),
                                   }}
                                 >
                                   <div className="flex items-center justify-start w-full min-h-[38px] py-1 px-1">
                                     <span
                                       className="hidden print:block w-full text-left font-black uppercase text-[12px] leading-tight break-words"
-                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px`, textAlign: editForm.table_header_align || 'left', fontFamily: getFontFamilyStyle(editForm.table_header_font_family) }}
                                     >
                                       {editForm.header_product_ta || 'பொருள் பெயர் (TAMIL)'}
                                     </span>
@@ -6144,8 +6201,8 @@ export default function PriceList({ defaultTab }) {
                                       onChange={(e) => handleInputChange('header_product_ta', e.target.value)}
                                       onFocus={(e) => e.target.select()}
                                       onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
-                                      title="Click to edit Tamil header"
-                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                      title="Click to edit Tamil header (Right-click to style)"
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px`, textAlign: editForm.table_header_align || 'left', fontFamily: getFontFamilyStyle(editForm.table_header_font_family) }}
                                       className="print:hidden w-full bg-transparent border-0 text-left font-black uppercase text-[12px] leading-tight resize-none whitespace-pre-wrap break-words focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none my-auto py-0.5"
                                     />
                                   </div>
@@ -6173,12 +6230,14 @@ export default function PriceList({ defaultTab }) {
                                     backgroundColor: editForm.table_header_bg_color || '#fef3c7',
                                     backgroundImage: 'none',
                                     color: editForm.table_header_text_color || '#000000',
+                                    textAlign: editForm.table_header_align || 'center',
+                                    fontFamily: getFontFamilyStyle(editForm.table_header_font_family),
                                   }}
                                 >
                                   <div className="flex items-center justify-center w-full min-h-[38px] py-1">
                                     <span
                                       className="hidden print:block w-full text-center font-black uppercase text-[12px] leading-tight break-words"
-                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px`, textAlign: editForm.table_header_align || 'center', fontFamily: getFontFamilyStyle(editForm.table_header_font_family) }}
                                     >
                                       {editForm.header_unit || 'UNIT'}
                                     </span>
@@ -6188,8 +6247,8 @@ export default function PriceList({ defaultTab }) {
                                       onChange={(e) => handleInputChange('header_unit', e.target.value)}
                                       onFocus={(e) => e.target.select()}
                                       onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
-                                      title="Click to edit header"
-                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                      title="Click to edit header (Right-click to style)"
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px`, textAlign: editForm.table_header_align || 'center', fontFamily: getFontFamilyStyle(editForm.table_header_font_family) }}
                                       className="print:hidden w-full bg-transparent border-0 text-center font-black uppercase text-[12px] leading-tight resize-none whitespace-pre-wrap break-words focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-0.5 cursor-text hover:bg-black/5 transition-colors focus:outline-none my-auto py-0.5"
                                     />
                                   </div>
@@ -6217,12 +6276,14 @@ export default function PriceList({ defaultTab }) {
                                     backgroundColor: editForm.table_header_bg_color || '#fef3c7',
                                     backgroundImage: 'none',
                                     color: editForm.table_header_text_color || '#000000',
+                                    textAlign: editForm.table_header_align || 'right',
+                                    fontFamily: getFontFamilyStyle(editForm.table_header_font_family),
                                   }}
                                 >
                                   <div className="flex items-center justify-end w-full min-h-[38px] py-1 px-1">
                                     <span
                                       className="hidden print:block w-full text-right font-black uppercase text-[12px] leading-tight break-words"
-                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px`, textAlign: editForm.table_header_align || 'right', fontFamily: getFontFamilyStyle(editForm.table_header_font_family) }}
                                     >
                                       {editForm.header_mrp || 'RATE (₹)'}
                                     </span>
@@ -6232,8 +6293,8 @@ export default function PriceList({ defaultTab }) {
                                       onChange={(e) => handleInputChange('header_mrp', e.target.value)}
                                       onFocus={(e) => e.target.select()}
                                       onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
-                                      title="Click to edit header"
-                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                      title="Click to edit header (Right-click to style)"
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px`, textAlign: editForm.table_header_align || 'right', fontFamily: getFontFamilyStyle(editForm.table_header_font_family) }}
                                       className="print:hidden w-full bg-transparent border-0 text-right font-black uppercase text-[12px] leading-tight resize-none whitespace-pre-wrap break-words focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none my-auto py-0.5"
                                     />
                                   </div>
@@ -6261,12 +6322,14 @@ export default function PriceList({ defaultTab }) {
                                     backgroundColor: editForm.table_header_bg_color || '#fef3c7',
                                     backgroundImage: 'none',
                                     color: editForm.table_header_text_color || '#000000',
+                                    textAlign: editForm.table_header_align || 'right',
+                                    fontFamily: getFontFamilyStyle(editForm.table_header_font_family),
                                   }}
                                 >
                                   <div className="flex items-center justify-end w-full min-h-[38px] py-1 px-1">
                                     <span
                                       className="hidden print:block w-full text-right font-black uppercase text-[12px] leading-tight break-words"
-                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px`, textAlign: editForm.table_header_align || 'right', fontFamily: getFontFamilyStyle(editForm.table_header_font_family) }}
                                     >
                                       {editForm.header_offer || `${discountPercent}% OFFER RATE (₹)`}
                                     </span>
@@ -6276,8 +6339,8 @@ export default function PriceList({ defaultTab }) {
                                       onChange={(e) => handleInputChange('header_offer', e.target.value)}
                                       onFocus={(e) => e.target.select()}
                                       onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
-                                      title="Click to edit header"
-                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                      title="Click to edit header (Right-click to style)"
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px`, textAlign: editForm.table_header_align || 'right', fontFamily: getFontFamilyStyle(editForm.table_header_font_family) }}
                                       className="print:hidden w-full bg-transparent border-0 text-right font-black uppercase text-[12px] leading-tight resize-none whitespace-pre-wrap break-words focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none my-auto py-0.5"
                                     />
                                   </div>
@@ -6305,12 +6368,14 @@ export default function PriceList({ defaultTab }) {
                                     backgroundColor: editForm.table_header_bg_color || '#fef3c7',
                                     backgroundImage: 'none',
                                     color: editForm.table_header_text_color || '#000000',
+                                    textAlign: editForm.table_header_align || 'center',
+                                    fontFamily: getFontFamilyStyle(editForm.table_header_font_family),
                                   }}
                                 >
                                   <div className="flex items-center justify-center w-full min-h-[38px] py-1">
                                     <span
                                       className="hidden print:block w-full text-center font-black uppercase text-[12px] leading-tight break-words"
-                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px`, textAlign: editForm.table_header_align || 'center', fontFamily: getFontFamilyStyle(editForm.table_header_font_family) }}
                                     >
                                       {editForm.header_req || 'REQ'}
                                     </span>
@@ -6320,8 +6385,8 @@ export default function PriceList({ defaultTab }) {
                                       onChange={(e) => handleInputChange('header_req', e.target.value)}
                                       onFocus={(e) => e.target.select()}
                                       onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.target.blur(); } }}
-                                      title="Click to edit header"
-                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px` }}
+                                      title="Click to edit header (Right-click to style)"
+                                      style={{ color: editForm.table_header_text_color || '#000000', fontSize: `${editForm.table_header_font_size || 12.5}px`, textAlign: editForm.table_header_align || 'center', fontFamily: getFontFamilyStyle(editForm.table_header_font_family) }}
                                       className="print:hidden w-full bg-transparent border-0 text-center font-black uppercase text-[12px] leading-tight resize-none whitespace-pre-wrap break-words focus:bg-amber-100/90 focus:ring-2 focus:ring-amber-500 rounded px-0.5 cursor-text hover:bg-black/5 transition-colors focus:outline-none my-auto py-0.5"
                                     />
                                   </div>
@@ -7900,7 +7965,7 @@ export default function PriceList({ defaultTab }) {
                 top: `${termsContextMenu.y}px`,
                 zIndex: 99999,
               }}
-              className="w-84 bg-white border-2 border-amber-500 rounded-2xl shadow-2xl p-4 text-xs font-sans text-slate-800 space-y-3.5 animate-scale-up ring-4 ring-amber-400/20 select-none max-h-[85vh] overflow-y-auto"
+              className="w-88 bg-white border-2 border-amber-500 rounded-2xl shadow-2xl p-4 text-xs font-sans text-slate-800 space-y-3.5 animate-scale-up ring-4 ring-amber-400/20 select-none max-h-[85vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between border-b border-amber-200 pb-2">
                 <span className="font-black text-amber-950 flex items-center gap-1.5 uppercase text-[11px] tracking-wider">
@@ -7937,6 +8002,77 @@ export default function PriceList({ defaultTab }) {
                   <i className={`fa-solid ${curSec.move_to_next_page ? 'fa-arrow-turn-down' : 'fa-file-export'}`}></i>
                   <span>{curSec.move_to_next_page ? 'Move Back to Same Page (Inline)' : 'Move Section to Next Page (Page Break)'}</span>
                 </button>
+              </div>
+
+              {/* Text Alignment */}
+              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-1.5">
+                <label className="block text-[10.5px] font-extrabold text-slate-800 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <i className="fa-solid fa-align-center text-amber-600"></i> Text Alignment
+                  </span>
+                  <span className="uppercase text-[9px] font-black text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
+                    {curSec.text_align || 'left'}
+                  </span>
+                </label>
+                <div className="grid grid-cols-4 gap-1 pt-0.5">
+                  {[
+                    { id: 'left', label: 'Left', icon: 'fa-align-left' },
+                    { id: 'center', label: 'Center', icon: 'fa-align-center' },
+                    { id: 'right', label: 'Right', icon: 'fa-align-right' },
+                    { id: 'justify', label: 'Justify', icon: 'fa-align-justify' },
+                  ].map((align) => (
+                    <button
+                      key={align.id}
+                      type="button"
+                      onClick={() => handleUpdateTermsSection(targetIndex, 'text_align', align.id)}
+                      className={`py-1.5 px-1.5 rounded-lg text-[10px] font-bold border transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                        (curSec.text_align || 'left') === align.id
+                          ? 'bg-amber-600 text-white border-amber-700 shadow-2xs font-extrabold'
+                          : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                      }`}
+                    >
+                      <i className={`fa-solid ${align.icon} text-[9.5px]`}></i>
+                      <span>{align.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Font Designs (Font Family) */}
+              <div className="bg-amber-50/60 p-2.5 rounded-xl border border-amber-200 space-y-1.5">
+                <label className="block text-[10.5px] font-extrabold text-amber-950 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <i className="fa-solid fa-font text-amber-600"></i> Font Design
+                  </span>
+                  <span className="capitalize text-[9px] font-black text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
+                    {curSec.font_family || 'sans-serif'}
+                  </span>
+                </label>
+                <div className="grid grid-cols-3 gap-1 pt-0.5">
+                  {[
+                    { id: 'sans-serif', label: 'Standard UI' },
+                    { id: 'inter', label: 'Inter' },
+                    { id: 'poppins', label: 'Poppins' },
+                    { id: 'outfit', label: 'Outfit' },
+                    { id: 'montserrat', label: 'Montserrat' },
+                    { id: 'roboto', label: 'Roboto' },
+                    { id: 'serif', label: 'Classic Serif' },
+                    { id: 'monospace', label: 'Monospace' },
+                  ].map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => handleUpdateTermsSection(targetIndex, 'font_family', f.id)}
+                      className={`py-1 px-1.5 rounded-lg text-[9.5px] font-bold border transition-all truncate text-center cursor-pointer ${
+                        (curSec.font_family || 'sans-serif') === f.id
+                          ? 'bg-amber-600 text-white border-amber-700 shadow-2xs font-extrabold'
+                          : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Header Title & Title Styling */}
@@ -7983,7 +8119,7 @@ export default function PriceList({ defaultTab }) {
                   <div>
                     <div className="flex justify-between items-center text-[10px] font-bold text-slate-600 mb-1">
                       <span>Title Size</span>
-                      <span className="text-amber-700">{curSec.title_font_size || 12}px</span>
+                      <span className="text-amber-700 font-extrabold">{curSec.title_font_size || 12}px</span>
                     </div>
                     <input
                       type="range"
@@ -8035,7 +8171,7 @@ export default function PriceList({ defaultTab }) {
                   <div>
                     <div className="flex justify-between items-center text-[10px] font-bold text-slate-600 mb-1">
                       <span>Text Size</span>
-                      <span className="text-amber-700">{curSec.text_font_size || 10.5}px</span>
+                      <span className="text-amber-700 font-extrabold">{curSec.text_font_size || 10.5}px</span>
                     </div>
                     <input
                       type="range"
@@ -8159,6 +8295,182 @@ export default function PriceList({ defaultTab }) {
             </div>
           );
         })()}
+
+        {/* Right-Click Table Header Context Menu Popup */}
+        {headerContextMenu && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'fixed',
+              left: `${headerContextMenu.x}px`,
+              top: `${headerContextMenu.y}px`,
+              zIndex: 99999,
+            }}
+            className="w-88 bg-white border-2 border-red-500 rounded-2xl shadow-2xl p-4 text-xs font-sans text-slate-800 space-y-3.5 animate-scale-up ring-4 ring-red-400/20 select-none max-h-[85vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between border-b border-red-200 pb-2">
+              <span className="font-black text-red-950 flex items-center gap-1.5 uppercase text-[11px] tracking-wider">
+                <i className="fa-solid fa-table text-red-600"></i> Style Table Header
+              </span>
+              <button
+                type="button"
+                onClick={() => setHeaderContextMenu(null)}
+                className="text-slate-400 hover:text-rose-600 text-sm font-bold transition-colors cursor-pointer"
+              >
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            {/* Text Alignment */}
+            <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-1.5">
+              <label className="block text-[10.5px] font-extrabold text-slate-800 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <i className="fa-solid fa-align-center text-red-600"></i> Text Alignment
+                </span>
+                <span className="uppercase text-[9px] font-black text-red-700 bg-red-100 px-1.5 py-0.5 rounded">
+                  {editForm.table_header_align || 'center'}
+                </span>
+              </label>
+              <div className="grid grid-cols-3 gap-1 pt-0.5">
+                {[
+                  { id: 'left', label: 'Left', icon: 'fa-align-left' },
+                  { id: 'center', label: 'Center', icon: 'fa-align-center' },
+                  { id: 'right', label: 'Right', icon: 'fa-align-right' },
+                ].map((align) => (
+                  <button
+                    key={align.id}
+                    type="button"
+                    onClick={() => handleInputChange('table_header_align', align.id)}
+                    className={`py-1.5 px-2 rounded-lg text-[10px] font-bold border transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                      (editForm.table_header_align || 'center') === align.id
+                        ? 'bg-red-600 text-white border-red-700 shadow-2xs font-extrabold'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                    }`}
+                  >
+                    <i className={`fa-solid ${align.icon} text-[10px]`}></i>
+                    <span>{align.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Font Size Change */}
+            <div className="bg-red-50/70 p-2.5 rounded-xl border border-red-200 space-y-1.5">
+              <div className="flex justify-between items-center text-[10.5px] font-bold text-slate-700">
+                <span className="font-extrabold text-red-950 flex items-center gap-1.5">
+                  <i className="fa-solid fa-text-height text-red-600"></i> Header Font Size
+                </span>
+                <span className="text-red-700 font-extrabold font-mono text-[11px] bg-white px-2 py-0.5 rounded border border-red-300">
+                  {editForm.table_header_font_size || 12.5}px
+                </span>
+              </div>
+              <input
+                type="range"
+                min="9"
+                max="22"
+                step="0.5"
+                value={editForm.table_header_font_size || 12.5}
+                onChange={(e) => handleInputChange('table_header_font_size', parseFloat(e.target.value))}
+                className="w-full accent-red-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
+              />
+              <div className="flex gap-1 flex-wrap pt-1">
+                {[10, 11, 12, 12.5, 13, 14, 16].map((sz) => (
+                  <button
+                    key={sz}
+                    type="button"
+                    onClick={() => handleInputChange('table_header_font_size', sz)}
+                    className={`px-2 py-0.5 rounded text-[9.5px] font-bold border transition-all cursor-pointer ${
+                      (editForm.table_header_font_size || 12.5) === sz
+                        ? 'bg-red-600 text-white border-red-700 font-extrabold'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                    }`}
+                  >
+                    {sz}px
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Font Designs (Font Family) */}
+            <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-1.5">
+              <label className="block text-[10.5px] font-extrabold text-slate-800 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <i className="fa-solid fa-font text-red-600"></i> Font Design
+                </span>
+                <span className="capitalize text-[9px] font-black text-red-700 bg-red-100 px-1.5 py-0.5 rounded">
+                  {editForm.table_header_font_family || 'sans-serif'}
+                </span>
+              </label>
+              <div className="grid grid-cols-3 gap-1 pt-0.5">
+                {[
+                  { id: 'sans-serif', label: 'Standard UI' },
+                  { id: 'inter', label: 'Inter' },
+                  { id: 'poppins', label: 'Poppins' },
+                  { id: 'outfit', label: 'Outfit' },
+                  { id: 'montserrat', label: 'Montserrat' },
+                  { id: 'roboto', label: 'Roboto' },
+                  { id: 'serif', label: 'Classic Serif' },
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => handleInputChange('table_header_font_family', f.id)}
+                    className={`py-1 px-1.5 rounded-lg text-[9.5px] font-bold border transition-all truncate text-center cursor-pointer ${
+                      (editForm.table_header_font_family || 'sans-serif') === f.id
+                        ? 'bg-red-600 text-white border-red-700 shadow-2xs font-extrabold'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Header Colors */}
+            <div className="space-y-2 bg-red-50/70 p-2.5 rounded-xl border border-red-200">
+              <label className="block font-extrabold text-red-950 text-[11px]">Header Colors</label>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 mb-1">Background</label>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <input
+                      type="color"
+                      value={editForm.table_header_bg_color || '#e11d48'}
+                      onChange={(e) => handleInputChange('table_header_bg_color', e.target.value)}
+                      className="w-6 h-6 rounded cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
+                    />
+                    <input
+                      type="text"
+                      value={editForm.table_header_bg_color || '#e11d48'}
+                      onChange={(e) => handleInputChange('table_header_bg_color', e.target.value)}
+                      className="w-16 px-1 py-0.5 font-mono text-[9.5px] bg-white border border-slate-300 rounded font-bold uppercase focus:outline-none shrink-0"
+                      placeholder="#HEX"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 mb-1">Text Color</label>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <input
+                      type="color"
+                      value={editForm.table_header_text_color || '#ffffff'}
+                      onChange={(e) => handleInputChange('table_header_text_color', e.target.value)}
+                      className="w-6 h-6 rounded cursor-pointer border border-slate-300 p-0.5 bg-white shrink-0"
+                    />
+                    <input
+                      type="text"
+                      value={editForm.table_header_text_color || '#ffffff'}
+                      onChange={(e) => handleInputChange('table_header_text_color', e.target.value)}
+                      className="w-16 px-1 py-0.5 font-mono text-[9.5px] bg-white border border-slate-300 rounded font-bold uppercase focus:outline-none shrink-0"
+                      placeholder="#HEX"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </>
     </div>
   );
