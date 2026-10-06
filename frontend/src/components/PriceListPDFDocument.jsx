@@ -60,6 +60,32 @@ const renderTermsContentPDF = (content, fontSize = 6, textColor = '#334155') => 
   );
 };
 
+const getPDFTermsSections = (form) => {
+  if (Array.isArray(form?.terms_sections) && form.terms_sections.length > 0) {
+    return form.terms_sections;
+  }
+  if (typeof form?.terms_sections === 'string' && form.terms_sections.trim()) {
+    try {
+      const parsed = JSON.parse(form.terms_sections);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch (e) {}
+  }
+  return [
+    {
+      id: 'sec_default',
+      show: form?.show_terms !== false,
+      title: form?.terms_title || 'TERMS & CONDITIONS',
+      title_color: form?.terms_title_color || '#78350f',
+      title_font_size: form?.terms_title_font_size ? parseFloat(form.terms_title_font_size) : 12,
+      content: form?.terms_content || '1. Goods once sold will not be taken back or exchanged.\n2. Transport charges extra as applicable.\n3. Minimum order value applies for parcel dispatch.',
+      text_color: form?.terms_text_color || '#1e293b',
+      text_font_size: form?.terms_text_font_size ? parseFloat(form.terms_text_font_size) : 10.5,
+      bg_color: form?.terms_bg_color || '#fffbeb',
+      border_color: form?.terms_border_color || '#fde047',
+    },
+  ];
+};
+
 const styles = StyleSheet.create({
   page: {
     padding: 12,
@@ -911,30 +937,40 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
               );
             })()}
 
-            {/* Terms & Conditions Section */}
-            {editForm.show_terms !== false && (editForm.terms_content || editForm.terms_title) && (
-              <View style={{
-                marginTop: 4,
-                padding: 5,
-                borderWidth: 1,
-                borderColor: editForm.terms_border_color || '#fde047',
-                borderRadius: 4,
-                backgroundColor: editForm.terms_bg_color || '#fffbeb'
-              }}>
-                <Text style={{
-                  fontSize: editForm.terms_title_font_size ? editForm.terms_title_font_size * 0.6 : 7,
-                  fontWeight: 'bold',
-                  color: editForm.terms_title_color || '#78350f',
-                  marginBottom: 3,
-                  textTransform: 'uppercase'
-                }}>
-                  {editForm.terms_title || 'TERMS & CONDITIONS'}
-                </Text>
-                {renderTermsContentPDF(
-                  editForm.terms_content || '1. Goods once sold will not be taken back or exchanged.\n2. Transport charges extra as applicable.\n3. Minimum order value applies for parcel dispatch.',
-                  editForm.terms_text_font_size ? editForm.terms_text_font_size * 0.6 : 6,
-                  editForm.terms_text_color || '#1e293b'
-                )}
+            {/* Terms & Conditions Sections */}
+            {editForm.show_terms !== false && (
+              <View style={{ flexDirection: 'column', gap: 4, marginTop: 4 }}>
+                {getPDFTermsSections(editForm).map((sec, sIdx) => {
+                  if (sec.show === false) return null;
+                  return (
+                      <View
+                        key={sec.id || sIdx}
+                        break={sec.move_to_next_page === true}
+                        style={{
+                          padding: 5,
+                          borderWidth: 1,
+                          borderColor: sec.border_color || '#fde047',
+                          borderRadius: 4,
+                          backgroundColor: sec.bg_color || '#fffbeb'
+                        }}
+                      >
+                      <Text style={{
+                        fontSize: sec.title_font_size ? sec.title_font_size * 0.6 : 7,
+                        fontWeight: 'bold',
+                        color: sec.title_color || '#78350f',
+                        marginBottom: 3,
+                        textTransform: 'uppercase'
+                      }}>
+                        {sec.title || 'TERMS & CONDITIONS'}
+                      </Text>
+                      {renderTermsContentPDF(
+                        sec.content || '',
+                        sec.text_font_size ? sec.text_font_size * 0.6 : 6,
+                        sec.text_color || '#1e293b'
+                      )}
+                    </View>
+                  );
+                })}
               </View>
             )}
 
@@ -1081,30 +1117,40 @@ export const PriceListPDFDocument = ({ editForm, productPageChunks, showMrp, get
               );
             })()}
 
-            {/* Terms & Conditions Section */}
-            {editForm.show_terms !== false && (editForm.terms_content || editForm.terms_title) && (
-              <View style={{
-                marginTop: 6,
-                padding: 6,
-                borderWidth: 1,
-                borderColor: editForm.terms_border_color || '#fde047',
-                borderRadius: 4,
-                backgroundColor: editForm.terms_bg_color || '#fffbeb'
-              }}>
-                <Text style={{
-                  fontSize: editForm.terms_title_font_size ? editForm.terms_title_font_size * 0.65 : 8,
-                  fontWeight: 'bold',
-                  color: editForm.terms_title_color || '#78350f',
-                  marginBottom: 4,
-                  textTransform: 'uppercase'
-                }}>
-                  {editForm.terms_title || 'TERMS & CONDITIONS'}
-                </Text>
-                {renderTermsContentPDF(
-                  editForm.terms_content || '1. Goods once sold will not be taken back or exchanged.\n2. Transport charges extra as applicable.\n3. Minimum order value applies for parcel dispatch.',
-                  editForm.terms_text_font_size ? editForm.terms_text_font_size * 0.65 : 7,
-                  editForm.terms_text_color || '#1e293b'
-                )}
+            {/* Terms & Conditions Sections */}
+            {editForm.show_terms !== false && (
+              <View style={{ flexDirection: 'column', gap: 5, marginTop: 6 }}>
+                {getPDFTermsSections(editForm).map((sec, sIdx) => {
+                  if (sec.show === false) return null;
+                  return (
+                      <View
+                        key={sec.id || sIdx}
+                        break={sec.move_to_next_page === true}
+                        style={{
+                          padding: 6,
+                          borderWidth: 1,
+                          borderColor: sec.border_color || '#fde047',
+                          borderRadius: 4,
+                          backgroundColor: sec.bg_color || '#fffbeb'
+                        }}
+                      >
+                      <Text style={{
+                        fontSize: sec.title_font_size ? sec.title_font_size * 0.65 : 8,
+                        fontWeight: 'bold',
+                        color: sec.title_color || '#78350f',
+                        marginBottom: 4,
+                        textTransform: 'uppercase'
+                      }}>
+                        {sec.title || 'TERMS & CONDITIONS'}
+                      </Text>
+                      {renderTermsContentPDF(
+                        sec.content || '',
+                        sec.text_font_size ? sec.text_font_size * 0.65 : 7,
+                        sec.text_color || '#1e293b'
+                      )}
+                    </View>
+                  );
+                })}
               </View>
             )}
           </View>

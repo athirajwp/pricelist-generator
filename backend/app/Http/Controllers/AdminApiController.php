@@ -1491,7 +1491,9 @@ class AdminApiController extends Controller
         $extraKeys = [
             'store_year', 'store_gpay_2', 'store_upi_name', 'store_upi_name_2', 
             'store_qr_1_title', 'store_qr_2_title', 'show_bank_details', 
-            'show_upi_qr', 'show_tamil_name', 'strikethrough_mrp', 'header_product', 
+            'show_upi_qr', 'show_terms', 'terms_title', 'terms_title_color', 'terms_title_font_size',
+            'terms_content', 'terms_text_color', 'terms_text_font_size', 'terms_bg_color', 'terms_border_color',
+            'terms_sections', 'show_tamil_name', 'strikethrough_mrp', 'header_product', 
             'header_product_ta', 'important_note_1', 'important_note_2', 
             'store_title_color', 'store_tagline_color', 'store_invocation_color', 
             'store_badge_color', 'footer_position', 'max_tr_per_page',
@@ -1502,7 +1504,11 @@ class AdminApiController extends Controller
         foreach ($extraKeys as $optKey) {
             if ($request->has($optKey)) {
                 $val = $request->$optKey;
-                Setting::set($optKey, is_bool($val) ? ($val ? 'true' : 'false') : (string)$val, 'text');
+                if (is_array($val) || is_object($val)) {
+                    Setting::set($optKey, json_encode($val), 'textarea');
+                } else {
+                    Setting::set($optKey, is_bool($val) ? ($val ? 'true' : 'false') : (string)$val, 'text');
+                }
             }
         }
 
@@ -1522,7 +1528,7 @@ class AdminApiController extends Controller
             'promo_code_4', 'promo_value_4',
             'promo_code_5', 'promo_value_5',
             'admin_theme', 'banner_scroller',
-            'terms_conditions', 'about_us',
+            'terms_conditions', 'terms_sections', 'about_us',
             'about_us_badge', 'about_us_title',
             'about_us_est_tag', 'about_us_expert_title', 'about_us_expert_desc',
             'about_us_feat_1', 'about_us_feat_2', 'about_us_feat_3', 'about_us_feat_4',

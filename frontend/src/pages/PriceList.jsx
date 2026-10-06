@@ -30,7 +30,7 @@ export default function PriceList({ defaultTab }) {
   // Right-click Terms Context Menu state
   const [termsContextMenu, setTermsContextMenu] = useState(null);
 
-  const handleTermsContextMenu = (e) => {
+  const handleTermsContextMenu = (e, sectionIndex = 0) => {
     e.preventDefault();
     e.stopPropagation();
     const clickX = e.clientX;
@@ -39,7 +39,7 @@ export default function PriceList({ defaultTab }) {
     const menuHeight = 460;
     const x = Math.min(clickX, window.innerWidth - menuWidth - 10);
     const y = Math.min(clickY, window.innerHeight - menuHeight - 10);
-    setTermsContextMenu({ x: Math.max(10, x), y: Math.max(10, y) });
+    setTermsContextMenu({ x: Math.max(10, x), y: Math.max(10, y), index: sectionIndex });
   };
 
   useEffect(() => {
@@ -129,6 +129,7 @@ export default function PriceList({ defaultTab }) {
     terms_text_font_size: 10.5,
     terms_bg_color: '#fffbeb',
     terms_border_color: '#fde047',
+    terms_sections: null,
     show_tamil_name: false,
     strikethrough_mrp: true,
     header_product: 'PRODUCT NAME (ENG)',
@@ -579,6 +580,11 @@ export default function PriceList({ defaultTab }) {
           terms_text_font_size: settings.terms_text_font_size ? parseFloat(settings.terms_text_font_size) : 10.5,
           terms_bg_color: settings.terms_bg_color || '#fffbeb',
           terms_border_color: settings.terms_border_color || '#fde047',
+          terms_sections: settings.terms_sections
+            ? (typeof settings.terms_sections === 'string'
+              ? (() => { try { return JSON.parse(settings.terms_sections); } catch (e) { return null; } })()
+              : settings.terms_sections)
+            : null,
           show_tamil_name: settings.show_tamil_name !== undefined ? settings.show_tamil_name : false,
           strikethrough_mrp: settings.strikethrough_mrp !== undefined ? settings.strikethrough_mrp : true,
           header_product: settings.header_product || 'PRODUCT NAME (ENG)',
@@ -1071,8 +1077,168 @@ export default function PriceList({ defaultTab }) {
     setEditForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleAddBulletToTerms = (bulletType = 'bullet') => {
-    const currentText = editForm.terms_content || '';
+  const getTermsSections = (form) => {
+    const f = form || editForm;
+    if (Array.isArray(f?.terms_sections) && f.terms_sections.length > 0) {
+      return f.terms_sections;
+    }
+    if (typeof f?.terms_sections === 'string' && f.terms_sections.trim()) {
+      try {
+        const parsed = JSON.parse(f.terms_sections);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return [
+      {
+        id: 'sec_default_1',
+        show: f?.show_terms !== false,
+        title: f?.terms_title || 'TERMS & CONDITIONS',
+        title_color: f?.terms_title_color || '#78350f',
+        title_font_size: f?.terms_title_font_size ? parseFloat(f.terms_title_font_size) : 12,
+        content: f?.terms_content || '1. Goods once sold will not be taken back or exchanged under any circumstances.\n2. Transport & Delivery charges extra as applicable based on delivery location.\n3. All prices are inclusive of applicable taxes.\n4. Minimum order value applies for parcel dispatch.\n5. Handle fireworks strictly under adult supervision following safety guidelines.',
+        text_color: f?.terms_text_color || '#1e293b',
+        text_font_size: f?.terms_text_font_size ? parseFloat(f.terms_text_font_size) : 10.5,
+        bg_color: f?.terms_bg_color || '#fffbeb',
+        border_color: f?.terms_border_color || '#fde047',
+      },
+    ];
+  };
+
+  const updateTermsSections = (updatedSections) => {
+    const firstSec = updatedSections[0] || {};
+    setEditForm((prev) => ({
+      ...prev,
+      terms_sections: updatedSections,
+      terms_title: firstSec.title || prev.terms_title,
+      terms_title_color: firstSec.title_color || prev.terms_title_color,
+      terms_title_font_size: firstSec.title_font_size || prev.terms_title_font_size,
+      terms_content: firstSec.content || prev.terms_content,
+      terms_text_color: firstSec.text_color || prev.terms_text_color,
+      terms_text_font_size: firstSec.text_font_size || prev.terms_text_font_size,
+      terms_bg_color: firstSec.bg_color || prev.terms_bg_color,
+      terms_border_color: firstSec.border_color || prev.terms_border_color,
+    }));
+  };
+
+  const handleAddTermsSection = (preset = null) => {
+    const current = getTermsSections(editForm);
+    const newId = `sec_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+    let newSec = {
+      id: newId,
+      show: true,
+      title: 'ADDITIONAL TERMS & CONDITIONS',
+      title_color: '#78350f',
+      title_font_size: 12,
+      content: '1. All orders subject to stock confirmation.\n2. Please inspect goods upon delivery at transport godown.',
+      text_color: '#1e293b',
+      text_font_size: 10.5,
+      bg_color: '#fffbeb',
+      border_color: '#fde047',
+    };
+
+    if (preset === 'shipping') {
+      newSec = {
+        id: newId,
+        show: true,
+        title: 'SHIPPING & DELIVERY POLICY',
+        title_color: '#065f46',
+        title_font_size: 12,
+        content: '1. Goods dispatched via licensed Lorry Transport Services only (Explosives Act compliant).\n2. Local transport freight & godown pickup charges extra as applicable.\n3. Lorry Receipt (LR) tracking slip will be shared via WhatsApp upon dispatch.',
+        text_color: '#064e3b',
+        text_font_size: 10.5,
+        bg_color: '#f0fdf4',
+        border_color: '#86efac',
+      };
+    } else if (preset === 'payment') {
+      newSec = {
+        id: newId,
+        show: true,
+        title: 'PAYMENT TERMS & BANKING',
+        title_color: '#1e40af',
+        title_font_size: 12,
+        content: '1. 100% advance payment required prior to lorry parcel dispatch.\n2. Payments accepted via Google Pay, PhonePe, UPI & Direct Bank Transfer.\n3. Booking reference summary will be generated upon checkout.',
+        text_color: '#1e3a8a',
+        text_font_size: 10.5,
+        bg_color: '#eff6ff',
+        border_color: '#93c5fd',
+      };
+    } else if (preset === 'safety') {
+      newSec = {
+        id: newId,
+        show: true,
+        title: 'SAFETY & HANDLING GUIDELINES',
+        title_color: '#991b1b',
+        title_font_size: 12,
+        content: '1. Store fireworks in a cool, dry place away from heat and open flames.\n2. Burst fireworks strictly under adult supervision following state safety guidelines.\n3. Keep a bucket of water and sand adjacent to the firing area.',
+        text_color: '#450a0a',
+        text_font_size: 10.5,
+        bg_color: '#fef2f2',
+        border_color: '#fca5a5',
+      };
+    }
+
+    updateTermsSections([...current, newSec]);
+  };
+
+  const handleUpdateTermsSection = (secIndex, field, value) => {
+    const current = [...getTermsSections(editForm)];
+    if (current[secIndex]) {
+      if (typeof field === 'object' && field !== null) {
+        current[secIndex] = { ...current[secIndex], ...field };
+      } else {
+        current[secIndex] = { ...current[secIndex], [field]: value };
+      }
+      updateTermsSections(current);
+    }
+  };
+
+  const handleDeleteTermsSection = (secIndex) => {
+    const current = [...getTermsSections(editForm)];
+    if (current.length <= 1) {
+      if (window.Swal) {
+        window.Swal.fire({
+          title: 'Cannot Delete Last Section',
+          text: 'You can disable the section toggle instead of deleting the last terms section.',
+          icon: 'warning',
+          confirmButtonColor: '#e51d1d',
+        });
+      } else {
+        alert('Cannot delete the last section. You can toggle it off instead.');
+      }
+      return;
+    }
+    current.splice(secIndex, 1);
+    updateTermsSections(current);
+  };
+
+  const handleMoveTermsSection = (secIndex, direction) => {
+    const current = [...getTermsSections(editForm)];
+    const targetIdx = secIndex + direction;
+    if (targetIdx < 0 || targetIdx >= current.length) return;
+    const temp = current[secIndex];
+    current[secIndex] = current[targetIdx];
+    current[targetIdx] = temp;
+    updateTermsSections(current);
+  };
+
+  const handleDuplicateTermsSection = (secIndex) => {
+    const current = [...getTermsSections(editForm)];
+    if (current[secIndex]) {
+      const dup = {
+        ...current[secIndex],
+        id: `sec_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+        title: `${current[secIndex].title} (Copy)`,
+      };
+      current.splice(secIndex + 1, 0, dup);
+      updateTermsSections(current);
+    }
+  };
+
+  const handleAddBulletToTermsSection = (secIndex, bulletType = 'bullet') => {
+    const current = getTermsSections(editForm);
+    const sec = current[secIndex];
+    if (!sec) return;
+    const currentText = sec.content || '';
     let addition = '';
     if (bulletType === 'bullet') {
       addition = (currentText && !currentText.endsWith('\n') ? '\n' : '') + '• ';
@@ -1083,13 +1249,14 @@ export default function PriceList({ defaultTab }) {
       const numCount = lines.filter((l) => /^\d+[\.\)]/.test(l.trim())).length;
       addition = (currentText && !currentText.endsWith('\n') ? '\n' : '') + `${numCount + 1}. `;
     }
-    handleInputChange('terms_content', currentText + addition);
+    handleUpdateTermsSection(secIndex, 'content', currentText + addition);
   };
 
-  const handleConvertTermsToBullets = () => {
-    const currentText = editForm.terms_content || '';
-    if (!currentText) return;
-    const lines = currentText.split('\n');
+  const handleConvertTermsSectionToBullets = (secIndex) => {
+    const current = getTermsSections(editForm);
+    const sec = current[secIndex];
+    if (!sec || !sec.content) return;
+    const lines = sec.content.split('\n');
     const converted = lines
       .map((line) => {
         const trimmed = line.trim();
@@ -1101,28 +1268,19 @@ export default function PriceList({ defaultTab }) {
         return `• ${trimmed}`;
       })
       .join('\n');
-    handleInputChange('terms_content', converted);
+    handleUpdateTermsSection(secIndex, 'content', converted);
+  };
+
+  const handleAddBulletToTerms = (bulletType = 'bullet') => {
+    handleAddBulletToTermsSection(0, bulletType);
+  };
+
+  const handleConvertTermsToBullets = () => {
+    handleConvertTermsSectionToBullets(0);
   };
 
   const handleInsertShippingPolicyPreset = () => {
-    const shippingPreset =
-`1. THE GOODS WILL BE ONLY DISPATCHED AFTER THE RECEIPT OF 100% PAYMENT IN ADVANCE.
-2. THE FREIGHT CHARGES WILL BE EXTRA FOR ALL STATES, INCLUDING TAMIL NADU.
-3. ONCE GOODS ARE SOLD NO RETURN WILL BE ENTERTAINED.
-4. AFTER THE GOODS ARE DISPATCHED WE SHALL INFORM YOU THE TRANSPORT DETAILS:
-    • NAME OF THE TRANSPORTER
-    • CONTACT NUMBER
-    • WAY BILL NUMBER
-    • NUMBER OF PARCELS ETC
-    BY EMAIL AND PHONE.
-5. IT'S YOUR RESPONSIBILITY TO CO-ORDINATE WITH THE TRANSPORTER AND COLLECT THE SAME AT THE EARLIEST ON ARRIVAL.
-6. WE STAND RESPONSIBLE FOR ANY LOSS OR DAMAGE OF GOODS CAUSED BY THE TRANSPORTER.
-7. TRANSPORT INSURANCE / OCTROI CHARGES WILL BE EXTRA.
-8. CRACKERS CANNOT BE SENT THROUGH COURIER SERVICES.
-9. SUBJECT TO SIVAKASI JURISDICTION.`;
-
-    handleInputChange('terms_title', 'SHIPPING POLICY & TERMS');
-    handleInputChange('terms_content', shippingPreset);
+    handleAddTermsSection('shipping');
   };
 
   const renderTermsContentDOM = (content, textColor = '#1e293b', fontSize = 10.5) => {
@@ -4475,223 +4633,323 @@ export default function PriceList({ defaultTab }) {
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-100 pb-2">
                   <div className="font-extrabold text-amber-900 text-xs uppercase tracking-wider flex items-center gap-2">
                     <i className="fa-solid fa-file-contract text-amber-600"></i>
-                    <span>Terms & Conditions Section (விதிகள் & நிபந்தனைகள்)</span>
+                    <span>Terms & Conditions Sections (விதிகள் & நிபந்தனைகள்)</span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleInputChange('show_terms', editForm.show_terms === false ? true : false)}
-                    className={`flex items-center gap-2 px-3 py-1 rounded-xl font-black text-xs transition-all shadow-2xs cursor-pointer border ${editForm.show_terms !== false
-                      ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700'
-                      : 'bg-slate-200 text-slate-700 border-slate-300 hover:bg-slate-300'
-                      }`}
-                  >
-                    <i className={`fa-solid ${editForm.show_terms !== false ? 'fa-toggle-on text-sm' : 'fa-toggle-off text-sm'}`}></i>
-                    <span>{editForm.show_terms !== false ? 'Enabled on Document' : 'Disabled on Document'}</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleInputChange('show_terms', editForm.show_terms === false ? true : false)}
+                      className={`flex items-center gap-2 px-3 py-1 rounded-xl font-black text-xs transition-all shadow-2xs cursor-pointer border ${editForm.show_terms !== false
+                        ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700'
+                        : 'bg-slate-200 text-slate-700 border-slate-300 hover:bg-slate-300'
+                        }`}
+                    >
+                      <i className={`fa-solid ${editForm.show_terms !== false ? 'fa-toggle-on text-sm' : 'fa-toggle-off text-sm'}`}></i>
+                      <span>{editForm.show_terms !== false ? 'Enabled on Document' : 'Disabled on Document'}</span>
+                    </button>
+                  </div>
                 </div>
 
                 {editForm.show_terms !== false && (
-                  <div className="space-y-3 text-xs">
-                    <div>
-                      <label className="block text-slate-700 font-extrabold mb-1">Section Title</label>
-                      <input
-                        type="text"
-                        value={editForm.terms_title || ''}
-                        onChange={(e) => handleInputChange('terms_title', e.target.value)}
-                        placeholder="TERMS & CONDITIONS"
-                        className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
-                      />
-                    </div>
-                    <div>
-                      <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-                        <label className="block text-slate-700 font-extrabold">Terms & Conditions Content (Multi-line text / points)</label>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <button
-                            type="button"
-                            onClick={() => handleAddBulletToTerms('bullet')}
-                            className="px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-[10px] rounded-lg border border-amber-300 transition-colors flex items-center gap-1 cursor-pointer"
-                            title="Insert Bullet Point (•)"
-                          >
-                            <i className="fa-solid fa-list-ul text-[9px]"></i> • Bullet
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleAddBulletToTerms('subbullet')}
-                            className="px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-[10px] rounded-lg border border-amber-300 transition-colors flex items-center gap-1 cursor-pointer"
-                            title="Insert Sub-Bullet Point (   •)"
-                          >
-                            <i className="fa-solid fa-indent text-[9px]"></i> ↳ Sub-Bullet
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleAddBulletToTerms('number')}
-                            className="px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-[10px] rounded-lg border border-amber-300 transition-colors flex items-center gap-1 cursor-pointer"
-                            title="Insert Numbered Point (1.)"
-                          >
-                            <i className="fa-solid fa-list-ol text-[9px]"></i> 1. Number
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleConvertTermsToBullets}
-                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-[10px] rounded-lg border border-slate-300 transition-colors cursor-pointer"
-                            title="Convert all lines to bullets"
-                          >
-                            Convert to Bullets
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleInsertShippingPolicyPreset}
-                            className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[10px] rounded-lg shadow-2xs transition-colors flex items-center gap-1 cursor-pointer"
-                            title="Load Shipping Policy with Sub-Bullets sample"
-                          >
-                            <i className="fa-solid fa-truck-fast text-[9px]"></i> Shipping Policy Preset
-                          </button>
-                        </div>
-                      </div>
-                      <textarea
-                        rows={6}
-                        value={editForm.terms_content || ''}
-                        onChange={(e) => handleInputChange('terms_content', e.target.value)}
-                        placeholder="1. Goods once sold will not be taken back or exchanged...\n4. AFTER DISPATCH:\n    • NAME OF TRANSPORTER\n    • CONTACT NUMBER"
-                        className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-slate-900 font-semibold text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
-                      ></textarea>
-                    </div>
-
-                    {/* Quick Color Presets & Custom Colors Chooser */}
-                    <div className="pt-2 border-t border-amber-200/80 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="block font-extrabold text-amber-950 text-[11px] uppercase tracking-wider">
-                          <i className="fa-solid fa-palette text-amber-600 mr-1"></i> Quick Color Presets & Custom Chooser
-                        </label>
-                        <span className="text-[9.5px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
-                          {(() => {
-                            const presets = [
-                              { bg: '#fffbeb', border: '#fde047', name: 'Warm Amber' },
-                              { bg: '#f0fdf4', border: '#86efac', name: 'Emerald' },
-                              { bg: '#eff6ff', border: '#93c5fd', name: 'Royal Blue' },
-                              { bg: '#fef2f2', border: '#fca5a5', name: 'Crimson Red' },
-                              { bg: '#faf5ff', border: '#e9d5ff', name: 'Purple' },
-                              { bg: '#fff7ed', border: '#ffedd5', name: 'Sunset' },
-                            ];
-                            const curBg = (editForm.terms_bg_color || '#fffbeb').toLowerCase();
-                            const curBorder = (editForm.terms_border_color || '#fde047').toLowerCase();
-                            const match = presets.find((p) => p.bg.toLowerCase() === curBg && p.border.toLowerCase() === curBorder);
-                            return match ? `Active Preset: ${match.name}` : '🎨 Custom Colors Selected';
-                          })()}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
-                        {[
-                          { name: 'Warm Amber', bg: '#fffbeb', border: '#fde047', title: '#78350f', text: '#1e293b', cls: 'bg-amber-100 border-amber-300 text-amber-900' },
-                          { name: 'Emerald', bg: '#f0fdf4', border: '#86efac', title: '#065f46', text: '#064e3b', cls: 'bg-emerald-100 border-emerald-300 text-emerald-900' },
-                          { name: 'Royal Blue', bg: '#eff6ff', border: '#93c5fd', title: '#1e40af', text: '#1e3a8a', cls: 'bg-blue-100 border-blue-300 text-blue-900' },
-                          { name: 'Crimson Red', bg: '#fef2f2', border: '#fca5a5', title: '#991b1b', text: '#450a0a', cls: 'bg-red-100 border-red-300 text-red-900' },
-                          { name: 'Purple', bg: '#faf5ff', border: '#e9d5ff', title: '#6b21a8', text: '#3b0764', cls: 'bg-purple-100 border-purple-300 text-purple-900' },
-                          { name: 'Sunset', bg: '#fff7ed', border: '#ffedd5', title: '#c2410c', text: '#7c2d12', cls: 'bg-orange-100 border-orange-300 text-orange-900' },
-                        ].map((p) => {
-                          const isSelected =
-                            (editForm.terms_bg_color || '#fffbeb').toLowerCase() === p.bg.toLowerCase() &&
-                            (editForm.terms_border_color || '#fde047').toLowerCase() === p.border.toLowerCase();
-                          return (
-                            <button
-                              key={p.name}
-                              type="button"
-                              onClick={() => {
-                                handleInputChange('terms_bg_color', p.bg);
-                                handleInputChange('terms_border_color', p.border);
-                                handleInputChange('terms_title_color', p.title);
-                                handleInputChange('terms_text_color', p.text);
-                              }}
-                              className={`px-2 py-1.5 rounded-xl border text-[10px] font-bold transition-all cursor-pointer flex items-center justify-between gap-1 ${p.cls} ${
-                                isSelected ? 'ring-2 ring-amber-500 font-extrabold shadow-sm scale-[1.02]' : 'hover:opacity-90'
-                              }`}
-                            >
-                              <span>{p.name}</span>
-                              {isSelected && <i className="fa-solid fa-check text-[10px]"></i>}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {/* Manual Hex & Custom Color Pickers */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
-                        <div className="bg-white p-2 rounded-xl border border-amber-200">
-                          <label className="block text-[9.5px] font-bold text-slate-600 mb-1">Title Color</label>
-                          <div className="flex items-center gap-1">
-                            <input
-                              type="color"
-                              value={editForm.terms_title_color || '#78350f'}
-                              onChange={(e) => handleInputChange('terms_title_color', e.target.value)}
-                              className="w-5 h-5 rounded cursor-pointer border border-slate-300 p-0 shrink-0 bg-white"
-                            />
-                            <input
-                              type="text"
-                              value={editForm.terms_title_color || '#78350f'}
-                              onChange={(e) => handleInputChange('terms_title_color', e.target.value)}
-                              className="w-full px-1.5 py-0.5 font-mono text-[9.5px] bg-slate-50 border border-slate-300 rounded font-bold uppercase focus:ring-1 focus:ring-amber-500 focus:outline-none"
-                              placeholder="#HEX"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="bg-white p-2 rounded-xl border border-amber-200">
-                          <label className="block text-[9.5px] font-bold text-slate-600 mb-1">Text Color</label>
-                          <div className="flex items-center gap-1">
-                            <input
-                              type="color"
-                              value={editForm.terms_text_color || '#1e293b'}
-                              onChange={(e) => handleInputChange('terms_text_color', e.target.value)}
-                              className="w-5 h-5 rounded cursor-pointer border border-slate-300 p-0 shrink-0 bg-white"
-                            />
-                            <input
-                              type="text"
-                              value={editForm.terms_text_color || '#1e293b'}
-                              onChange={(e) => handleInputChange('terms_text_color', e.target.value)}
-                              className="w-full px-1.5 py-0.5 font-mono text-[9.5px] bg-slate-50 border border-slate-300 rounded font-bold uppercase focus:ring-1 focus:ring-amber-500 focus:outline-none"
-                              placeholder="#HEX"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="bg-white p-2 rounded-xl border border-amber-200">
-                          <label className="block text-[9.5px] font-bold text-slate-600 mb-1">Background Color</label>
-                          <div className="flex items-center gap-1">
-                            <input
-                              type="color"
-                              value={editForm.terms_bg_color || '#fffbeb'}
-                              onChange={(e) => handleInputChange('terms_bg_color', e.target.value)}
-                              className="w-5 h-5 rounded cursor-pointer border border-slate-300 p-0 shrink-0 bg-white"
-                            />
-                            <input
-                              type="text"
-                              value={editForm.terms_bg_color || '#fffbeb'}
-                              onChange={(e) => handleInputChange('terms_bg_color', e.target.value)}
-                              className="w-full px-1.5 py-0.5 font-mono text-[9.5px] bg-slate-50 border border-slate-300 rounded font-bold uppercase focus:ring-1 focus:ring-amber-500 focus:outline-none"
-                              placeholder="#HEX"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="bg-white p-2 rounded-xl border border-amber-200">
-                          <label className="block text-[9.5px] font-bold text-slate-600 mb-1">Border Color</label>
-                          <div className="flex items-center gap-1">
-                            <input
-                              type="color"
-                              value={editForm.terms_border_color || '#fde047'}
-                              onChange={(e) => handleInputChange('terms_border_color', e.target.value)}
-                              className="w-5 h-5 rounded cursor-pointer border border-slate-300 p-0 shrink-0 bg-white"
-                            />
-                            <input
-                              type="text"
-                              value={editForm.terms_border_color || '#fde047'}
-                              onChange={(e) => handleInputChange('terms_border_color', e.target.value)}
-                              className="w-full px-1.5 py-0.5 font-mono text-[9.5px] bg-slate-50 border border-slate-300 rounded font-bold uppercase focus:ring-1 focus:ring-amber-500 focus:outline-none"
-                              placeholder="#HEX"
-                            />
-                          </div>
-                        </div>
+                  <div className="space-y-4 text-xs">
+                    {/* Quick Add Preset Bar */}
+                    <div className="bg-amber-50/90 border border-amber-200 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-bold text-amber-950 text-[11px] flex items-center gap-1.5">
+                        <i className="fa-solid fa-square-plus text-amber-600"></i> Add Section:
+                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => handleAddTermsSection(null)}
+                          className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-[10.5px] rounded-lg shadow-2xs transition-all flex items-center gap-1 cursor-pointer"
+                        >
+                          <i className="fa-solid fa-plus"></i> Add Blank Section
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAddTermsSection('shipping')}
+                          className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[10px] rounded-lg shadow-2xs transition-all flex items-center gap-1 cursor-pointer"
+                        >
+                          <i className="fa-solid fa-truck-fast"></i> + Shipping Policy
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAddTermsSection('payment')}
+                          className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-[10px] rounded-lg shadow-2xs transition-all flex items-center gap-1 cursor-pointer"
+                        >
+                          <i className="fa-solid fa-credit-card"></i> + Payment Terms
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAddTermsSection('safety')}
+                          className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-[10px] rounded-lg shadow-2xs transition-all flex items-center gap-1 cursor-pointer"
+                        >
+                          <i className="fa-solid fa-shield-halved"></i> + Safety Guidelines
+                        </button>
                       </div>
                     </div>
+
+                    {/* Sections List */}
+                    {getTermsSections(editForm).map((sec, secIdx) => {
+                      const sectionsList = getTermsSections(editForm);
+                      return (
+                        <div
+                          key={sec.id || secIdx}
+                          className="bg-white border-2 rounded-xl p-3.5 space-y-3 shadow-xs transition-all"
+                          style={{ borderColor: sec.border_color || '#fde047' }}
+                        >
+                          {/* Section Card Top Header */}
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2" style={{ borderColor: sec.border_color || '#fde047' }}>
+                            <div className="flex items-center gap-2">
+                              <span className="bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-md font-black text-[11px]">
+                                #{secIdx + 1}
+                              </span>
+                              <span className="font-black text-slate-800 text-xs truncate max-w-[180px]" style={{ color: sec.title_color }}>
+                                {sec.title || 'Untitled Section'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {/* Enable/Disable Section Toggle */}
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateTermsSection(secIdx, 'show', sec.show === false ? true : false)}
+                                className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold transition-all border cursor-pointer ${sec.show !== false ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-slate-100 text-slate-500 border-slate-300'}`}
+                                title={sec.show !== false ? 'Shown on document' : 'Hidden on document'}
+                              >
+                                <i className={`fa-solid ${sec.show !== false ? 'fa-eye text-emerald-600' : 'fa-eye-slash text-slate-400'} mr-1`}></i>
+                                {sec.show !== false ? 'Visible' : 'Hidden'}
+                              </button>
+
+                              {/* Manual Move to Next Page Toggle */}
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateTermsSection(secIdx, 'move_to_next_page', !sec.move_to_next_page)}
+                                className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold transition-all border cursor-pointer ${sec.move_to_next_page ? 'bg-amber-600 text-white border-amber-700 shadow-2xs' : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'}`}
+                                title={sec.move_to_next_page ? 'Manually moved to start on next page (Page Break)' : 'Flows inline on same page'}
+                              >
+                                <i className={`fa-solid ${sec.move_to_next_page ? 'fa-file-export' : 'fa-file-lines'} mr-1`}></i>
+                                {sec.move_to_next_page ? 'Next Page' : 'Same Page'}
+                              </button>
+
+                              {/* Move Up */}
+                              <button
+                                type="button"
+                                disabled={secIdx === 0}
+                                onClick={() => handleMoveTermsSection(secIdx, -1)}
+                                className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:opacity-30 border border-slate-300 transition-colors flex items-center justify-center text-[10px] cursor-pointer"
+                                title="Move Up"
+                              >
+                                <i className="fa-solid fa-arrow-up"></i>
+                              </button>
+
+                              {/* Move Down */}
+                              <button
+                                type="button"
+                                disabled={secIdx === sectionsList.length - 1}
+                                onClick={() => handleMoveTermsSection(secIdx, 1)}
+                                className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:opacity-30 border border-slate-300 transition-colors flex items-center justify-center text-[10px] cursor-pointer"
+                                title="Move Down"
+                              >
+                                <i className="fa-solid fa-arrow-down"></i>
+                              </button>
+
+                              {/* Duplicate */}
+                              <button
+                                type="button"
+                                onClick={() => handleDuplicateTermsSection(secIdx)}
+                                className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition-colors flex items-center justify-center text-[10px] cursor-pointer"
+                                title="Duplicate Section"
+                              >
+                                <i className="fa-solid fa-copy"></i>
+                              </button>
+
+                              {/* Delete */}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteTermsSection(secIdx)}
+                                className="w-6 h-6 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition-colors flex items-center justify-center text-[10px] cursor-pointer"
+                                title="Delete Section"
+                              >
+                                <i className="fa-solid fa-trash-can"></i>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Title & Toolbar */}
+                          <div className="space-y-2">
+                            <div>
+                              <label className="block text-slate-700 font-extrabold mb-1">Section Title</label>
+                              <input
+                                type="text"
+                                value={sec.title || ''}
+                                onChange={(e) => handleUpdateTermsSection(secIdx, 'title', e.target.value)}
+                                placeholder="e.g. TERMS & CONDITIONS or SHIPPING POLICY"
+                                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 text-xs"
+                              />
+                            </div>
+
+                            <div>
+                              <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                                <label className="block text-slate-700 font-extrabold">Section Content (Multi-line text / points)</label>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAddBulletToTermsSection(secIdx, 'bullet')}
+                                    className="px-2 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-[10px] rounded-lg border border-amber-300 transition-colors cursor-pointer"
+                                  >
+                                    • Bullet
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAddBulletToTermsSection(secIdx, 'subbullet')}
+                                    className="px-2 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-[10px] rounded-lg border border-amber-300 transition-colors cursor-pointer"
+                                  >
+                                    ↳ Sub-Bullet
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAddBulletToTermsSection(secIdx, 'number')}
+                                    className="px-2 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-[10px] rounded-lg border border-amber-300 transition-colors cursor-pointer"
+                                  >
+                                    1. Number
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleConvertTermsSectionToBullets(secIdx)}
+                                    className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-[10px] rounded-lg border border-slate-300 transition-colors cursor-pointer"
+                                  >
+                                    Convert to Bullets
+                                  </button>
+                                </div>
+                              </div>
+                              <textarea
+                                rows={4}
+                                value={sec.content || ''}
+                                onChange={(e) => handleUpdateTermsSection(secIdx, 'content', e.target.value)}
+                                placeholder="Enter terms, conditions, policy details or guidelines here..."
+                                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-semibold text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
+                              ></textarea>
+                            </div>
+
+                            {/* Color Presets & Pickers for Section */}
+                            <div className="pt-2 border-t border-slate-200 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <label className="block font-extrabold text-slate-700 text-[10.5px] uppercase tracking-wider">
+                                  <i className="fa-solid fa-palette text-amber-600 mr-1"></i> Section Color Scheme
+                                </label>
+                              </div>
+                              <div className="grid grid-cols-2 sm:grid-cols-6 gap-1.5">
+                                {[
+                                  { name: 'Warm Amber', bg: '#fffbeb', border: '#fde047', title: '#78350f', text: '#1e293b' },
+                                  { name: 'Emerald', bg: '#f0fdf4', border: '#86efac', title: '#065f46', text: '#064e3b' },
+                                  { name: 'Royal Blue', bg: '#eff6ff', border: '#93c5fd', title: '#1e40af', text: '#1e3a8a' },
+                                  { name: 'Crimson Red', bg: '#fef2f2', border: '#fca5a5', title: '#991b1b', text: '#450a0a' },
+                                  { name: 'Purple', bg: '#faf5ff', border: '#e9d5ff', title: '#6b21a8', text: '#3b0764' },
+                                  { name: 'Sunset', bg: '#fff7ed', border: '#ffedd5', title: '#c2410c', text: '#7c2d12' },
+                                ].map((p) => {
+                                  const isSelected =
+                                    (sec.bg_color || '#fffbeb').toLowerCase() === p.bg.toLowerCase() &&
+                                    (sec.border_color || '#fde047').toLowerCase() === p.border.toLowerCase();
+                                  return (
+                                    <button
+                                      key={p.name}
+                                      type="button"
+                                      onClick={() => {
+                                        handleUpdateTermsSection(secIdx, {
+                                          bg_color: p.bg,
+                                          border_color: p.border,
+                                          title_color: p.title,
+                                          text_color: p.text,
+                                        });
+                                      }}
+                                      className={`px-2 py-1 rounded-lg border text-[9.5px] font-bold transition-all cursor-pointer flex items-center justify-between gap-1 ${
+                                        isSelected ? 'ring-2 ring-amber-500 font-extrabold scale-[1.02]' : 'hover:opacity-90'
+                                      }`}
+                                      style={{ backgroundColor: p.bg, borderColor: p.border, color: p.title }}
+                                    >
+                                      <span>{p.name}</span>
+                                      {isSelected && <i className="fa-solid fa-check text-[9px]"></i>}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Custom Pickers */}
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                                <div className="bg-slate-50 p-1.5 rounded-lg border border-slate-200">
+                                  <label className="block text-[9px] font-bold text-slate-600 mb-0.5">Title Color</label>
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="color"
+                                      value={sec.title_color || '#78350f'}
+                                      onChange={(e) => handleUpdateTermsSection(secIdx, 'title_color', e.target.value)}
+                                      className="w-5 h-5 rounded cursor-pointer border border-slate-300 p-0 shrink-0 bg-white"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={sec.title_color || '#78350f'}
+                                      onChange={(e) => handleUpdateTermsSection(secIdx, 'title_color', e.target.value)}
+                                      className="w-full px-1 py-0.5 font-mono text-[9px] bg-white border border-slate-300 rounded font-bold uppercase focus:outline-none"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="bg-slate-50 p-1.5 rounded-lg border border-slate-200">
+                                  <label className="block text-[9px] font-bold text-slate-600 mb-0.5">Text Color</label>
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="color"
+                                      value={sec.text_color || '#1e293b'}
+                                      onChange={(e) => handleUpdateTermsSection(secIdx, 'text_color', e.target.value)}
+                                      className="w-5 h-5 rounded cursor-pointer border border-slate-300 p-0 shrink-0 bg-white"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={sec.text_color || '#1e293b'}
+                                      onChange={(e) => handleUpdateTermsSection(secIdx, 'text_color', e.target.value)}
+                                      className="w-full px-1 py-0.5 font-mono text-[9px] bg-white border border-slate-300 rounded font-bold uppercase focus:outline-none"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="bg-slate-50 p-1.5 rounded-lg border border-slate-200">
+                                  <label className="block text-[9px] font-bold text-slate-600 mb-0.5">Background</label>
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="color"
+                                      value={sec.bg_color || '#fffbeb'}
+                                      onChange={(e) => handleUpdateTermsSection(secIdx, 'bg_color', e.target.value)}
+                                      className="w-5 h-5 rounded cursor-pointer border border-slate-300 p-0 shrink-0 bg-white"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={sec.bg_color || '#fffbeb'}
+                                      onChange={(e) => handleUpdateTermsSection(secIdx, 'bg_color', e.target.value)}
+                                      className="w-full px-1 py-0.5 font-mono text-[9px] bg-white border border-slate-300 rounded font-bold uppercase focus:outline-none"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="bg-slate-50 p-1.5 rounded-lg border border-slate-200">
+                                  <label className="block text-[9px] font-bold text-slate-600 mb-0.5">Border</label>
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="color"
+                                      value={sec.border_color || '#fde047'}
+                                      onChange={(e) => handleUpdateTermsSection(secIdx, 'border_color', e.target.value)}
+                                      className="w-5 h-5 rounded cursor-pointer border border-slate-300 p-0 shrink-0 bg-white"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={sec.border_color || '#fde047'}
+                                      onChange={(e) => handleUpdateTermsSection(secIdx, 'border_color', e.target.value)}
+                                      className="w-full px-1 py-0.5 font-mono text-[9px] bg-white border border-slate-300 rounded font-bold uppercase focus:outline-none"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -6630,79 +6888,92 @@ export default function PriceList({ defaultTab }) {
                             </div>
                           )}
 
-                          {/* Terms & Conditions Section below Footer */}
-                          {editForm.show_terms !== false && (editForm.terms_content || editForm.terms_title) && (
-                            <div
-                              onContextMenu={(e) => handleTermsContextMenu(e)}
-                              className="mt-2.5 border-2 rounded-xl p-3 shadow-xs text-left relative group/terms hover:ring-2 hover:ring-amber-400 cursor-context-menu transition-all"
-                              style={{
-                                backgroundColor: editForm.terms_bg_color || editForm.important_note_bg_color || '#fffbeb',
-                                borderColor: editForm.terms_border_color || editForm.important_note_border_color || '#fde047',
-                              }}
-                              title="Right-click to edit colors, text size & background color"
-                            >
-                              {/* Floating Right-Click Hint Badge (Print Hidden) */}
-                              <div className="absolute right-2 top-2 hidden group-hover/terms:flex items-center gap-1.5 bg-slate-900/90 text-white px-2 py-0.5 rounded-md text-[9px] font-bold shadow-lg z-30 print:hidden pointer-events-none border border-slate-700">
-                                <i className="fa-solid fa-mouse text-amber-400 text-[9.5px]"></i>
-                                <span>Right-Click for Colors, Size & BG</span>
-                              </div>
+                          {/* Terms & Conditions Section below Footer (Inline on Table Page) */}
+                          {editForm.show_terms !== false && (() => {
+                            const inlineSections = getTermsSections(editForm)
+                              .map((sec, idx) => ({ ...sec, originalIndex: idx }))
+                              .filter((sec) => sec.show !== false && !sec.move_to_next_page);
 
-                              <div
-                                className="font-black uppercase tracking-wider flex items-center gap-1.5 border-b pb-1 mb-1.5"
-                                style={{ borderColor: editForm.terms_border_color || editForm.important_note_border_color || '#fde047' }}
-                              >
-                                <i className="fa-solid fa-file-contract shrink-0" style={{ color: editForm.terms_title_color || '#b45309' }}></i>
-                                <input
-                                  type="text"
-                                  value={editForm.terms_title || 'TERMS & CONDITIONS'}
-                                  onChange={(e) => handleInputChange('terms_title', e.target.value)}
-                                  className="w-full bg-transparent border-0 font-black uppercase focus:bg-amber-100/90 focus:ring-1 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none print:hidden"
-                                  style={{
-                                    color: editForm.terms_title_color || '#78350f',
-                                    fontSize: `${editForm.terms_title_font_size || 12}px`
-                                  }}
-                                  title="Click to edit title inline"
-                                />
-                                <span
-                                  className="hidden print:inline-block font-black uppercase tracking-wider px-1"
-                                  style={{
-                                    color: editForm.terms_title_color || '#78350f',
-                                    fontSize: `${editForm.terms_title_font_size || 12}px`
-                                  }}
-                                >
-                                  {editForm.terms_title || 'TERMS & CONDITIONS'}
-                                </span>
+                            if (inlineSections.length === 0) return null;
+
+                            return (
+                              <div className="mt-2.5 space-y-2.5">
+                                {inlineSections.map((sec) => (
+                                  <div
+                                    key={sec.id || sec.originalIndex}
+                                    onContextMenu={(e) => handleTermsContextMenu(e, sec.originalIndex)}
+                                    className="border-2 rounded-xl p-3 shadow-xs text-left relative group/terms hover:ring-2 hover:ring-amber-400 cursor-context-menu transition-all"
+                                    style={{
+                                      backgroundColor: sec.bg_color || '#fffbeb',
+                                      borderColor: sec.border_color || '#fde047',
+                                    }}
+                                    title="Right-click to edit section colors, text size & move section position"
+                                  >
+                                    {/* Floating Right-Click Hint Badge (Print Hidden) */}
+                                    <div className="absolute right-2 top-2 hidden group-hover/terms:flex items-center gap-1.5 bg-slate-900/90 text-white px-2 py-0.5 rounded-md text-[9px] font-bold shadow-lg z-30 print:hidden pointer-events-none border border-slate-700">
+                                      <i className="fa-solid fa-mouse text-amber-400 text-[9.5px]"></i>
+                                      <span>Right-Click #{sec.originalIndex + 1} for Style & Page Move</span>
+                                    </div>
+
+                                    <div
+                                      className="font-black uppercase tracking-wider flex items-center gap-1.5 border-b pb-1 mb-1.5"
+                                      style={{ borderColor: sec.border_color || '#fde047' }}
+                                    >
+                                      <i className="fa-solid fa-file-contract shrink-0" style={{ color: sec.title_color || '#b45309' }}></i>
+                                      <input
+                                        type="text"
+                                        value={sec.title || 'TERMS & CONDITIONS'}
+                                        onChange={(e) => handleUpdateTermsSection(sec.originalIndex, 'title', e.target.value)}
+                                        className="w-full bg-transparent border-0 font-black uppercase focus:bg-amber-100/90 focus:ring-1 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none print:hidden"
+                                        style={{
+                                          color: sec.title_color || '#78350f',
+                                          fontSize: `${sec.title_font_size || 12}px`
+                                        }}
+                                        title="Click to edit title inline"
+                                      />
+                                      <span
+                                        className="hidden print:inline-block font-black uppercase tracking-wider px-1"
+                                        style={{
+                                          color: sec.title_color || '#78350f',
+                                          fontSize: `${sec.title_font_size || 12}px`
+                                        }}
+                                      >
+                                        {sec.title || 'TERMS & CONDITIONS'}
+                                      </span>
+                                    </div>
+                                    <textarea
+                                      ref={(el) => {
+                                        if (el) {
+                                          el.style.height = 'auto';
+                                          el.style.height = `${el.scrollHeight + 4}px`;
+                                        }
+                                      }}
+                                      value={sec.content || ''}
+                                      onChange={(e) => {
+                                        handleUpdateTermsSection(sec.originalIndex, 'content', e.target.value);
+                                        e.target.style.height = 'auto';
+                                        e.target.style.height = `${e.target.scrollHeight + 4}px`;
+                                      }}
+                                      onInput={(e) => {
+                                        e.target.style.height = 'auto';
+                                        e.target.style.height = `${e.target.scrollHeight + 4}px`;
+                                      }}
+                                      className="w-full bg-transparent border-0 font-bold leading-relaxed resize-none overflow-hidden focus:bg-amber-100/90 focus:ring-1 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none print:hidden"
+                                      style={{
+                                        color: sec.text_color || '#1e293b',
+                                        fontSize: `${sec.text_font_size || 10.5}px`,
+                                        overflow: 'hidden'
+                                      }}
+                                      title="Click to edit terms content inline (Auto-expands)"
+                                    />
+                                    <div className="hidden print:block px-1">
+                                      {renderTermsContentDOM(sec.content, sec.text_color || '#1e293b', sec.text_font_size || 10.5)}
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
-                              <textarea
-                                ref={(el) => {
-                                  if (el) {
-                                    el.style.height = 'auto';
-                                    el.style.height = `${el.scrollHeight + 4}px`;
-                                  }
-                                }}
-                                value={editForm.terms_content || ''}
-                                onChange={(e) => {
-                                  handleInputChange('terms_content', e.target.value);
-                                  e.target.style.height = 'auto';
-                                  e.target.style.height = `${e.target.scrollHeight + 4}px`;
-                                }}
-                                onInput={(e) => {
-                                  e.target.style.height = 'auto';
-                                  e.target.style.height = `${e.target.scrollHeight + 4}px`;
-                                }}
-                                className="w-full bg-transparent border-0 font-bold leading-relaxed resize-none overflow-hidden focus:bg-amber-100/90 focus:ring-1 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none print:hidden"
-                                style={{
-                                  color: editForm.terms_text_color || '#1e293b',
-                                  fontSize: `${editForm.terms_text_font_size || 10.5}px`,
-                                  overflow: 'hidden'
-                                }}
-                                title="Click to edit terms content inline (Auto-expands)"
-                              />
-                              <div className="hidden print:block px-1">
-                                {renderTermsContentDOM(editForm.terms_content, editForm.terms_text_color || '#1e293b', editForm.terms_text_font_size || 10.5)}
-                              </div>
-                            </div>
-                          )}
+                            );
+                          })()}
                         </div>
                       );
                     })()}
@@ -6904,84 +7175,195 @@ export default function PriceList({ defaultTab }) {
                     </div>
                   )}
 
-                  {/* Terms & Conditions Section */}
-                  {editForm.show_terms !== false && (editForm.terms_content || editForm.terms_title) && (
-                    <div
-                      onContextMenu={(e) => handleTermsContextMenu(e)}
-                      className="border-2 rounded-2xl p-4 text-left shadow-md backdrop-blur-xs space-y-1.5 relative group/terms hover:ring-2 hover:ring-amber-400 cursor-context-menu transition-all"
-                      style={{
-                        backgroundColor: editForm.terms_bg_color || '#ffffff',
-                        borderColor: editForm.terms_border_color || '#fbbf24',
-                      }}
-                      title="Right-click to edit colors, text size & background color"
-                    >
-                      {/* Floating Right-Click Hint Badge (Print Hidden) */}
-                      <div className="absolute right-3 top-3 hidden group-hover/terms:flex items-center gap-1.5 bg-slate-900/90 text-white px-2 py-0.5 rounded-md text-[9.5px] font-bold shadow-lg z-30 print:hidden pointer-events-none border border-slate-700">
-                        <i className="fa-solid fa-mouse text-amber-400 text-[10px]"></i>
-                        <span>Right-Click for Colors, Size & BG</span>
-                      </div>
+                  {/* Terms & Conditions Section on Standalone Page (Inline ones only) */}
+                  {editForm.show_terms !== false && (() => {
+                    const inlineSections = getTermsSections(editForm)
+                      .map((sec, idx) => ({ ...sec, originalIndex: idx }))
+                      .filter((sec) => sec.show !== false && !sec.move_to_next_page);
 
-                      <div
-                        className="font-black uppercase tracking-wider flex items-center gap-2 border-b pb-1.5 mb-1.5"
-                        style={{ borderColor: editForm.terms_border_color || '#fbbf24' }}
-                      >
-                        <i className="fa-solid fa-file-contract shrink-0" style={{ color: editForm.terms_title_color || '#b45309' }}></i>
-                        <input
-                          type="text"
-                          value={editForm.terms_title || 'TERMS & CONDITIONS'}
-                          onChange={(e) => handleInputChange('terms_title', e.target.value)}
-                          className="w-full bg-transparent border-0 font-black uppercase focus:bg-amber-100/90 focus:ring-1 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none print:hidden"
-                          style={{
-                            color: editForm.terms_title_color || '#78350f',
-                            fontSize: `${editForm.terms_title_font_size || 13}px`
-                          }}
-                          title="Click to edit title inline"
-                        />
-                        <span
-                          className="hidden print:inline-block font-black uppercase tracking-wider px-1"
-                          style={{
-                            color: editForm.terms_title_color || '#78350f',
-                            fontSize: `${editForm.terms_title_font_size || 13}px`
-                          }}
-                        >
-                          {editForm.terms_title || 'TERMS & CONDITIONS'}
-                        </span>
+                    if (inlineSections.length === 0) return null;
+
+                    return (
+                      <div className="space-y-3">
+                        {inlineSections.map((sec) => (
+                          <div
+                            key={sec.id || sec.originalIndex}
+                            onContextMenu={(e) => handleTermsContextMenu(e, sec.originalIndex)}
+                            className="border-2 rounded-2xl p-4 text-left shadow-md backdrop-blur-xs space-y-1.5 relative group/terms hover:ring-2 hover:ring-amber-400 cursor-context-menu transition-all"
+                            style={{
+                              backgroundColor: sec.bg_color || '#ffffff',
+                              borderColor: sec.border_color || '#fbbf24',
+                            }}
+                            title="Right-click to edit section colors, text size & move section position"
+                          >
+                            {/* Floating Right-Click Hint Badge (Print Hidden) */}
+                            <div className="absolute right-3 top-3 hidden group-hover/terms:flex items-center gap-1.5 bg-slate-900/90 text-white px-2 py-0.5 rounded-md text-[9.5px] font-bold shadow-lg z-30 print:hidden pointer-events-none border border-slate-700">
+                              <i className="fa-solid fa-mouse text-amber-400 text-[10px]"></i>
+                              <span>Right-Click #{sec.originalIndex + 1} for Style & Page Move</span>
+                            </div>
+
+                            <div
+                              className="font-black uppercase tracking-wider flex items-center gap-2 border-b pb-1.5 mb-1.5"
+                              style={{ borderColor: sec.border_color || '#fbbf24' }}
+                            >
+                              <i className="fa-solid fa-file-contract shrink-0" style={{ color: sec.title_color || '#b45309' }}></i>
+                              <input
+                                type="text"
+                                value={sec.title || 'TERMS & CONDITIONS'}
+                                onChange={(e) => handleUpdateTermsSection(sec.originalIndex, 'title', e.target.value)}
+                                className="w-full bg-transparent border-0 font-black uppercase focus:bg-amber-100/90 focus:ring-1 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none print:hidden"
+                                style={{
+                                  color: sec.title_color || '#78350f',
+                                  fontSize: `${sec.title_font_size || 13}px`
+                                }}
+                                title="Click to edit title inline"
+                              />
+                              <span
+                                className="hidden print:inline-block font-black uppercase tracking-wider px-1"
+                                style={{
+                                  color: sec.title_color || '#78350f',
+                                  fontSize: `${sec.title_font_size || 13}px`
+                                }}
+                              >
+                                {sec.title || 'TERMS & CONDITIONS'}
+                              </span>
+                            </div>
+                            <textarea
+                              ref={(el) => {
+                                if (el) {
+                                  el.style.height = 'auto';
+                                  el.style.height = `${el.scrollHeight + 4}px`;
+                                }
+                              }}
+                              value={sec.content || ''}
+                              onChange={(e) => {
+                                handleUpdateTermsSection(sec.originalIndex, 'content', e.target.value);
+                                e.target.style.height = 'auto';
+                                e.target.style.height = `${e.target.scrollHeight + 4}px`;
+                              }}
+                              onInput={(e) => {
+                                e.target.style.height = 'auto';
+                                e.target.style.height = `${e.target.scrollHeight + 4}px`;
+                              }}
+                              className="w-full bg-transparent border-0 font-bold leading-relaxed resize-none overflow-hidden focus:bg-amber-100/90 focus:ring-1 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none print:hidden"
+                              style={{
+                                color: sec.text_color || '#1e293b',
+                                fontSize: `${sec.text_font_size || 11.5}px`,
+                                overflow: 'hidden'
+                              }}
+                              title="Click to edit terms content inline (Auto-expands)"
+                            />
+                            <div className="hidden print:block px-1">
+                              {renderTermsContentDOM(sec.content, sec.text_color || '#1e293b', sec.text_font_size || 11.5)}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                      <textarea
-                        ref={(el) => {
-                          if (el) {
-                            el.style.height = 'auto';
-                            el.style.height = `${el.scrollHeight + 4}px`;
-                          }
-                        }}
-                        value={editForm.terms_content || ''}
-                        onChange={(e) => {
-                          handleInputChange('terms_content', e.target.value);
-                          e.target.style.height = 'auto';
-                          e.target.style.height = `${e.target.scrollHeight + 4}px`;
-                        }}
-                        onInput={(e) => {
-                          e.target.style.height = 'auto';
-                          e.target.style.height = `${e.target.scrollHeight + 4}px`;
-                        }}
-                        className="w-full bg-transparent border-0 font-bold leading-relaxed resize-none overflow-hidden focus:bg-amber-100/90 focus:ring-1 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none print:hidden"
-                        style={{
-                          color: editForm.terms_text_color || '#1e293b',
-                          fontSize: `${editForm.terms_text_font_size || 11.5}px`,
-                          overflow: 'hidden'
-                        }}
-                        title="Click to edit terms content inline (Auto-expands)"
-                      />
-                      <div className="hidden print:block px-1">
-                        {renderTermsContentDOM(editForm.terms_content, editForm.terms_text_color || '#1e293b', editForm.terms_text_font_size || 11.5)}
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
 
               </div>
             </div>
           )}
+
+          {/* DEDICATED A4 PAGE SHEETS FOR TERMS SECTIONS MOVED TO NEXT PAGE */}
+          {editForm.show_terms !== false && (() => {
+            const allSections = getTermsSections(editForm).map((sec, idx) => ({ ...sec, originalIndex: idx }));
+            const movedSections = allSections.filter((sec) => sec.show !== false && sec.move_to_next_page === true);
+            if (movedSections.length === 0) return null;
+
+            return movedSections.map((sec, nIdx) => {
+              return (
+                <div key={sec.id || sec.originalIndex} className="w-full max-w-[210mm] print:w-[210mm] my-6">
+                  <div
+                    className="a4-page-sheet w-[210mm] min-h-[297mm] h-auto overflow-hidden text-slate-900 transition-all duration-300 relative shadow-2xl flex flex-col justify-between p-4 sm:p-5 select-none mx-auto break-after-page bg-cover bg-center bg-no-repeat box-border border-2"
+                    style={{
+                      backgroundImage: `url(${editForm.store_cover_bg ? getImageUrl(editForm.store_cover_bg) : '/images/cover_bg.jpg'})`,
+                      borderColor: sec.border_color || '#fde047',
+                      pageBreakBefore: 'always',
+                      breakBefore: 'page'
+                    }}
+                  >
+                    <div className="w-full">
+                      {/* Section Box */}
+                      <div
+                        onContextMenu={(e) => handleTermsContextMenu(e, sec.originalIndex)}
+                        className="bg-white/95 border-2 rounded-2xl p-4 text-left shadow-lg backdrop-blur-xs space-y-2 relative group/terms hover:ring-2 hover:ring-amber-400 cursor-context-menu transition-all"
+                        style={{
+                          backgroundColor: sec.bg_color || '#ffffff',
+                          borderColor: sec.border_color || '#fde047',
+                        }}
+                        title="Right-click to edit colors, text size & move section position"
+                      >
+                        {/* Floating Right-Click Hint Badge (Print Hidden) */}
+                        <div className="absolute right-3 top-3 hidden group-hover/terms:flex items-center gap-1.5 bg-slate-900/90 text-white px-2 py-0.5 rounded-md text-[9.5px] font-bold shadow-lg z-30 print:hidden pointer-events-none border border-slate-700">
+                          <i className="fa-solid fa-mouse text-amber-400 text-[10px]"></i>
+                          <span>Right-Click Section #{sec.originalIndex + 1} Style</span>
+                        </div>
+
+                        <div
+                          className="font-black uppercase tracking-wider flex items-center gap-2 border-b pb-1.5 mb-2"
+                          style={{ borderColor: sec.border_color || '#fde047' }}
+                        >
+                          <i className="fa-solid fa-file-contract shrink-0" style={{ color: sec.title_color || '#b45309' }}></i>
+                          <input
+                            type="text"
+                            value={sec.title || 'TERMS & CONDITIONS'}
+                            onChange={(e) => handleUpdateTermsSection(sec.originalIndex, 'title', e.target.value)}
+                            className="w-full bg-transparent border-0 font-black uppercase focus:bg-amber-100/90 focus:ring-1 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none print:hidden"
+                            style={{
+                              color: sec.title_color || '#78350f',
+                              fontSize: `${sec.title_font_size || 13}px`
+                            }}
+                            title="Click to edit title inline"
+                          />
+                          <span
+                            className="hidden print:inline-block font-black uppercase tracking-wider px-1"
+                            style={{
+                              color: sec.title_color || '#78350f',
+                              fontSize: `${sec.title_font_size || 13}px`
+                            }}
+                          >
+                            {sec.title || 'TERMS & CONDITIONS'}
+                          </span>
+                        </div>
+
+                        <textarea
+                          ref={(el) => {
+                            if (el) {
+                              el.style.height = 'auto';
+                              el.style.height = `${el.scrollHeight + 4}px`;
+                            }
+                          }}
+                          value={sec.content || ''}
+                          onChange={(e) => {
+                            handleUpdateTermsSection(sec.originalIndex, 'content', e.target.value);
+                            e.target.style.height = 'auto';
+                            e.target.style.height = `${e.target.scrollHeight + 4}px`;
+                          }}
+                          onInput={(e) => {
+                            e.target.style.height = 'auto';
+                            e.target.style.height = `${e.target.scrollHeight + 4}px`;
+                          }}
+                          className="w-full bg-transparent border-0 font-bold leading-relaxed resize-none overflow-hidden focus:bg-amber-100/90 focus:ring-1 focus:ring-amber-500 rounded px-1 cursor-text hover:bg-black/5 transition-colors focus:outline-none print:hidden"
+                          style={{
+                            color: sec.text_color || '#1e293b',
+                            fontSize: `${sec.text_font_size || 11.5}px`,
+                            overflow: 'hidden'
+                          }}
+                          title="Click to edit terms content inline (Auto-expands)"
+                        />
+                        <div className="hidden print:block px-1">
+                          {renderTermsContentDOM(sec.content, sec.text_color || '#1e293b', sec.text_font_size || 11.5)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            });
+          })()}
 
         </div>
         {/* ─── Modal: Add Product ─────────────────────────────────────────── */}
@@ -7504,263 +7886,279 @@ export default function PriceList({ defaultTab }) {
         )}
 
         {/* Right-Click Terms & Conditions Context Menu Popup */}
-        {termsContextMenu && (
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: 'fixed',
-              left: `${termsContextMenu.x}px`,
-              top: `${termsContextMenu.y}px`,
-              zIndex: 99999,
-            }}
-            className="w-84 bg-white border-2 border-amber-500 rounded-2xl shadow-2xl p-4 text-xs font-sans text-slate-800 space-y-3.5 animate-scale-up ring-4 ring-amber-400/20 select-none max-h-[85vh] overflow-y-auto"
-          >
-            <div className="flex items-center justify-between border-b border-amber-200 pb-2">
-              <span className="font-black text-amber-950 flex items-center gap-1.5 uppercase text-[11px] tracking-wider">
-                <i className="fa-solid fa-palette text-amber-600"></i> Edit Terms & Conditions Style
-              </span>
-              <button
-                type="button"
-                onClick={() => setTermsContextMenu(null)}
-                className="text-slate-400 hover:text-rose-600 text-sm font-bold transition-colors cursor-pointer"
-              >
-                <i className="fa-solid fa-xmark"></i>
-              </button>
-            </div>
+        {termsContextMenu && (() => {
+          const sections = getTermsSections(editForm);
+          const targetIndex = termsContextMenu.index !== undefined ? termsContextMenu.index : 0;
+          const curSec = sections[targetIndex] || sections[0] || {};
 
-            {/* Header Title & Title Styling */}
-            <div className="space-y-2 bg-amber-50/80 p-2.5 rounded-xl border border-amber-200/90">
-              <label className="block font-extrabold text-amber-950 text-[11px]">Header Title & Style</label>
-              <input
-                type="text"
-                value={editForm.terms_title || ''}
-                onChange={(e) => handleInputChange('terms_title', e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                placeholder="TERMS & CONDITIONS"
-              />
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-600 mb-1">Title Color</label>
-                  <div className="flex items-center gap-1 flex-wrap">
-                    <input
-                      type="color"
-                      value={editForm.terms_title_color || '#78350f'}
-                      onChange={(e) => handleInputChange('terms_title_color', e.target.value)}
-                      className="w-6 h-6 rounded cursor-pointer border border-slate-300 p-0.5 shrink-0 bg-white"
-                    />
-                    <input
-                      type="text"
-                      value={editForm.terms_title_color || '#78350f'}
-                      onChange={(e) => handleInputChange('terms_title_color', e.target.value)}
-                      className="w-16 px-1 py-0.5 font-mono text-[9.5px] bg-white border border-slate-300 rounded font-bold uppercase focus:ring-1 focus:ring-amber-500 focus:outline-none shrink-0"
-                      placeholder="#HEX"
-                    />
-                    <div className="flex gap-1 flex-wrap">
-                      {['#78350f', '#991b1b', '#00a859', '#2563eb', '#000000'].map((c) => (
-                        <button
-                          key={c}
-                          type="button"
-                          onClick={() => handleInputChange('terms_title_color', c)}
-                          className="w-3.5 h-3.5 rounded-full border border-slate-300 cursor-pointer hover:scale-110 transition-transform"
-                          style={{ backgroundColor: c }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex justify-between items-center text-[10px] font-bold text-slate-600 mb-1">
-                    <span>Title Size</span>
-                    <span className="text-amber-700">{editForm.terms_title_font_size || 12}px</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="9"
-                    max="20"
-                    step="1"
-                    value={editForm.terms_title_font_size || 12}
-                    onChange={(e) => handleInputChange('terms_title_font_size', parseFloat(e.target.value))}
-                    className="w-full accent-amber-600 h-1.5 bg-slate-200 rounded cursor-pointer"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Body Text Style */}
-            <div className="space-y-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-              <label className="block font-extrabold text-slate-900 text-[11px]">Body Text Style & Size</label>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-600 mb-1">Text Color</label>
-                  <div className="flex items-center gap-1 flex-wrap">
-                    <input
-                      type="color"
-                      value={editForm.terms_text_color || '#1e293b'}
-                      onChange={(e) => handleInputChange('terms_text_color', e.target.value)}
-                      className="w-6 h-6 rounded cursor-pointer border border-slate-300 p-0.5 shrink-0 bg-white"
-                    />
-                    <input
-                      type="text"
-                      value={editForm.terms_text_color || '#1e293b'}
-                      onChange={(e) => handleInputChange('terms_text_color', e.target.value)}
-                      className="w-16 px-1 py-0.5 font-mono text-[9.5px] bg-white border border-slate-300 rounded font-bold uppercase focus:ring-1 focus:ring-amber-500 focus:outline-none shrink-0"
-                      placeholder="#HEX"
-                    />
-                    <div className="flex gap-1 flex-wrap">
-                      {['#1e293b', '#000000', '#991b1b', '#065f46', '#2563eb'].map((c) => (
-                        <button
-                          key={c}
-                          type="button"
-                          onClick={() => handleInputChange('terms_text_color', c)}
-                          className="w-3.5 h-3.5 rounded-full border border-slate-300 cursor-pointer hover:scale-110 transition-transform"
-                          style={{ backgroundColor: c }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex justify-between items-center text-[10px] font-bold text-slate-600 mb-1">
-                    <span>Text Size</span>
-                    <span className="text-amber-700">{editForm.terms_text_font_size || 10.5}px</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="8"
-                    max="16"
-                    step="0.5"
-                    value={editForm.terms_text_font_size || 10.5}
-                    onChange={(e) => handleInputChange('terms_text_font_size', parseFloat(e.target.value))}
-                    className="w-full accent-amber-600 h-1.5 bg-slate-200 rounded cursor-pointer"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Card Background & Border Colors */}
-            <div className="space-y-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-              <label className="block font-extrabold text-slate-900 text-[11px]">Card Background & Border</label>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-600 mb-1">Background Color</label>
-                  <div className="flex items-center gap-1 flex-wrap">
-                    <input
-                      type="color"
-                      value={editForm.terms_bg_color || '#fffbeb'}
-                      onChange={(e) => handleInputChange('terms_bg_color', e.target.value)}
-                      className="w-6 h-6 rounded cursor-pointer border border-slate-300 p-0.5 shrink-0 bg-white"
-                    />
-                    <input
-                      type="text"
-                      value={editForm.terms_bg_color || '#fffbeb'}
-                      onChange={(e) => handleInputChange('terms_bg_color', e.target.value)}
-                      className="w-16 px-1 py-0.5 font-mono text-[9.5px] bg-white border border-slate-300 rounded font-bold uppercase focus:ring-1 focus:ring-amber-500 focus:outline-none shrink-0"
-                      placeholder="#HEX"
-                    />
-                    <div className="flex gap-1 flex-wrap">
-                      {['#fffbeb', '#ffffff', '#f8fafc', '#f0fdf4', '#fef2f2', '#1e293b'].map((c) => (
-                        <button
-                          key={c}
-                          type="button"
-                          onClick={() => handleInputChange('terms_bg_color', c)}
-                          className="w-3.5 h-3.5 rounded-full border border-slate-300 cursor-pointer hover:scale-110 transition-transform"
-                          style={{ backgroundColor: c }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-600 mb-1">Border Color</label>
-                  <div className="flex items-center gap-1 flex-wrap">
-                    <input
-                      type="color"
-                      value={editForm.terms_border_color || '#fde047'}
-                      onChange={(e) => handleInputChange('terms_border_color', e.target.value)}
-                      className="w-6 h-6 rounded cursor-pointer border border-slate-300 p-0.5 shrink-0 bg-white"
-                    />
-                    <input
-                      type="text"
-                      value={editForm.terms_border_color || '#fde047'}
-                      onChange={(e) => handleInputChange('terms_border_color', e.target.value)}
-                      className="w-16 px-1 py-0.5 font-mono text-[9.5px] bg-white border border-slate-300 rounded font-bold uppercase focus:ring-1 focus:ring-amber-500 focus:outline-none shrink-0"
-                      placeholder="#HEX"
-                    />
-                    <div className="flex gap-1 flex-wrap">
-                      {['#fde047', '#fbbf24', '#cbd5e1', '#00a859', '#dc2626', '#2563eb'].map((c) => (
-                        <button
-                          key={c}
-                          type="button"
-                          onClick={() => handleInputChange('terms_border_color', c)}
-                          className="w-3.5 h-3.5 rounded-full border border-slate-300 cursor-pointer hover:scale-110 transition-transform"
-                          style={{ backgroundColor: c }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Color Presets & Manual Chooser */}
-            <div className="pt-1.5 border-t border-slate-200 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="block font-extrabold text-slate-800 text-[10px] uppercase">Quick Color Presets</label>
-                <span className="text-[9px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
-                  {(() => {
-                    const presets = [
-                      { bg: '#fffbeb', border: '#fde047', title: '#78350f', text: '#1e293b', name: 'Warm Amber' },
-                      { bg: '#f0fdf4', border: '#86efac', title: '#065f46', text: '#064e3b', name: 'Emerald' },
-                      { bg: '#eff6ff', border: '#93c5fd', title: '#1e40af', text: '#1e3a8a', name: 'Royal Blue' },
-                      { bg: '#fef2f2', border: '#fca5a5', title: '#991b1b', text: '#450a0a', name: 'Crimson Red' },
-                      { bg: '#faf5ff', border: '#e9d5ff', title: '#6b21a8', text: '#3b0764', name: 'Purple' },
-                      { bg: '#fff7ed', border: '#ffedd5', title: '#c2410c', text: '#7c2d12', name: 'Sunset' },
-                    ];
-                    const curBg = (editForm.terms_bg_color || '#fffbeb').toLowerCase();
-                    const curBorder = (editForm.terms_border_color || '#fde047').toLowerCase();
-                    const match = presets.find((p) => p.bg.toLowerCase() === curBg && p.border.toLowerCase() === curBorder);
-                    return match ? `Active: ${match.name}` : '🎨 Custom Color Mode';
-                  })()}
+          return (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                position: 'fixed',
+                left: `${termsContextMenu.x}px`,
+                top: `${termsContextMenu.y}px`,
+                zIndex: 99999,
+              }}
+              className="w-84 bg-white border-2 border-amber-500 rounded-2xl shadow-2xl p-4 text-xs font-sans text-slate-800 space-y-3.5 animate-scale-up ring-4 ring-amber-400/20 select-none max-h-[85vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between border-b border-amber-200 pb-2">
+                <span className="font-black text-amber-950 flex items-center gap-1.5 uppercase text-[11px] tracking-wider">
+                  <i className="fa-solid fa-palette text-amber-600"></i> Style Section #{targetIndex + 1}
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setTermsContextMenu(null)}
+                  className="text-slate-400 hover:text-rose-600 text-sm font-bold transition-colors cursor-pointer"
+                >
+                  <i className="fa-solid fa-xmark"></i>
+                </button>
               </div>
-              <div className="grid grid-cols-3 gap-1.5">
-                {[
-                  { name: 'Warm Amber', bg: '#fffbeb', border: '#fde047', title: '#78350f', text: '#1e293b', cls: 'bg-amber-100 border-amber-300 text-amber-900' },
-                  { name: 'Emerald', bg: '#f0fdf4', border: '#86efac', title: '#065f46', text: '#064e3b', cls: 'bg-emerald-100 border-emerald-300 text-emerald-900' },
-                  { name: 'Royal Blue', bg: '#eff6ff', border: '#93c5fd', title: '#1e40af', text: '#1e3a8a', cls: 'bg-blue-100 border-blue-300 text-blue-900' },
-                  { name: 'Crimson Red', bg: '#fef2f2', border: '#fca5a5', title: '#991b1b', text: '#450a0a', cls: 'bg-red-100 border-red-300 text-red-900' },
-                  { name: 'Purple', bg: '#faf5ff', border: '#e9d5ff', title: '#6b21a8', text: '#3b0764', cls: 'bg-purple-100 border-purple-300 text-purple-900' },
-                  { name: 'Sunset', bg: '#fff7ed', border: '#ffedd5', title: '#c2410c', text: '#7c2d12', cls: 'bg-orange-100 border-orange-300 text-orange-900' },
-                ].map((p) => {
-                  const isSelected =
-                    (editForm.terms_bg_color || '#fffbeb').toLowerCase() === p.bg.toLowerCase() &&
-                    (editForm.terms_border_color || '#fde047').toLowerCase() === p.border.toLowerCase();
-                  return (
-                    <button
-                      key={p.name}
-                      type="button"
-                      onClick={() => {
-                        handleInputChange('terms_bg_color', p.bg);
-                        handleInputChange('terms_border_color', p.border);
-                        handleInputChange('terms_title_color', p.title);
-                        handleInputChange('terms_text_color', p.text);
-                      }}
-                      className={`px-2 py-1.5 rounded-lg border text-[9.5px] font-bold transition-all cursor-pointer flex items-center justify-between gap-1 ${p.cls} ${
-                        isSelected ? 'ring-2 ring-amber-500 font-extrabold shadow-sm scale-[1.02]' : 'hover:opacity-90'
-                      }`}
-                    >
-                      <span>{p.name}</span>
-                      {isSelected && <i className="fa-solid fa-check text-[10px]"></i>}
-                    </button>
-                  );
-                })}
+
+              {/* Page Placement & Manual Page Move */}
+              <div className="bg-slate-100 p-2.5 rounded-xl border border-slate-200 space-y-1.5">
+                <div className="flex items-center justify-between text-[10.5px] font-extrabold text-slate-800">
+                  <span className="flex items-center gap-1.5">
+                    <i className="fa-solid fa-file-export text-amber-600"></i> Page Placement:
+                  </span>
+                  <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${curSec.move_to_next_page ? 'bg-amber-600 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                    {curSec.move_to_next_page ? 'Next Page' : 'Inline (Same Page)'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleUpdateTermsSection(targetIndex, 'move_to_next_page', !curSec.move_to_next_page)}
+                  className={`w-full py-1.5 px-3 rounded-lg font-extrabold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs border ${
+                    curSec.move_to_next_page
+                      ? 'bg-amber-600 text-white border-amber-700 hover:bg-amber-700'
+                      : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-100'
+                  }`}
+                >
+                  <i className={`fa-solid ${curSec.move_to_next_page ? 'fa-arrow-turn-down' : 'fa-file-export'}`}></i>
+                  <span>{curSec.move_to_next_page ? 'Move Back to Same Page (Inline)' : 'Move Section to Next Page (Page Break)'}</span>
+                </button>
+              </div>
+
+              {/* Header Title & Title Styling */}
+              <div className="space-y-2 bg-amber-50/80 p-2.5 rounded-xl border border-amber-200/90">
+                <label className="block font-extrabold text-amber-950 text-[11px]">Header Title & Style</label>
+                <input
+                  type="text"
+                  value={curSec.title || ''}
+                  onChange={(e) => handleUpdateTermsSection(targetIndex, 'title', e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                  placeholder="TERMS & CONDITIONS"
+                />
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-600 mb-1">Title Color</label>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <input
+                        type="color"
+                        value={curSec.title_color || '#78350f'}
+                        onChange={(e) => handleUpdateTermsSection(targetIndex, 'title_color', e.target.value)}
+                        className="w-6 h-6 rounded cursor-pointer border border-slate-300 p-0.5 shrink-0 bg-white"
+                      />
+                      <input
+                        type="text"
+                        value={curSec.title_color || '#78350f'}
+                        onChange={(e) => handleUpdateTermsSection(targetIndex, 'title_color', e.target.value)}
+                        className="w-16 px-1 py-0.5 font-mono text-[9.5px] bg-white border border-slate-300 rounded font-bold uppercase focus:ring-1 focus:ring-amber-500 focus:outline-none shrink-0"
+                        placeholder="#HEX"
+                      />
+                      <div className="flex gap-1 flex-wrap">
+                        {['#78350f', '#991b1b', '#00a859', '#2563eb', '#000000'].map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => handleUpdateTermsSection(targetIndex, 'title_color', c)}
+                            className="w-3.5 h-3.5 rounded-full border border-slate-300 cursor-pointer hover:scale-110 transition-transform"
+                            style={{ backgroundColor: c }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center text-[10px] font-bold text-slate-600 mb-1">
+                      <span>Title Size</span>
+                      <span className="text-amber-700">{curSec.title_font_size || 12}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="9"
+                      max="20"
+                      step="1"
+                      value={curSec.title_font_size || 12}
+                      onChange={(e) => handleUpdateTermsSection(targetIndex, 'title_font_size', parseFloat(e.target.value))}
+                      className="w-full accent-amber-600 h-1.5 bg-slate-200 rounded cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Body Text Style */}
+              <div className="space-y-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                <label className="block font-extrabold text-slate-900 text-[11px]">Body Text Style & Size</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-600 mb-1">Text Color</label>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <input
+                        type="color"
+                        value={curSec.text_color || '#1e293b'}
+                        onChange={(e) => handleUpdateTermsSection(targetIndex, 'text_color', e.target.value)}
+                        className="w-6 h-6 rounded cursor-pointer border border-slate-300 p-0.5 shrink-0 bg-white"
+                      />
+                      <input
+                        type="text"
+                        value={curSec.text_color || '#1e293b'}
+                        onChange={(e) => handleUpdateTermsSection(targetIndex, 'text_color', e.target.value)}
+                        className="w-16 px-1 py-0.5 font-mono text-[9.5px] bg-white border border-slate-300 rounded font-bold uppercase focus:ring-1 focus:ring-amber-500 focus:outline-none shrink-0"
+                        placeholder="#HEX"
+                      />
+                      <div className="flex gap-1 flex-wrap">
+                        {['#1e293b', '#000000', '#991b1b', '#065f46', '#2563eb'].map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => handleUpdateTermsSection(targetIndex, 'text_color', c)}
+                            className="w-3.5 h-3.5 rounded-full border border-slate-300 cursor-pointer hover:scale-110 transition-transform"
+                            style={{ backgroundColor: c }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center text-[10px] font-bold text-slate-600 mb-1">
+                      <span>Text Size</span>
+                      <span className="text-amber-700">{curSec.text_font_size || 10.5}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="8"
+                      max="16"
+                      step="0.5"
+                      value={curSec.text_font_size || 10.5}
+                      onChange={(e) => handleUpdateTermsSection(targetIndex, 'text_font_size', parseFloat(e.target.value))}
+                      className="w-full accent-amber-600 h-1.5 bg-slate-200 rounded cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Card Background & Border Colors */}
+              <div className="space-y-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                <label className="block font-extrabold text-slate-900 text-[11px]">Card Background & Border</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-600 mb-1">Background Color</label>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <input
+                        type="color"
+                        value={curSec.bg_color || '#fffbeb'}
+                        onChange={(e) => handleUpdateTermsSection(targetIndex, 'bg_color', e.target.value)}
+                        className="w-6 h-6 rounded cursor-pointer border border-slate-300 p-0.5 shrink-0 bg-white"
+                      />
+                      <input
+                        type="text"
+                        value={curSec.bg_color || '#fffbeb'}
+                        onChange={(e) => handleUpdateTermsSection(targetIndex, 'bg_color', e.target.value)}
+                        className="w-16 px-1 py-0.5 font-mono text-[9.5px] bg-white border border-slate-300 rounded font-bold uppercase focus:ring-1 focus:ring-amber-500 focus:outline-none shrink-0"
+                        placeholder="#HEX"
+                      />
+                      <div className="flex gap-1 flex-wrap">
+                        {['#fffbeb', '#ffffff', '#f8fafc', '#f0fdf4', '#fef2f2', '#1e293b'].map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => handleUpdateTermsSection(targetIndex, 'bg_color', c)}
+                            className="w-3.5 h-3.5 rounded-full border border-slate-300 cursor-pointer hover:scale-110 transition-transform"
+                            style={{ backgroundColor: c }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-600 mb-1">Border Color</label>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <input
+                        type="color"
+                        value={curSec.border_color || '#fde047'}
+                        onChange={(e) => handleUpdateTermsSection(targetIndex, 'border_color', e.target.value)}
+                        className="w-6 h-6 rounded cursor-pointer border border-slate-300 p-0.5 shrink-0 bg-white"
+                      />
+                      <input
+                        type="text"
+                        value={curSec.border_color || '#fde047'}
+                        onChange={(e) => handleUpdateTermsSection(targetIndex, 'border_color', e.target.value)}
+                        className="w-16 px-1 py-0.5 font-mono text-[9.5px] bg-white border border-slate-300 rounded font-bold uppercase focus:ring-1 focus:ring-amber-500 focus:outline-none shrink-0"
+                        placeholder="#HEX"
+                      />
+                      <div className="flex gap-1 flex-wrap">
+                        {['#fde047', '#fbbf24', '#cbd5e1', '#00a859', '#dc2626', '#2563eb'].map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => handleUpdateTermsSection(targetIndex, 'border_color', c)}
+                            className="w-3.5 h-3.5 rounded-full border border-slate-300 cursor-pointer hover:scale-110 transition-transform"
+                            style={{ backgroundColor: c }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Color Presets */}
+              <div className="pt-1.5 border-t border-slate-200 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block font-extrabold text-slate-800 text-[10px] uppercase">Quick Color Presets</label>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[
+                    { name: 'Warm Amber', bg: '#fffbeb', border: '#fde047', title: '#78350f', text: '#1e293b', cls: 'bg-amber-100 border-amber-300 text-amber-900' },
+                    { name: 'Emerald', bg: '#f0fdf4', border: '#86efac', title: '#065f46', text: '#064e3b', cls: 'bg-emerald-100 border-emerald-300 text-emerald-900' },
+                    { name: 'Royal Blue', bg: '#eff6ff', border: '#93c5fd', title: '#1e40af', text: '#1e3a8a', cls: 'bg-blue-100 border-blue-300 text-blue-900' },
+                    { name: 'Crimson Red', bg: '#fef2f2', border: '#fca5a5', title: '#991b1b', text: '#450a0a', cls: 'bg-red-100 border-red-300 text-red-900' },
+                    { name: 'Purple', bg: '#faf5ff', border: '#e9d5ff', title: '#6b21a8', text: '#3b0764', cls: 'bg-purple-100 border-purple-300 text-purple-900' },
+                    { name: 'Sunset', bg: '#fff7ed', border: '#ffedd5', title: '#c2410c', text: '#7c2d12', cls: 'bg-orange-100 border-orange-300 text-orange-900' },
+                  ].map((p) => {
+                    const isSelected =
+                      (curSec.bg_color || '#fffbeb').toLowerCase() === p.bg.toLowerCase() &&
+                      (curSec.border_color || '#fde047').toLowerCase() === p.border.toLowerCase();
+                    return (
+                      <button
+                        key={p.name}
+                        type="button"
+                        onClick={() => {
+                          handleUpdateTermsSection(targetIndex, {
+                            bg_color: p.bg,
+                            border_color: p.border,
+                            title_color: p.title,
+                            text_color: p.text,
+                          });
+                        }}
+                        className={`px-2 py-1.5 rounded-lg border text-[9.5px] font-bold transition-all cursor-pointer flex items-center justify-between gap-1 ${p.cls} ${
+                          isSelected ? 'ring-2 ring-amber-500 font-extrabold shadow-sm scale-[1.02]' : 'hover:opacity-90'
+                        }`}
+                      >
+                        <span>{p.name}</span>
+                        {isSelected && <i className="fa-solid fa-check text-[10px]"></i>}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </>
     </div>
   );
